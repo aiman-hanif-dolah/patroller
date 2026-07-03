@@ -87,6 +87,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
               if (widget.onRefresh != null)
                 IconButton(
                   onPressed: widget.onRefresh,
+                  tooltip: 'Refresh tests',
                   icon: Icon(
                     Icons.refresh,
                     size: 12,
@@ -220,6 +221,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                                             }
                                           });
                                         },
+                                  tooltip: expanded ? 'Collapse tests' : 'Expand tests',
                                   icon: Icon(
                                     expanded
                                         ? Icons.expand_more
