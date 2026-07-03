@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../models/models.dart';
@@ -6,18 +7,29 @@ import 'simulator_driver_service.dart';
 
 const _refreshBurstDelaysMs = [20, 100];
 const _staticTicksBeforeSlowdown = 3;
+const _fingerprintChunkSize = 4096;
 
+/// Stable chunked FNV-1a hash over the full screenshot buffer.
 String fingerprintBuffer(Uint8List buffer) {
   if (buffer.isEmpty) return '0';
-  const sampleCount = 32;
   var hash = 2166136261;
-  for (var i = 0; i < sampleCount; i++) {
-    final index = ((i * (buffer.length - 1)) / (sampleCount - 1)).floor();
-    hash ^= buffer[index];
-    hash = (hash * 16777619) & 0xFFFFFFFF;
+  for (var offset = 0; offset < buffer.length; offset += _fingerprintChunkSize) {
+    final end = math.min(offset + _fingerprintChunkSize, buffer.length);
+    for (var i = offset; i < end; i++) {
+      hash ^= buffer[i];
+      hash = (hash * 16777619) & 0xFFFFFFFF;
+    }
   }
   return '${buffer.length.toRadixString(16)}-${hash.toRadixString(16)}';
 }
+
+typedef PreviewMetricsCallback = void Function({
+  required int captureDurationMs,
+  required bool emitted,
+  required bool unchanged,
+  required bool dropped,
+  DateTime? lastSuccessfulFrameAt,
+});
 
 class PreviewStreamService {
   PreviewStreamService({SimulatorDriverService? driver})
@@ -40,6 +52,7 @@ class PreviewStreamService {
     required void Function(PreviewFrame frame) onFrame,
     required void Function(String error) onError,
     required void Function(PreviewReadiness readiness) onReadiness,
+    PreviewMetricsCallback? onMetrics,
   }) {
     if (_activeSession != null &&
         !_activeSession!.cancelled &&
@@ -47,6 +60,7 @@ class PreviewStreamService {
         _activeSession!.deviceType == deviceType) {
       _activeSession!.activity = _requestedActivity;
       _activeSession!.settings = settings;
+      _activeSession!.onMetrics = onMetrics;
       if (!_activeSession!.captureInFlight && _activeSession!.loopTimer == null) {
         unawaited(_runPreviewTick(_activeSession!));
       }
@@ -62,6 +76,7 @@ class PreviewStreamService {
       onFrame: onFrame,
       onError: onError,
       onReadiness: onReadiness,
+      onMetrics: onMetrics,
     );
     _activeSession = session;
     unawaited(_runPreviewTick(session));
@@ -89,10 +104,18 @@ class PreviewStreamService {
       timer = Timer(Duration(milliseconds: delay), () {
         session.burstTimers.remove(timer);
         if (session.cancelled) return;
-        unawaited(_captureOnce(session));
+        unawaited(_scheduleBurstCapture(session));
       });
       session.burstTimers.add(timer);
     }
+  }
+
+  Future<void> _scheduleBurstCapture(_PreviewSession session) async {
+    if (session.captureInFlight) {
+      session.burstQueued = true;
+      return;
+    }
+    await _captureOnce(session);
   }
 
   void stop() {
@@ -124,9 +147,7 @@ class PreviewStreamService {
     final base = _intervalForActivity(session);
     if (session.activity == PreviewActivityLevel.active &&
         session.unchangedTicks >= _staticTicksBeforeSlowdown) {
-      return base > session.settings.previewIdlePollIntervalMs
-          ? base
-          : session.settings.previewIdlePollIntervalMs;
+      return math.max(base, session.settings.previewIdlePollIntervalMs);
     }
     return base;
   }
@@ -134,6 +155,13 @@ class PreviewStreamService {
   Future<void> _captureOnce(_PreviewSession session) async {
     if (session.captureInFlight) {
       session.captureQueued = true;
+      session.onMetrics?.call(
+        captureDurationMs: 0,
+        emitted: false,
+        unchanged: false,
+        dropped: true,
+        lastSuccessfulFrameAt: session.lastSuccessfulFrameAt,
+      );
       return;
     }
     session.captureInFlight = true;
@@ -163,20 +191,35 @@ class PreviewStreamService {
       if (fingerprint == session.lastFingerprint) {
         session.unchangedTicks += 1;
         session.onReadiness(PreviewReadiness.ready);
+        session.onMetrics?.call(
+          captureDurationMs: captureDurationMs,
+          emitted: false,
+          unchanged: true,
+          dropped: false,
+          lastSuccessfulFrameAt: session.lastSuccessfulFrameAt,
+        );
         return;
       }
 
       session.unchangedTicks = 0;
       session.lastFingerprint = fingerprint;
+      session.lastSuccessfulFrameAt = DateTime.now();
       session.onFrame(
         PreviewFrame(
           bytes: Uint8List.fromList(bytes),
           fingerprint: fingerprint,
-          capturedAt: DateTime.now(),
+          capturedAt: session.lastSuccessfulFrameAt!,
           captureDurationMs: captureDurationMs,
         ),
       );
       session.onReadiness(PreviewReadiness.ready);
+      session.onMetrics?.call(
+        captureDurationMs: captureDurationMs,
+        emitted: true,
+        unchanged: false,
+        dropped: false,
+        lastSuccessfulFrameAt: session.lastSuccessfulFrameAt,
+      );
     } catch (e) {
       if (!session.cancelled) {
         session.onError(e.toString().replaceFirst('Exception: ', ''));
@@ -184,7 +227,10 @@ class PreviewStreamService {
       }
     } finally {
       session.captureInFlight = false;
-      if (session.captureQueued && !session.cancelled) {
+      if (session.burstQueued && !session.cancelled) {
+        session.burstQueued = false;
+        unawaited(_captureOnce(session));
+      } else if (session.captureQueued && !session.cancelled) {
         session.captureQueued = false;
         unawaited(_captureOnce(session));
       }
@@ -203,6 +249,7 @@ class PreviewStreamService {
   Future<void> _runPreviewTick(_PreviewSession session) async {
     if (session.cancelled) return;
     final startedAt = DateTime.now();
+    final interval = _currentPollIntervalMs(session);
     try {
       await _captureOnce(session);
     } catch (_) {
@@ -210,10 +257,8 @@ class PreviewStreamService {
     }
     if (session.cancelled) return;
     final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
-    _scheduleNext(
-      session,
-      (_currentPollIntervalMs(session) - elapsed).clamp(0, 1 << 31),
-    );
+    final delay = elapsed >= interval ? 0 : interval - elapsed;
+    _scheduleNext(session, delay);
   }
 }
 
@@ -226,6 +271,7 @@ class _PreviewSession {
     required this.onFrame,
     required this.onError,
     required this.onReadiness,
+    this.onMetrics,
   });
 
   final String udid;
@@ -235,12 +281,15 @@ class _PreviewSession {
   final void Function(PreviewFrame frame) onFrame;
   final void Function(String error) onError;
   final void Function(PreviewReadiness readiness) onReadiness;
+  PreviewMetricsCallback? onMetrics;
 
   bool cancelled = false;
   String? lastFingerprint;
   int unchangedTicks = 0;
   bool captureInFlight = false;
   bool captureQueued = false;
+  bool burstQueued = false;
+  DateTime? lastSuccessfulFrameAt;
   Timer? loopTimer;
   final burstTimers = <Timer>{};
 }

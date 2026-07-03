@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/patrol_colors.dart';
 import '../../domain/preview_coordinates.dart';
+import '../../domain/preview_gestures.dart';
 import '../../models/models.dart';
 import '../../providers/preview_provider.dart';
 import '../../providers/runner_provider.dart';
@@ -25,32 +28,10 @@ class SimulatorPreviewPanel extends ConsumerStatefulWidget {
 }
 
 class _SimulatorPreviewPanelState extends ConsumerState<SimulatorPreviewPanel> {
-  final _touchFeedback = <_TouchRipple>[];
-  Timer? _touchCleanup;
-
-  @override
-  void dispose() {
-    _touchCleanup?.cancel();
-    super.dispose();
-  }
-
-  void _addTouchFeedback(Offset position, {bool isLong = false}) {
-    final ripple = _TouchRipple(
-      position: position,
-      createdAt: DateTime.now(),
-      isLong: isLong,
-    );
-    setState(() => _touchFeedback.add(ripple));
-    _touchCleanup?.cancel();
-    _touchCleanup = Timer(const Duration(milliseconds: 600), () {
-      if (!mounted) return;
-      setState(() {
-        _touchFeedback.removeWhere(
-          (r) => DateTime.now().difference(r.createdAt).inMilliseconds > 500,
-        );
-      });
-    });
-  }
+  Offset? _panStart;
+  DateTime? _panStartedAt;
+  PreviewLayout? _layout;
+  bool _longPressHandled = false;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +42,7 @@ class _SimulatorPreviewPanelState extends ConsumerState<SimulatorPreviewPanel> {
     final preview = ref.watch(previewProvider);
     final device = ref.watch(runnerProvider).selectedDevice;
     final deviceInfo = preview.deviceInfo;
+    final canInteract = preview.canInteract;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -68,6 +50,7 @@ class _SimulatorPreviewPanelState extends ConsumerState<SimulatorPreviewPanel> {
         _PreviewHeader(
           deviceName: device?.name,
           readiness: preview.readiness,
+          metrics: preview.metrics,
           onCollapse: widget.onToggleCollapse,
         ),
         Expanded(
@@ -84,14 +67,20 @@ class _SimulatorPreviewPanelState extends ConsumerState<SimulatorPreviewPanel> {
                   deviceWidth: (deviceInfo?.widthPoints ?? 390).toDouble(),
                   deviceHeight: (deviceInfo?.heightPoints ?? 844).toDouble(),
                 );
+                _layout = layout;
 
                 return _PreviewCanvas(
-                  preview: preview,
+                  frame: preview.frame,
+                  readiness: preview.readiness,
+                  error: preview.error,
+                  highlightFrame: preview.highlightFrame,
+                  feedback: preview.interactionFeedback,
                   layout: layout,
-                  touchFeedback: _touchFeedback,
-                  onTapAt: (offset) => _handleTap(offset, layout),
-                  onLongPressAt: (offset) => _handleLongPress(offset, layout),
-                  onPanEnd: (start, end) => _handleSwipe(start, end, layout),
+                  canInteract: canInteract,
+                  onPointerDown: canInteract ? _onPointerDown : null,
+                  onPointerUp: canInteract ? _onPointerUp : null,
+                  onScroll: canInteract ? _onScroll : null,
+                  onLongPress: canInteract ? _onLongPress : null,
                 );
               },
             ),
@@ -101,37 +90,90 @@ class _SimulatorPreviewPanelState extends ConsumerState<SimulatorPreviewPanel> {
     );
   }
 
-  Future<void> _handleTap(Offset local, PreviewLayout layout) async {
-    final device = mapPreviewToDevice(local: local, layout: layout);
-    if (device == null) return;
-    _addTouchFeedback(local);
-    await ref.read(previewProvider.notifier).tap(device.dx, device.dy);
+  void _onPointerDown(Offset local) {
+    _longPressHandled = false;
+    _panStart = local;
+    _panStartedAt = DateTime.now();
   }
 
-  Future<void> _handleLongPress(Offset local, PreviewLayout layout) async {
-    final device = mapPreviewToDevice(local: local, layout: layout);
-    if (device == null) return;
-    _addTouchFeedback(local, isLong: true);
-    await ref
-        .read(previewProvider.notifier)
-        .tap(device.dx, device.dy, durationSec: 1.0);
+  Future<void> _onPointerUp(Offset local) async {
+    if (_longPressHandled) {
+      _longPressHandled = false;
+      _panStart = null;
+      _panStartedAt = null;
+      return;
+    }
+    final layout = _layout;
+    final start = _panStart;
+    final startedAt = _panStartedAt;
+    _panStart = null;
+    _panStartedAt = null;
+    if (layout == null || start == null || startedAt == null) return;
+
+    final deviceStart = mapPreviewToDevice(local: start, layout: layout);
+    final deviceEnd = mapPreviewToDevice(local: local, layout: layout);
+    if (deviceStart == null || deviceEnd == null) return;
+
+    final gesture = classifyPointerGesture(
+      start: deviceStart,
+      end: deviceEnd,
+      elapsed: DateTime.now().difference(startedAt),
+    );
+    await ref.read(previewProvider.notifier).performGesture(gesture);
   }
 
-  Future<void> _handleSwipe(
-    Offset start,
-    Offset end,
-    PreviewLayout layout,
-  ) async {
-    final from = mapPreviewToDevice(local: start, layout: layout);
-    final to = mapPreviewToDevice(local: end, layout: layout);
-    if (from == null || to == null) return;
-    _addTouchFeedback(start);
-    await ref.read(previewProvider.notifier).swipe(
-          fromX: from.dx,
-          fromY: from.dy,
-          toX: to.dx,
-          toY: to.dy,
+  Future<void> _onLongPress(Offset local) async {
+    final layout = _layout;
+    if (layout == null) return;
+    final device = mapPreviewToDevice(local: local, layout: layout);
+    if (device == null) return;
+    _longPressHandled = true;
+    await ref.read(previewProvider.notifier).performGesture(
+          ClassifiedGesture(
+            kind: PreviewGestureKind.longPress,
+            start: device,
+            durationSec: 1.0,
+          ),
         );
+  }
+
+  Future<void> _onScroll(Offset local, double scrollDeltaY) async {
+    final layout = _layout;
+    if (layout == null || scrollDeltaY.abs() < scrollMinDelta) return;
+    final devicePoint = mapPreviewToDevice(local: local, layout: layout);
+    if (devicePoint == null) return;
+
+    final scroll = scrollGestureFromWheel(
+      devicePoint: devicePoint,
+      scrollDeltaY: scrollDeltaY,
+      layout: layout,
+    );
+    await ref.read(previewProvider.notifier).performGesture(
+          ClassifiedGesture(
+            kind: PreviewGestureKind.scroll,
+            start: scroll.start,
+            end: scroll.end,
+            durationSec: scroll.durationSec,
+          ),
+        );
+  }
+}
+
+class _PreviewImage extends StatelessWidget {
+  const _PreviewImage({required this.bytes});
+
+  final Uint8List bytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: Image.memory(
+        bytes,
+        fit: BoxFit.contain,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.low,
+      ),
+    );
   }
 }
 
@@ -139,11 +181,13 @@ class _PreviewHeader extends StatelessWidget {
   const _PreviewHeader({
     required this.deviceName,
     required this.readiness,
+    required this.metrics,
     required this.onCollapse,
   });
 
   final String? deviceName;
   final PreviewReadiness readiness;
+  final PreviewMetrics metrics;
   final VoidCallback onCollapse;
 
   @override
@@ -169,6 +213,12 @@ class _PreviewHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (metrics.lastCaptureDurationMs != null)
+            Text(
+              '${metrics.lastCaptureDurationMs}ms',
+              style: const TextStyle(fontSize: 9, color: PatrolColors.steel),
+            ),
+          const SizedBox(width: 6),
           _ReadinessDot(readiness: readiness),
           const SizedBox(width: 8),
           IconButton(
@@ -266,83 +316,88 @@ class _CollapsedPreviewBar extends StatelessWidget {
 
 class _PreviewCanvas extends StatelessWidget {
   const _PreviewCanvas({
-    required this.preview,
+    required this.frame,
+    required this.readiness,
+    required this.error,
+    required this.highlightFrame,
+    required this.feedback,
     required this.layout,
-    required this.touchFeedback,
-    required this.onTapAt,
-    required this.onLongPressAt,
-    required this.onPanEnd,
+    required this.canInteract,
+    this.onPointerDown,
+    this.onPointerUp,
+    this.onScroll,
+    this.onLongPress,
   });
 
-  final PreviewState preview;
+  final PreviewFrame? frame;
+  final PreviewReadiness readiness;
+  final String? error;
+  final ElementFrame? highlightFrame;
+  final PreviewInteractionFeedback? feedback;
   final PreviewLayout layout;
-  final List<_TouchRipple> touchFeedback;
-  final ValueChanged<Offset> onTapAt;
-  final ValueChanged<Offset> onLongPressAt;
-  final void Function(Offset start, Offset end) onPanEnd;
+  final bool canInteract;
+  final void Function(Offset local)? onPointerDown;
+  final Future<void> Function(Offset local)? onPointerUp;
+  final Future<void> Function(Offset local, double scrollDeltaY)? onScroll;
+  final Future<void> Function(Offset local)? onLongPress;
 
   @override
   Widget build(BuildContext context) {
-    final frame = preview.frame;
-    final overlay = preview.highlightFrame;
-
-    if (preview.readiness == PreviewReadiness.noDevice) {
+    if (readiness == PreviewReadiness.noDevice) {
       return const _PreviewMessage('Select a booted iOS Simulator.');
     }
-    if (preview.readiness == PreviewReadiness.driverStarting) {
+    if (readiness == PreviewReadiness.driverStarting) {
       return const _PreviewMessage('Starting simulator driver…');
     }
-    if (preview.readiness == PreviewReadiness.driverUnavailable) {
+    if (readiness == PreviewReadiness.driverUnavailable) {
       return const _PreviewMessage(
         'Simulator driver is not ready. Boot the simulator or check Health.',
       );
     }
-    if (preview.error != null && frame == null) {
-      return _PreviewMessage(preview.error!);
+    if (error != null && frame == null) {
+      return _PreviewMessage(error!);
     }
     if (frame == null &&
-        (preview.readiness == PreviewReadiness.loading ||
-            preview.readiness == PreviewReadiness.ready)) {
-      return const Center(
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
+        (readiness == PreviewReadiness.loading ||
+            readiness == PreviewReadiness.ready)) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
-    Offset? panStart;
+    final highlightRect = highlightFrame != null
+        ? mapDeviceFrameToPreview(frame: highlightFrame!, layout: layout)
+        : null;
 
-    return RepaintBoundary(
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: onPointerDown == null
+          ? null
+          : (event) => onPointerDown!(event.localPosition),
+      onPointerUp: onPointerUp == null
+          ? null
+          : (event) => unawaited(onPointerUp!(event.localPosition)),
+      onPointerSignal: onScroll == null
+          ? null
+          : (event) {
+              if (event is PointerScrollEvent) {
+                unawaited(onScroll!(event.localPosition, event.scrollDelta.dy));
+              }
+            },
       child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (details) => onTapAt(details.localPosition),
-        onLongPressStart: (details) => onLongPressAt(details.localPosition),
-        onPanStart: (details) => panStart = details.localPosition,
-        onPanEnd: (details) {
-          final start = panStart;
-          if (start == null) return;
-          final end = details.localPosition;
-          final distance = (end - start).distance;
-          if (distance >= 12) {
-            onPanEnd(start, end);
-          } else {
-            onTapAt(end);
-          }
-        },
+        behavior: HitTestBehavior.deferToChild,
+        onLongPressStart: onLongPress == null
+            ? null
+            : (details) => unawaited(onLongPress!(details.localPosition)),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (frame != null)
-              Center(
-                child: Image.memory(
-                  frame.bytes,
-                  fit: BoxFit.contain,
-                  gaplessPlayback: true,
-                  filterQuality: FilterQuality.medium,
-                ),
+            if (frame != null) Center(child: _PreviewImage(bytes: frame!.bytes)),
+            if (!canInteract)
+              const Positioned.fill(
+                child: ColoredBox(color: Color(0x22000000)),
               ),
-            if (overlay != null)
+            if (highlightRect != null)
               Positioned.fromRect(
-                rect: mapDeviceFrameToPreview(frame: overlay, layout: layout) ??
-                    Rect.zero,
+                rect: highlightRect,
                 child: IgnorePointer(
                   child: Container(
                     decoration: BoxDecoration(
@@ -352,15 +407,11 @@ class _PreviewCanvas extends StatelessWidget {
                   ),
                 ),
               ),
-            for (final ripple in touchFeedback)
-              Positioned(
-                left: ripple.position.dx - 16,
-                top: ripple.position.dy - 16,
-                child: IgnorePointer(
-                  child: _TouchRippleWidget(ripple: ripple),
-                ),
-              ),
-            if (preview.readiness == PreviewReadiness.stale)
+            if (feedback != null) _InteractionFeedbackOverlay(
+              feedback: feedback!,
+              layout: layout,
+            ),
+            if (readiness == PreviewReadiness.stale)
               const Positioned(
                 left: 8,
                 bottom: 8,
@@ -371,6 +422,97 @@ class _PreviewCanvas extends StatelessWidget {
       ),
     );
   }
+}
+
+class _InteractionFeedbackOverlay extends StatelessWidget {
+  const _InteractionFeedbackOverlay({
+    required this.feedback,
+    required this.layout,
+  });
+
+  final PreviewInteractionFeedback feedback;
+  final PreviewLayout layout;
+
+  @override
+  Widget build(BuildContext context) {
+    final start = feedback.position;
+    if (start == null) return const SizedBox.shrink();
+
+    final previewStart = _deviceToPreview(start, layout);
+    if (previewStart == null) return const SizedBox.shrink();
+
+    if (feedback.kind == PreviewGestureKind.swipe ||
+        feedback.kind == PreviewGestureKind.scroll) {
+      final end = feedback.endPosition;
+      if (end == null) return const SizedBox.shrink();
+      final previewEnd = _deviceToPreview(end, layout);
+      if (previewEnd == null) return const SizedBox.shrink();
+      return CustomPaint(
+        painter: _SwipeFeedbackPainter(
+          start: previewStart,
+          end: previewEnd,
+          color: feedback.kind == PreviewGestureKind.scroll
+              ? PatrolColors.violet500
+              : PatrolColors.sky400,
+        ),
+        child: const SizedBox.expand(),
+      );
+    }
+
+    final isLong = feedback.kind == PreviewGestureKind.longPress;
+    return Positioned(
+      left: previewStart.dx - (isLong ? 20 : 16),
+      top: previewStart.dy - (isLong ? 20 : 16),
+      child: IgnorePointer(
+        child: Container(
+          width: isLong ? 40 : 32,
+          height: isLong ? 40 : 32,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: (isLong ? PatrolColors.ember : PatrolColors.sky400)
+                  .withValues(alpha: 0.85),
+              width: 2,
+            ),
+            color: PatrolColors.sky400.withValues(alpha: 0.18),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Offset? _deviceToPreview(Offset device, PreviewLayout layout) {
+    return mapDeviceToPreview(device: device, layout: layout);
+  }
+}
+
+class _SwipeFeedbackPainter extends CustomPainter {
+  _SwipeFeedbackPainter({
+    required this.start,
+    required this.end,
+    required this.color,
+  });
+
+  final Offset start;
+  final Offset end;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.85)
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(start, end, paint);
+    canvas.drawCircle(start, 5, paint..style = PaintingStyle.fill);
+    canvas.drawCircle(end, 4, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SwipeFeedbackPainter oldDelegate) =>
+      oldDelegate.start != start ||
+      oldDelegate.end != end ||
+      oldDelegate.color != color;
 }
 
 class _PreviewMessage extends StatelessWidget {
@@ -408,40 +550,6 @@ class _StaleBadge extends StatelessWidget {
       child: const Text(
         'Stale',
         style: TextStyle(fontSize: 9, color: PatrolColors.ember),
-      ),
-    );
-  }
-}
-
-class _TouchRipple {
-  const _TouchRipple({
-    required this.position,
-    required this.createdAt,
-    this.isLong = false,
-  });
-
-  final Offset position;
-  final DateTime createdAt;
-  final bool isLong;
-}
-
-class _TouchRippleWidget extends StatelessWidget {
-  const _TouchRippleWidget({required this.ripple});
-
-  final _TouchRipple ripple;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: ripple.isLong ? 40 : 32,
-      height: ripple.isLong ? 40 : 32,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: PatrolColors.sky400.withValues(alpha: 0.8),
-          width: 2,
-        ),
-        color: PatrolColors.sky400.withValues(alpha: 0.2),
       ),
     );
   }

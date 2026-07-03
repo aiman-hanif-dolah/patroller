@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../domain/recording_enrichment.dart';
 import '../domain/state_snapshot.dart';
 import '../models/enums.dart';
+import '../models/hierarchy.dart';
 import '../models/recording.dart';
 import '../models/run_record.dart';
 import 'simulator_driver_service.dart';
@@ -29,35 +31,74 @@ Future<RecordingStateSnapshot?> _captureReplaySnapshot({
   }
 }
 
+({double x, double y}) _replayPoint(
+  RecordingAction action,
+  XCTestDeviceInfo deviceInfo,
+) {
+  final frame = action.targetFrame;
+  if (frame != null &&
+      (action.type == RecordingActionType.tap ||
+          action.type == RecordingActionType.longpress)) {
+    return (x: frame.x + frame.width / 2, y: frame.y + frame.height / 2);
+  }
+  final x = action.x ?? 0;
+  final y = action.y ?? 0;
+  if (x > deviceInfo.widthPoints * 1.2 || y > deviceInfo.heightPoints * 1.2) {
+    final point = pixelsToPoints(deviceInfo, x, y);
+    return (x: point.x, y: point.y);
+  }
+  return (x: x, y: y);
+}
+
+({double x, double y, double toX, double toY}) _replaySwipePoints(
+  RecordingAction action,
+  XCTestDeviceInfo deviceInfo,
+) {
+  final start = _replayPoint(action, deviceInfo);
+  var toX = action.toX ?? action.x ?? start.x;
+  var toY = action.toY ?? action.y ?? start.y;
+  if (toX > deviceInfo.widthPoints * 1.2 ||
+      toY > deviceInfo.heightPoints * 1.2) {
+    final end = pixelsToPoints(deviceInfo, toX, toY);
+    toX = end.x;
+    toY = end.y;
+  }
+  return (x: start.x, y: start.y, toX: toX, toY: toY);
+}
+
 Future<void> _replayAction({
   required SimulatorDriverService driver,
   required String udid,
   required DeviceType deviceType,
   required RecordingAction action,
+  required XCTestDeviceInfo deviceInfo,
 }) async {
   switch (action.type) {
     case RecordingActionType.tap:
+      final point = _replayPoint(action, deviceInfo);
       await driver.tap(
         udid: udid,
-        x: action.x ?? 0,
-        y: action.y ?? 0,
+        x: point.x,
+        y: point.y,
         deviceType: deviceType,
       );
     case RecordingActionType.longpress:
+      final point = _replayPoint(action, deviceInfo);
       await driver.longPress(
         udid: udid,
-        x: action.x ?? 0,
-        y: action.y ?? 0,
+        x: point.x,
+        y: point.y,
         durationSec: action.durationSec ?? 0.6,
         deviceType: deviceType,
       );
     case RecordingActionType.swipe:
+      final points = _replaySwipePoints(action, deviceInfo);
       await driver.swipe(
         udid: udid,
-        fromX: action.x ?? 0,
-        fromY: action.y ?? 0,
-        toX: action.toX ?? action.x ?? 0,
-        toY: action.toY ?? action.y ?? 0,
+        fromX: points.x,
+        fromY: points.y,
+        toX: points.toX,
+        toY: points.toY,
         deviceType: deviceType,
         duration: action.durationSec,
       );
@@ -107,6 +148,7 @@ Future<ReplayResultBundle> replayRecording({
   required DeviceType deviceType,
   required SimulatorDriverService driver,
   void Function(LogEvent log)? onLog,
+  void Function()? onActionReplayed,
 }) async {
   final startedAt = DateTime.now().toUtc().toIso8601String();
   final startedAtMs = DateTime.now().millisecondsSinceEpoch;
@@ -172,7 +214,7 @@ Future<ReplayResultBundle> replayRecording({
     );
   }
 
-  await driver.deviceInfo(udid: udid, deviceType: deviceType);
+  final deviceInfo = await driver.deviceInfo(udid: udid, deviceType: deviceType);
   await driver.screenshot(udid: udid, deviceType: deviceType);
   final startSnapshot = await _captureReplaySnapshot(
     driver: driver,
@@ -199,7 +241,9 @@ Future<ReplayResultBundle> replayRecording({
         udid: udid,
         deviceType: deviceType,
         action: action,
+        deviceInfo: deviceInfo,
       );
+      onActionReplayed?.call();
     } catch (e) {
       final message = e.toString();
       pushLog(

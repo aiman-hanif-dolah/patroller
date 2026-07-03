@@ -93,28 +93,11 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
         );
     ref.read(previewProvider.notifier).burst();
 
-    var scaleX = 1.0;
-    var scaleY = 1.0;
-    try {
-      final info = await ref.read(patrolStudioFacadeProvider).simulator.deviceInfo(
-            device.id,
-            device.type,
-          );
-      if (info.widthPixels != 0 && info.widthPoints != 0) {
-        scaleX = info.widthPixels / info.widthPoints;
-      }
-      if (info.heightPixels != 0 && info.heightPoints != 0) {
-        scaleY = info.heightPixels / info.heightPoints;
-      } else {
-        scaleY = scaleX;
-      }
-    } catch (_) {}
-
     final frame = node.frame!;
     ref.read(recordingProvider.notifier).recordAction(
           RecordingActionType.tap,
-          x: ((frame.x + frame.width / 2) * scaleX).roundToDouble(),
-          y: ((frame.y + frame.height / 2) * scaleY).roundToDouble(),
+          x: frame.x + frame.width / 2,
+          y: frame.y + frame.height / 2,
           targetLabel: nodeText(node).isEmpty ? null : nodeText(node),
           targetType: normalizeElementType(node.type),
           targetFrame: frame,
@@ -276,6 +259,11 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
                     style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
                   ),
                 const SizedBox(height: 8),
+                if (inspector.selectedNode!.frame == null)
+                  const Text(
+                    'No bounds available for this element.',
+                    style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+                  ),
                 FilledButton(
                   onPressed: inspector.selectedNode!.frame == null ? null : _tapSelected,
                   style: FilledButton.styleFrom(

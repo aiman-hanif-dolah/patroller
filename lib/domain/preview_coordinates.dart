@@ -79,3 +79,16 @@ Rect? mapDeviceFrameToPreview({
     math.max(1, frame.height * scaleY),
   );
 }
+
+Offset? mapDeviceToPreview({
+  required Offset device,
+  required PreviewLayout layout,
+}) {
+  if (layout.deviceWidth <= 0 || layout.deviceHeight <= 0) return null;
+  return Offset(
+    layout.imageRect.left +
+        (device.dx / layout.deviceWidth) * layout.imageRect.width,
+    layout.imageRect.top +
+        (device.dy / layout.deviceHeight) * layout.imageRect.height,
+  );
+}

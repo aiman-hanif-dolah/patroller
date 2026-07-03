@@ -418,8 +418,9 @@ class PatrolStudioRecordingsApi {
     String recordingId,
     String projectPath,
     String udid,
-    DeviceType deviceType,
-  ) async {
+    DeviceType deviceType, {
+    void Function()? onActionReplayed,
+  }) async {
     final recording = _store.get(recordingId, projectPath);
     if (recording == null) throw Exception('Recording not found');
 
@@ -428,6 +429,7 @@ class PatrolStudioRecordingsApi {
       udid: udid,
       deviceType: deviceType,
       driver: _f._simulatorDriver,
+      onActionReplayed: onActionReplayed,
     );
 
     _store.appendReplayResult(recordingId, projectPath, bundle.result);

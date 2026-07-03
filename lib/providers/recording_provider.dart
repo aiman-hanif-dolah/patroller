@@ -480,6 +480,8 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
             recording.projectPath,
             selectedDevice.id,
             selectedDevice.type,
+            onActionReplayed: () =>
+                _ref.read(previewProvider.notifier).burst(),
           );
       state = state.copyWith(
         replayResult: result,

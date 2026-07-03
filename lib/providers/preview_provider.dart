@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/preview_gestures.dart';
 import '../models/models.dart';
 import '../services/preview_stream_service.dart';
 import '../services/simulator_driver_service.dart';
@@ -20,6 +23,8 @@ class PreviewState {
     this.error,
     this.lastInteractionAt,
     this.highlightFrame,
+    this.metrics = const PreviewMetrics(),
+    this.interactionFeedback,
   });
 
   final PreviewFrame? frame;
@@ -29,11 +34,19 @@ class PreviewState {
   final String? error;
   final DateTime? lastInteractionAt;
   final ElementFrame? highlightFrame;
+  final PreviewMetrics metrics;
+  final PreviewInteractionFeedback? interactionFeedback;
 
   bool get isDriverReady =>
       readiness == PreviewReadiness.ready ||
       readiness == PreviewReadiness.stale ||
       (frame != null && error == null);
+
+  bool get canInteract =>
+      isDriverReady &&
+      readiness != PreviewReadiness.noDevice &&
+      readiness != PreviewReadiness.driverStarting &&
+      readiness != PreviewReadiness.driverUnavailable;
 
   PreviewState copyWith({
     PreviewFrame? frame,
@@ -43,10 +56,13 @@ class PreviewState {
     String? error,
     DateTime? lastInteractionAt,
     ElementFrame? highlightFrame,
+    PreviewMetrics? metrics,
+    PreviewInteractionFeedback? interactionFeedback,
     bool clearFrame = false,
     bool clearError = false,
     bool clearHighlight = false,
     bool clearDeviceInfo = false,
+    bool clearInteractionFeedback = false,
   }) {
     return PreviewState(
       frame: clearFrame ? null : (frame ?? this.frame),
@@ -57,14 +73,26 @@ class PreviewState {
       lastInteractionAt: lastInteractionAt ?? this.lastInteractionAt,
       highlightFrame:
           clearHighlight ? null : (highlightFrame ?? this.highlightFrame),
+      metrics: metrics ?? this.metrics,
+      interactionFeedback: clearInteractionFeedback
+          ? null
+          : (interactionFeedback ?? this.interactionFeedback),
     );
   }
 }
 
 class PreviewNotifier extends StateNotifier<PreviewState> {
-  PreviewNotifier(this._ref) : super(const PreviewState()) {
+  PreviewNotifier(
+    this._ref, {
+    PreviewState? initialState,
+    @visibleForTesting bool disableSync = false,
+  }) : super(initialState ?? const PreviewState()) {
+    if (disableSync) return;
     _ref.listen(runnerProvider, (_, __) => _syncDevice());
     _ref.listen(settingsProvider, (_, __) => _syncDevice());
+    _ref.listen(recordingProvider.select((s) => s.isRecording), (_, __) {
+      _syncActivity();
+    });
     Future.microtask(_syncDevice);
   }
 
@@ -72,12 +100,12 @@ class PreviewNotifier extends StateNotifier<PreviewState> {
   final _stream = PreviewStreamService();
   final _driver = SimulatorDriverService();
   Timer? _staleTimer;
+  Timer? _feedbackTimer;
   String? _lastDeviceId;
 
   void _syncDevice() {
     final device = _ref.read(runnerProvider).selectedDevice;
     final settings = _ref.read(settingsProvider).settings;
-    final isRunning = _ref.read(runnerProvider).isRunning;
 
     if (device == null ||
         device.state != DeviceState.booted ||
@@ -93,9 +121,7 @@ class PreviewNotifier extends StateNotifier<PreviewState> {
     }
     _lastDeviceId = device.id;
 
-    final activity = _resolveActivity(isRunning);
-    _stream.setActivity(activity);
-    state = state.copyWith(activity: activity);
+    _syncActivity();
 
     _stream.start(
       udid: device.id,
@@ -104,9 +130,17 @@ class PreviewNotifier extends StateNotifier<PreviewState> {
       onFrame: _handleFrame,
       onError: _handleError,
       onReadiness: _handleReadiness,
+      onMetrics: _handleMetrics,
     );
 
     unawaited(_loadDeviceInfo(device));
+  }
+
+  void _syncActivity() {
+    final isRunning = _ref.read(runnerProvider).isRunning;
+    final activity = _resolveActivity(isRunning);
+    _stream.setActivity(activity);
+    state = state.copyWith(activity: activity);
   }
 
   PreviewActivityLevel _resolveActivity(bool isRunning) {
@@ -132,6 +166,30 @@ class PreviewNotifier extends StateNotifier<PreviewState> {
         state = state.copyWith(deviceInfo: info);
       }
     } catch (_) {}
+  }
+
+  void _handleMetrics({
+    required int captureDurationMs,
+    required bool emitted,
+    required bool unchanged,
+    required bool dropped,
+    DateTime? lastSuccessfulFrameAt,
+  }) {
+    if (!mounted) return;
+    var metrics = state.metrics.copyWith(
+      lastCaptureDurationMs: captureDurationMs,
+      lastSuccessfulFrameAt: lastSuccessfulFrameAt ?? state.metrics.lastSuccessfulFrameAt,
+    );
+    if (emitted) {
+      metrics = metrics.copyWith(emittedFrames: metrics.emittedFrames + 1);
+    }
+    if (unchanged) {
+      metrics = metrics.copyWith(unchangedFrames: metrics.unchangedFrames + 1);
+    }
+    if (dropped) {
+      metrics = metrics.copyWith(droppedFrames: metrics.droppedFrames + 1);
+    }
+    state = state.copyWith(metrics: metrics);
   }
 
   void _handleFrame(PreviewFrame frame) {
@@ -171,29 +229,113 @@ class PreviewNotifier extends StateNotifier<PreviewState> {
     _stream.burst();
   }
 
-  Future<void> tap(double x, double y, {double? durationSec}) async {
+  void _showFeedback(
+    PreviewGestureKind kind, {
+    Offset? position,
+    Offset? endPosition,
+  }) {
+    _feedbackTimer?.cancel();
+    state = state.copyWith(
+      interactionFeedback: PreviewInteractionFeedback(
+        kind: kind,
+        at: DateTime.now(),
+        position: position,
+        endPosition: endPosition,
+      ),
+    );
+    _feedbackTimer = Timer(const Duration(milliseconds: 550), () {
+      if (mounted) {
+        state = state.copyWith(clearInteractionFeedback: true);
+      }
+    });
+  }
+
+  bool _ensureInteractable() {
+    if (!state.canInteract) return false;
     final device = _ref.read(runnerProvider).selectedDevice;
-    if (device == null) return;
+    return device != null && device.state == DeviceState.booted;
+  }
+
+  Future<void> performGesture(ClassifiedGesture gesture) async {
+    if (!_ensureInteractable()) return;
+    final device = _ref.read(runnerProvider).selectedDevice!;
+
     _markInteraction();
 
+    switch (gesture.kind) {
+      case PreviewGestureKind.tap:
+        await _driver.tap(
+          udid: device.id,
+          x: gesture.start.dx,
+          y: gesture.start.dy,
+          deviceType: device.type,
+        );
+        _recordInteraction(RecordingActionType.tap, x: gesture.start.dx, y: gesture.start.dy);
+        _showFeedback(PreviewGestureKind.tap, position: gesture.start);
+      case PreviewGestureKind.longPress:
+        final duration = gesture.durationSec ?? 1.0;
+        await _driver.longPress(
+          udid: device.id,
+          x: gesture.start.dx,
+          y: gesture.start.dy,
+          durationSec: duration,
+          deviceType: device.type,
+        );
+        _recordInteraction(
+          RecordingActionType.longpress,
+          x: gesture.start.dx,
+          y: gesture.start.dy,
+          durationSec: duration,
+        );
+        _showFeedback(PreviewGestureKind.longPress, position: gesture.start);
+      case PreviewGestureKind.swipe:
+      case PreviewGestureKind.scroll:
+        final end = gesture.end ?? gesture.start;
+        final duration = gesture.durationSec ?? 0.2;
+        await _driver.swipe(
+          udid: device.id,
+          fromX: gesture.start.dx,
+          fromY: gesture.start.dy,
+          toX: end.dx,
+          toY: end.dy,
+          deviceType: device.type,
+          duration: duration,
+        );
+        _recordInteraction(
+          RecordingActionType.swipe,
+          x: gesture.start.dx,
+          y: gesture.start.dy,
+          toX: end.dx,
+          toY: end.dy,
+          durationSec: duration,
+        );
+        _showFeedback(
+          gesture.kind == PreviewGestureKind.scroll
+              ? PreviewGestureKind.scroll
+              : PreviewGestureKind.swipe,
+          position: gesture.start,
+          endPosition: end,
+        );
+    }
+  }
+
+  Future<void> tap(double x, double y, {double? durationSec}) async {
+    if (!_ensureInteractable()) return;
     if (durationSec != null && durationSec > 0.3) {
-      await _driver.longPress(
-        udid: device.id,
-        x: x,
-        y: y,
-        durationSec: durationSec,
-        deviceType: device.type,
+      await performGesture(
+        ClassifiedGesture(
+          kind: PreviewGestureKind.longPress,
+          start: Offset(x, y),
+          durationSec: durationSec,
+        ),
       );
-      _recordInteraction(RecordingActionType.longpress, x: x, y: y, durationSec: durationSec);
     } else {
-      await _driver.tap(
-        udid: device.id,
-        x: x,
-        y: y,
-        deviceType: device.type,
-        duration: durationSec,
+      await performGesture(
+        ClassifiedGesture(
+          kind: PreviewGestureKind.tap,
+          start: Offset(x, y),
+        ),
       );
-      _recordInteraction(RecordingActionType.tap, x: x, y: y);
     }
   }
 
@@ -204,34 +346,31 @@ class PreviewNotifier extends StateNotifier<PreviewState> {
     required double toY,
     double duration = 0.2,
   }) async {
-    final device = _ref.read(runnerProvider).selectedDevice;
-    if (device == null) return;
-    _markInteraction();
-
-    await _driver.swipe(
-      udid: device.id,
-      fromX: fromX,
-      fromY: fromY,
-      toX: toX,
-      toY: toY,
-      deviceType: device.type,
-      duration: duration,
-    );
-
-    final scale = _pixelScale();
-    _recordInteraction(
-      RecordingActionType.swipe,
-      x: fromX * scale,
-      y: fromY * scale,
-      toX: toX * scale,
-      toY: toY * scale,
+    await performGesture(
+      ClassifiedGesture(
+        kind: PreviewGestureKind.swipe,
+        start: Offset(fromX, fromY),
+        end: Offset(toX, toY),
+        durationSec: duration,
+      ),
     );
   }
 
-  double _pixelScale() {
-    final info = state.deviceInfo;
-    if (info == null || info.widthPoints == 0) return 1;
-    return info.widthPixels / info.widthPoints;
+  Future<void> scrollAt({
+    required double x,
+    required double y,
+    required double toX,
+    required double toY,
+    double duration = 0.25,
+  }) async {
+    await performGesture(
+      ClassifiedGesture(
+        kind: PreviewGestureKind.scroll,
+        start: Offset(x, y),
+        end: Offset(toX, toY),
+        durationSec: duration,
+      ),
+    );
   }
 
   void _recordInteraction(
@@ -243,11 +382,10 @@ class PreviewNotifier extends StateNotifier<PreviewState> {
     double? durationSec,
   }) {
     if (!_ref.read(recordingProvider).isRecording) return;
-    final scale = _pixelScale();
     _ref.read(recordingProvider.notifier).recordAction(
           type,
-          x: x != null ? x * scale : null,
-          y: y != null ? y * scale : null,
+          x: x,
+          y: y,
           toX: toX,
           toY: toY,
           durationSec: durationSec,
@@ -258,6 +396,7 @@ class PreviewNotifier extends StateNotifier<PreviewState> {
   void dispose() {
     _stream.stop();
     _staleTimer?.cancel();
+    _feedbackTimer?.cancel();
     super.dispose();
   }
 }

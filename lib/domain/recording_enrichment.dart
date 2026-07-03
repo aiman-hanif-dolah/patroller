@@ -47,7 +47,13 @@ ActionTargetPatch deriveActionTarget(
       action.y == null) {
     return const ActionTargetPatch();
   }
-  final point = pixelsToPoints(deviceInfo, action.x!, action.y!);
+  final widthPoints = deviceInfo?.widthPoints ?? 500;
+  final heightPoints = deviceInfo?.heightPoints ?? 900;
+  final looksLikePixels =
+      action.x! > widthPoints * 1.2 || action.y! > heightPoints * 1.2;
+  final point = looksLikePixels
+      ? pixelsToPoints(deviceInfo, action.x!, action.y!)
+      : (x: action.x!, y: action.y!);
   final match = findNearestElement(hierarchy, point.x, point.y);
   if (match == null) return const ActionTargetPatch();
   return ActionTargetPatch(
