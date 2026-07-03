@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/patrol_colors.dart';
 import '../models/models.dart';
-import 'log_sanitizer.dart';
 
 enum LogCategory { error, warning, patrol, flutter, system, info }
 
@@ -145,7 +144,7 @@ bool isPatrolFailureOutput(String text) {
 }
 
 LogCategory classifyLog(LogEvent log) {
-  final text = sanitizeLogText(log.text);
+  final text = log.text;
   if (_matchesAny(text, _dependencyWarningPatterns)) return LogCategory.warning;
   if (_matchesAny(text, _warningPatterns)) return LogCategory.warning;
   if (_matchesAny(text, _patrolFailurePatterns)) return LogCategory.error;
@@ -272,7 +271,7 @@ bool matchesLogFilters(LogEvent log, LogFilters filters, String search) {
   }
 
   if (search.trim().isEmpty) return true;
-  return sanitizeLogText(log.text).toLowerCase().contains(search.toLowerCase());
+  return log.text.toLowerCase().contains(search.toLowerCase());
 }
 
 String formatLogLineCount(int total, int filtered, bool filtersActive) {
@@ -281,7 +280,7 @@ String formatLogLineCount(int total, int filtered, bool filtersActive) {
 }
 
 bool _isCollapsibleWarningBlock(LogEvent log) {
-  final text = sanitizeLogText(log.text);
+  final text = log.text;
   final category = classifyLog(log);
   return isDependencyToolWarning(text) ||
       category == LogCategory.warning ||
