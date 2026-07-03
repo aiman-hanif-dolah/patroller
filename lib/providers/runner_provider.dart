@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
 import 'app_provider.dart';
 import 'facade_provider.dart';
+import 'health_provider.dart';
 import 'log_provider.dart';
 
 
@@ -153,6 +154,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
   void setSelectedDevice(DeviceInfo? device) {
     if (device != null && !isSelectableDevice(device)) return;
     state = state.copyWith(selectedDevice: device);
+    _ref.read(healthProvider.notifier).markStale();
   }
 
   void showSnackbar(String message) {
@@ -235,7 +237,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
           .where((f) => app.selectedFileIds.contains(f.absolutePath))
           .toList();
     }
-    return app.testFiles;
+    return runnableTestFiles(app.testFiles);
   }
 
   Future<DeviceInfo?> _ensureDevice() async {

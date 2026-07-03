@@ -9,6 +9,7 @@ import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../providers/log_provider.dart';
 import '../../providers/recording_provider.dart';
+import '../../providers/preview_provider.dart';
 import '../../providers/runner_provider.dart';
 
 class RecordingsPanel extends ConsumerStatefulWidget {
@@ -44,6 +45,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     final project = ref.watch(appProvider).currentProject;
     final device = ref.watch(runnerProvider).selectedDevice;
     final recordingState = ref.watch(recordingProvider);
+    final previewReady = ref.watch(previewProvider).isDriverReady;
 
     ref.listen(appProvider.select((s) => s.currentProject?.projectPath), (prev, next) {
       if (prev != next && next != null) {
@@ -76,7 +78,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildPrepareSection(project, device, recordingState),
+        _buildPrepareSection(project, device, recordingState, previewReady),
         const Divider(height: 1, color: PatrolColors.pebble),
         Expanded(child: _buildSavedList(recordingState)),
         if (_selectedRecording != null)
@@ -89,6 +91,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     ProjectMetadata project,
     DeviceInfo? device,
     RecordingState recordingState,
+    bool previewReady,
   ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
@@ -144,9 +147,11 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
             }).toList(),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Interact in Simulator.app — Patroller records taps and swipes from the native simulator window.',
-            style: TextStyle(fontSize: 11, color: PatrolColors.steel),
+          Text(
+            previewReady
+                ? 'Interact inside Patroller\'s simulator preview — taps and swipes are recorded automatically.'
+                : 'Preview unavailable — interact in Simulator.app and Patroller will record from the native window.',
+            style: const TextStyle(fontSize: 11, color: PatrolColors.steel),
           ),
           const SizedBox(height: 12),
           const _SectionHeading('Record'),
@@ -192,7 +197,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
           if (recordingState.isRecording) ...[
             const SizedBox(height: 8),
             Text(
-              'Use Simulator.app to interact. ${recordingState.activeActions.length} actions captured. Logs attach on save.',
+              previewReady
+                  ? '${recordingState.activeActions.length} actions captured in preview. Logs attach on save.'
+                  : 'Use Simulator.app to interact. ${recordingState.activeActions.length} actions captured. Logs attach on save.',
               style: const TextStyle(fontSize: 11, color: PatrolColors.steel),
             ),
             if (recordingState.activeActions.isNotEmpty) ...[

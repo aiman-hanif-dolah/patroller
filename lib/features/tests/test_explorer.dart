@@ -5,6 +5,8 @@ import '../../core/theme/patrol_colors.dart';
 import '../../domain/runner_helpers.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
+import '../../providers/runner_provider.dart';
+import '../../providers/test_run_state_provider.dart';
 import '../../widgets/status_badge.dart';
 
 class TestExplorer extends ConsumerStatefulWidget {
@@ -24,6 +26,8 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
   @override
   Widget build(BuildContext context) {
     final app = ref.watch(appProvider);
+    final runner = ref.watch(runnerProvider);
+    final activeRunFile = ref.watch(activeRunFileProvider);
     final testFiles = app.testFiles;
     final selectedFileIds = app.selectedFileIds;
 
@@ -106,7 +110,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
             child: Row(
               children: [
                 Text(
-                  formatTestAllQueueBanner(selectedFileIds.length),
+                  formatTestAllSelectionBanner(selectedFileIds.length),
                   style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
                 ),
                 const Spacer(),
@@ -134,7 +138,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
-            children: ['all', 'passed', 'failed', 'never', 'queued'].map((chip) {
+            children: ['all', 'passed', 'failed', 'never', 'selected'].map((chip) {
               final selected = _filterChip == chip;
               return Padding(
                 padding: const EdgeInsets.only(right: 6),
@@ -157,7 +161,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
           child: filtered.isEmpty
               ? Center(
                   child: Text(
-                    _filterChip == 'queued'
+                    _filterChip == 'selected'
                         ? 'No files selected for Test All'
                         : 'No matching tests',
                     style: const TextStyle(fontSize: 12, color: PatrolColors.steel),
@@ -169,8 +173,14 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                     final file = filtered[index];
                     final isSelected =
                         app.selectedFile?.absolutePath == file.absolutePath;
-                    final isQueued =
+                    final isActiveRun =
+                        activeRunFile?.absolutePath == file.absolutePath;
+                    final isRunningFile = isActiveRun &&
+                        (runner.isRunning ||
+                            file.lastRunStatus == TestStatus.running);
+                    final isMarkedSelected =
                         selectedFileIds.contains(file.absolutePath);
+                    final isHelper = isHelperTestFile(file);
                     final expanded = _expandedFiles.contains(file.absolutePath);
 
                     return Column(
@@ -179,9 +189,11 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                           onTap: () =>
                               ref.read(appProvider.notifier).setSelectedFile(file),
                           child: Container(
-                            color: isSelected
-                                ? PatrolColors.fog
-                                : Colors.transparent,
+                            color: isRunningFile
+                                ? PatrolColors.sky400.withValues(alpha: 0.15)
+                                : isSelected
+                                    ? PatrolColors.fog
+                                    : Colors.transparent,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 8,
@@ -189,7 +201,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                             child: Row(
                               children: [
                                 Checkbox(
-                                  value: isQueued,
+                                  value: isMarkedSelected,
                                   onChanged: (_) => ref
                                       .read(appProvider.notifier)
                                       .toggleFileSelection(file.absolutePath),
@@ -226,13 +238,38 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                                           Expanded(
                                             child: Text(
                                               file.fileName,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 13,
-                                                color: PatrolColors.ink,
+                                                color: isHelper
+                                                    ? PatrolColors.steel
+                                                    : PatrolColors.ink,
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
+                                          if (isHelper)
+                                            const Padding(
+                                              padding: EdgeInsets.only(left: 6),
+                                              child: Text(
+                                                'helper',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  color: PatrolColors.steel,
+                                                ),
+                                              ),
+                                            ),
+                                          if (isRunningFile)
+                                            const Padding(
+                                              padding: EdgeInsets.only(left: 6),
+                                              child: Text(
+                                                'running',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  color: PatrolColors.sky400,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
                                           if (file.lastRunStatus != TestStatus.idle)
                                             StatusBadge(
                                               status: file.lastRunStatus.name,
@@ -315,7 +352,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
         result = result.where((f) => f.lastRunStatus == TestStatus.failed).toList();
       case 'never':
         result = result.where((f) => f.lastRunTime == null).toList();
-      case 'queued':
+      case 'selected':
         result = result
             .where((f) => selectedFileIds.contains(f.absolutePath))
             .toList();
@@ -328,7 +365,10 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
       file.folderPath.isNotEmpty
           ? file.folderPath
           : file.relativePath.replaceAll(RegExp(r'/[^/]+$'), ''),
-      '${file.detectedTestCount} test${file.detectedTestCount == 1 ? '' : 's'}',
+      if (file.detectedTestCount == 0)
+        '0 tests · helper file'
+      else
+        '${file.detectedTestCount} test${file.detectedTestCount == 1 ? '' : 's'}',
     ];
     if (file.lastRunStatus != TestStatus.idle) {
       parts.add(file.lastRunStatus.name);
@@ -372,7 +412,3 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
   }
 }
 
-String formatTestAllQueueBanner(int queuedCount) {
-  if (queuedCount == 0) return 'All files';
-  return '$queuedCount file${queuedCount == 1 ? '' : 's'} selected for Test All';
-}

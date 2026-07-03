@@ -8,6 +8,7 @@ import '../domain/runner_helpers.dart';
 import '../domain/state_snapshot.dart';
 import '../models/models.dart';
 import 'facade_provider.dart';
+import 'preview_provider.dart';
 import 'runner_provider.dart';
 
 const _enrichmentTimeoutMs = 4000;
@@ -165,17 +166,21 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     _enrichment.lastHierarchy = null;
     _enrichment.lastFingerprint = null;
 
+    final previewReady = _ref.read(previewProvider).isDriverReady;
     state = state.copyWith(
       activeActions: const [],
       activeStateSnapshots: const [],
       startedAt: now,
       lastActionAt: now,
       isRecording: true,
-      recordingSource: RecordingSource.external,
+      recordingSource:
+          previewReady ? RecordingSource.embedded : RecordingSource.external,
       clearReplayResult: true,
       clearError: true,
     );
     _captureInitialState(_enrichment.session);
+
+    if (previewReady) return;
 
     try {
       final status = await _ref.read(patrolStudioFacadeProvider).externalRecording.start(

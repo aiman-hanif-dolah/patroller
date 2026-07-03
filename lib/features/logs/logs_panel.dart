@@ -66,19 +66,21 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
               else
                 Scrollbar(
                   controller: _scrollController,
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
+                  child: SelectionArea(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      itemCount: filteredLogs.length,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: _LogLine(log: filteredLogs[index]),
+                        );
+                      },
                     ),
-                    itemCount: filteredLogs.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: _LogLine(log: filteredLogs[index]),
-                      );
-                    },
                   ),
                 ),
               if (_showJumpToBottom)
@@ -129,8 +131,8 @@ class _LogLine extends StatelessWidget {
         color: style.background,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: RichText(
-        text: TextSpan(
+      child: Text.rich(
+        TextSpan(
           style: const TextStyle(
             fontFamily: 'Menlo',
             fontSize: 11,
@@ -159,8 +161,6 @@ class _LogLine extends StatelessWidget {
             ),
           ],
         ),
-        maxLines: 4,
-        overflow: TextOverflow.ellipsis,
       ),
     );
   }
@@ -280,8 +280,7 @@ class _LogsToolbar extends ConsumerWidget {
                 : () {
                     final text = filtered
                         .map(
-                          (l) =>
-                              '[${l.streamType.name}] ${sanitizeLogText(l.text)}',
+                          (l) => '[${l.streamType.name}] ${l.exportText}',
                         )
                         .join('\n');
                     Clipboard.setData(ClipboardData(text: text));

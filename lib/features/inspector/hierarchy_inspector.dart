@@ -7,6 +7,8 @@ import '../../core/theme/patrol_colors.dart';
 import '../../domain/hierarchy_analysis.dart';
 import '../../models/models.dart';
 import '../../providers/facade_provider.dart';
+import '../../providers/inspector_provider.dart';
+import '../../providers/preview_provider.dart';
 import '../../providers/recording_provider.dart';
 import '../../providers/runner_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -19,12 +21,8 @@ class HierarchyInspector extends ConsumerStatefulWidget {
 }
 
 class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
-  HierarchyNode? _hierarchy;
-  HierarchyNode? _selectedNode;
   String _query = '';
   bool _showRaw = false;
-  bool _loading = false;
-  String? _error;
   Timer? _pollTimer;
 
   @override
@@ -37,32 +35,39 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
     final device = ref.read(runnerProvider).selectedDevice;
     if (device == null) return;
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    ref.read(inspectorProvider.notifier).setLoading(true);
 
     try {
+      final driverStatus =
+          ref.read(patrolStudioFacadeProvider).simulator.driverStatus();
+      if (driverStatus.state != DriverState.ready) {
+        ref.read(inspectorProvider.notifier).setDriverUnavailable();
+        ref.read(previewProvider.notifier).setHighlight(null);
+        return;
+      }
+
       final tree = await ref.read(patrolStudioFacadeProvider).simulator.viewHierarchy(
             device.id,
             null,
             device.type,
           );
       if (!mounted) return;
-      setState(() {
-        _hierarchy = tree;
-        _selectedNode = tree;
-      });
+      ref.read(inspectorProvider.notifier).setHierarchy(tree);
+      _syncHighlight(tree);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
-      });
+      ref.read(inspectorProvider.notifier).setError(
+            e.toString().replaceFirst('Exception: ', ''),
+          );
     } finally {
       if (mounted) {
-        setState(() => _loading = false);
+        ref.read(inspectorProvider.notifier).setLoading(false);
       }
     }
+  }
+
+  void _syncHighlight(HierarchyNode? node) {
+    ref.read(previewProvider.notifier).setHighlight(node?.frame);
   }
 
   void _setupPolling() {
@@ -78,7 +83,7 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
 
   Future<void> _tapSelected() async {
     final device = ref.read(runnerProvider).selectedDevice;
-    final node = _selectedNode;
+    final node = ref.read(inspectorProvider).selectedNode;
     if (device == null || node?.frame == null) return;
 
     await ref.read(patrolStudioFacadeProvider).simulator.tapElement(
@@ -86,6 +91,7 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
           node!.frame!,
           device.type,
         );
+    ref.read(previewProvider.notifier).burst();
 
     var scaleX = 1.0;
     var scaleY = 1.0;
@@ -118,14 +124,14 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
   @override
   Widget build(BuildContext context) {
     final device = ref.watch(runnerProvider).selectedDevice;
+    final inspector = ref.watch(inspectorProvider);
     ref.watch(settingsProvider.select((s) => s.settings.hierarchyPollIntervalMs));
 
     ref.listen(runnerProvider.select((s) => s.selectedDevice?.id), (prev, next) {
       if (prev != next) {
-        _hierarchy = null;
-        _selectedNode = null;
+        ref.read(inspectorProvider.notifier).reset();
+        ref.read(previewProvider.notifier).setHighlight(null);
         _query = '';
-        _error = null;
         _refresh();
         _setupPolling();
       }
@@ -138,10 +144,14 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
       });
     }
 
-    final nodes = _hierarchy != null
+    ref.listen(inspectorProvider.select((s) => s.selectedNode), (prev, next) {
+      _syncHighlight(next);
+    });
+
+    final nodes = inspector.hierarchy != null
         ? () {
             final flat = <({HierarchyNode node, int depth})>[];
-            flattenHierarchy(_hierarchy!, 0, flat);
+            flattenHierarchy(inspector.hierarchy!, 0, flat);
             return flat;
           }()
         : <({HierarchyNode node, int depth})>[];
@@ -163,8 +173,8 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
             return text.contains(trimmedQuery.toLowerCase());
           }).toList();
 
-    final selectedInResults = _selectedNode != null &&
-        filteredNodes.any((e) => identical(e.node, _selectedNode));
+    final selectedInResults = inspector.selectedNode != null &&
+        filteredNodes.any((e) => identical(e.node, inspector.selectedNode));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -210,7 +220,7 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
                     child: const Text('Raw', style: TextStyle(fontSize: 12)),
                   ),
                   IconButton(
-                    onPressed: _loading ? null : _refresh,
+                    onPressed: inspector.loading ? null : _refresh,
                     icon: Icon(
                       Icons.refresh,
                       size: 16,
@@ -219,11 +229,11 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
                   ),
                 ],
               ),
-              if (_error != null)
+              if (inspector.error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    _error!,
+                    inspector.error!,
                     style: const TextStyle(fontSize: 11, color: PatrolColors.red400),
                   ),
                 ),
@@ -231,105 +241,8 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
           ),
         ),
         const Divider(height: 1, color: PatrolColors.pebble),
-        Expanded(
-          child: device == null
-              ? const Center(
-                  child: Text(
-                    'Select an iOS device.',
-                    style: TextStyle(fontSize: 12, color: PatrolColors.steel),
-                  ),
-                )
-              : _hierarchy == null && _error == null
-                  ? Center(
-                      child: Text(
-                        _loading ? 'Loading hierarchy...' : 'No hierarchy loaded.',
-                        style: const TextStyle(fontSize: 12, color: PatrolColors.steel),
-                      ),
-                    )
-                  : trimmedQuery.isNotEmpty &&
-                          filteredNodes.isEmpty &&
-                          _hierarchy != null
-                      ? const Center(
-                          child: Text(
-                            'No matching elements',
-                            style: TextStyle(fontSize: 12, color: PatrolColors.steel),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: filteredNodes.length,
-                          itemBuilder: (context, index) {
-                            final entry = filteredNodes[index];
-                            final node = entry.node;
-                            final meaningful = isMeaningfulNode(node);
-                            final selected = identical(_selectedNode, node);
-                            return Material(
-                              color: selected
-                                  ? PatrolColors.pebble.withValues(alpha: 0.6)
-                                  : Colors.transparent,
-                              child: InkWell(
-                                onTap: () => setState(() => _selectedNode = node),
-                                child: Container(
-                                  padding: EdgeInsets.fromLTRB(
-                                    _showRaw ? 12.0 + entry.depth * 12 : 12,
-                                    8,
-                                    12,
-                                    8,
-                                  ),
-                                  decoration: const BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: PatrolColors.pebble,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Opacity(
-                                    opacity: meaningful || _showRaw ? 1 : 0.5,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          nodeLabel(node),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: PatrolColors.ink,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Row(
-                                          children: [
-                                            if (normalizeElementType(node.type) != null)
-                                              Text(
-                                                normalizeElementType(node.type)!,
-                                                style: const TextStyle(
-                                                  fontSize: 10,
-                                                  color: PatrolColors.steel,
-                                                ),
-                                              ),
-                                            if (node.frame != null) ...[
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                '${node.frame!.x.round()}, ${node.frame!.y.round()} · ${node.frame!.width.round()} x ${node.frame!.height.round()}',
-                                                style: const TextStyle(
-                                                  fontSize: 10,
-                                                  color: PatrolColors.steel,
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-        ),
-        if (_selectedNode != null && selectedInResults) ...[
+        Expanded(child: _buildBody(device, inspector, filteredNodes, trimmedQuery, selectedInResults)),
+        if (inspector.selectedNode != null && selectedInResults) ...[
           const Divider(height: 1, color: PatrolColors.pebble),
           Padding(
             padding: const EdgeInsets.all(12),
@@ -337,7 +250,7 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  nodeLabel(_selectedNode!),
+                  nodeLabel(inspector.selectedNode!),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -347,35 +260,169 @@ class _HierarchyInspectorState extends ConsumerState<HierarchyInspector> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                if (_selectedNode!.type != null)
+                if (inspector.selectedNode!.type != null)
                   Text(
-                    'Type: ${normalizeElementType(_selectedNode!.type) ?? _selectedNode!.type}',
+                    'Type: ${normalizeElementType(inspector.selectedNode!.type) ?? inspector.selectedNode!.type}',
                     style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
                   ),
-                if (_selectedNode!.accessibilityId != null)
+                if (inspector.selectedNode!.accessibilityId != null)
                   Text(
-                    'ID: ${_selectedNode!.accessibilityId}',
+                    'ID: ${inspector.selectedNode!.accessibilityId}',
                     style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
                   ),
-                if (_selectedNode!.value != null)
+                if (inspector.selectedNode!.value != null)
                   Text(
-                    'Value: ${_selectedNode!.value}',
+                    'Value: ${inspector.selectedNode!.value}',
                     style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
                   ),
                 const SizedBox(height: 8),
                 FilledButton(
-                  onPressed: _selectedNode!.frame == null ? null : _tapSelected,
+                  onPressed: inspector.selectedNode!.frame == null ? null : _tapSelected,
                   style: FilledButton.styleFrom(
                     backgroundColor: PatrolColors.ember,
                     foregroundColor: PatrolColors.obsidian,
                   ),
-                  child: const Text('Tap Element'),
+                  child: const Text('Tap selected element'),
                 ),
               ],
             ),
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildBody(
+    DeviceInfo? device,
+    InspectorState inspector,
+    List<({HierarchyNode node, int depth})> filteredNodes,
+    String trimmedQuery,
+    bool selectedInResults,
+  ) {
+    if (device == null) {
+      return const Center(
+        child: Text(
+          'Select a booted iOS Simulator.',
+          style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+        ),
+      );
+    }
+
+    if (inspector.driverUnavailable) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Simulator driver is unavailable. Boot the simulator or check Health.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+          ),
+        ),
+      );
+    }
+
+    if (inspector.loading && inspector.hierarchy == null) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+
+    if (inspector.hierarchy == null && inspector.error == null) {
+      return const Center(
+        child: Text(
+          'No hierarchy loaded.',
+          style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+        ),
+      );
+    }
+
+    if (inspector.hierarchy != null &&
+        (inspector.hierarchy!.children?.isEmpty ?? true)) {
+      return const Center(
+        child: Text(
+          'Hierarchy is empty.',
+          style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+        ),
+      );
+    }
+
+    if (trimmedQuery.isNotEmpty && filteredNodes.isEmpty) {
+      return const Center(
+        child: Text(
+          'No matching elements',
+          style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: filteredNodes.length,
+      itemBuilder: (context, index) {
+        final entry = filteredNodes[index];
+        final node = entry.node;
+        final meaningful = isMeaningfulNode(node);
+        final selected = identical(inspector.selectedNode, node);
+        return Material(
+          color: selected
+              ? PatrolColors.pebble.withValues(alpha: 0.6)
+              : Colors.transparent,
+          child: InkWell(
+            onTap: () => ref.read(inspectorProvider.notifier).selectNode(node),
+            child: Container(
+              padding: EdgeInsets.fromLTRB(
+                _showRaw ? 12.0 + entry.depth * 12 : 12,
+                8,
+                12,
+                8,
+              ),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: PatrolColors.pebble),
+                ),
+              ),
+              child: Opacity(
+                opacity: meaningful || _showRaw ? 1 : 0.5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      nodeLabel(node),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: PatrolColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (normalizeElementType(node.type) != null)
+                          Text(
+                            normalizeElementType(node.type)!,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: PatrolColors.steel,
+                            ),
+                          ),
+                        if (node.frame != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '${node.frame!.x.round()}, ${node.frame!.y.round()} · ${node.frame!.width.round()} x ${node.frame!.height.round()}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: PatrolColors.steel,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/patrol_colors.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
-
 import '../../providers/settings_provider.dart';
 import '../../widgets/panel_resize_handle.dart';
 import '../../widgets/patrol_card.dart';
 import '../../widgets/snackbar_overlay.dart';
+import '../devices/simulator_preview_panel.dart';
 import '../health/environment_health.dart';
 import '../history/run_history.dart';
 import '../inspector/hierarchy_inspector.dart';
@@ -20,6 +20,9 @@ import '../settings/settings_screen.dart';
 import '../tests/test_explorer.dart';
 
 enum RightPanelTab { tests, inspector, recordings, history, health }
+
+const double _shellPadding = 12;
+const double _panelGutter = 12;
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -38,6 +41,8 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   double _rightPanelWidth = rightPanelDefaultWidth;
   double _logsPanelWidth = logsPanelDefaultWidth;
+  double _previewPanelWidth = previewPanelDefaultWidth;
+  bool _previewCollapsed = false;
   bool _layoutInitialized = false;
 
   @override
@@ -46,27 +51,68 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.dispose();
   }
 
+  void _initLayoutFromSettings(AppSettings settings) {
+    _rightPanelWidth =
+        clampRightPanelWidth(settings.rightPanelWidth.toDouble());
+    _previewPanelWidth =
+        clampPreviewPanelWidth(settings.previewPanelWidth.toDouble());
+    _previewCollapsed = settings.previewCollapsed;
+    _logsPanelWidth = clampLogsPanelWidth(
+      settings.logsPanelWidth.toDouble(),
+      totalWidth: MediaQuery.sizeOf(context).width,
+      previewWidth: _previewPanelWidth,
+      rightWidth: _rightPanelWidth,
+      previewCollapsed: _previewCollapsed,
+    );
+    _layoutInitialized = true;
+  }
+
+  void _persistLayout() {
+    ref.read(settingsProvider.notifier).updatePartial({
+      'rightPanelWidth': _rightPanelWidth.round(),
+      'logsPanelWidth': _logsPanelWidth.round(),
+      'previewPanelWidth': _previewPanelWidth.round(),
+      'previewCollapsed': _previewCollapsed,
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = ref.watch(appProvider);
     final settings = ref.watch(settingsProvider).settings;
     final healthWarnings = app.healthWarningCount ?? 0;
+    final totalWidth = MediaQuery.sizeOf(context).width;
 
     if (ref.watch(settingsProvider).loaded && !_layoutInitialized) {
-      _rightPanelWidth =
-          clampRightPanelWidth(settings.rightPanelWidth.toDouble());
-      _logsPanelWidth =
-          clampLogsPanelWidth(settings.logsPanelWidth.toDouble());
-      _layoutInitialized = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _initLayoutFromSettings(settings));
+      });
     }
 
     ref.listen(settingsProvider.select((s) => s.settings.rightPanelWidth),
         (prev, next) {
+      if (!_layoutInitialized) return;
       setState(() => _rightPanelWidth = clampRightPanelWidth(next.toDouble()));
     });
-    ref.listen(settingsProvider.select((s) => s.settings.logsPanelWidth),
+    ref.listen(settingsProvider.select((s) => s.settings.previewPanelWidth),
         (prev, next) {
-      setState(() => _logsPanelWidth = clampLogsPanelWidth(next.toDouble()));
+      if (!_layoutInitialized) return;
+      setState(() {
+        _previewPanelWidth = clampPreviewPanelWidth(next.toDouble());
+        _logsPanelWidth = clampLogsPanelWidth(
+          _logsPanelWidth,
+          totalWidth: totalWidth,
+          previewWidth: _previewPanelWidth,
+          rightWidth: _rightPanelWidth,
+          previewCollapsed: _previewCollapsed,
+        );
+      });
+    });
+    ref.listen(settingsProvider.select((s) => s.settings.previewCollapsed),
+        (prev, next) {
+      if (!_layoutInitialized) return;
+      setState(() => _previewCollapsed = next);
     });
 
     return SnackbarOverlay(
@@ -76,93 +122,168 @@ class _AppShellState extends ConsumerState<AppShell> {
           children: [
             Column(
               children: [
-            RunToolbar(
-              onOpenProject: () => ref.read(appProvider.notifier).openProject(),
-              onRefreshTests: () => ref.read(appProvider.notifier).scanTests(),
-              onOpenSettings: () => setState(() => _showSettings = true),
-            ),
-            const WorkflowStatusStrip(),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: (_logsPanelWidth * 1000).round(),
-                      child: Stack(
-                        children: [
-                          PatrolCard(
-                            child: LogsPanel(searchFocusNode: _logSearchFocus),
-                          ),
-                          PanelResizeHandle(
-                            edge: PanelResizeEdge.right,
-                            onDrag: (delta) {
-                              setState(() {
-                                _logsPanelWidth = clampLogsPanelWidth(
-                                  _logsPanelWidth + delta,
-                                );
-                              });
-                            },
-                            onDragEnd: (_) {},
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      width: _rightPanelWidth,
-                      child: Stack(
-                        children: [
-                          PanelResizeHandle(
-                            onDrag: (delta) {
-                              setState(() {
-                                _rightPanelWidth = clampRightPanelWidth(
-                                  _rightPanelWidth - delta,
-                                );
-                              });
-                            },
-                            onDragEnd: (_) {
-                              ref.read(settingsProvider.notifier).updatePartial({
-                                'rightPanelWidth': _rightPanelWidth,
-                              });
-                            },
-                          ),
-                          PatrolCard(
-                            child: Column(
-                              children: [
-                                _RightPanelTabs(
-                                  selected: _rightTab,
-                                  healthWarnings: healthWarnings,
-                                  onSelected: (tab) =>
-                                      setState(() => _rightTab = tab),
-                                ),
-                                Expanded(
-                                  child: switch (_rightTab) {
-                                    RightPanelTab.tests => TestExplorer(
-                                        onRefresh: () => ref
-                                            .read(appProvider.notifier)
-                                            .scanTests(),
-                                      ),
-                                    RightPanelTab.inspector =>
-                                      const HierarchyInspector(),
-                                    RightPanelTab.recordings =>
-                                      const RecordingsPanel(),
-                                    RightPanelTab.history =>
-                                      const RunHistory(),
-                                    RightPanelTab.health =>
-                                      const EnvironmentHealth(),
+                RunToolbar(
+                  onOpenProject: () => ref.read(appProvider.notifier).openProject(),
+                  onRefreshTests: () => ref.read(appProvider.notifier).scanTests(),
+                  onOpenSettings: () => setState(() => _showSettings = true),
+                ),
+                const WorkflowStatusStrip(),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(_shellPadding),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth;
+                        final clampedLogs = clampLogsPanelWidth(
+                          _logsPanelWidth,
+                          totalWidth: width + (_shellPadding * 2),
+                          previewWidth: _previewPanelWidth,
+                          rightWidth: _rightPanelWidth,
+                          previewCollapsed: _previewCollapsed,
+                        );
+
+                        return Row(
+                          children: [
+                            if (_previewCollapsed)
+                              PatrolCard(
+                                padding: EdgeInsets.zero,
+                                child: SimulatorPreviewPanel(
+                                  collapsed: true,
+                                  onToggleCollapse: () {
+                                    setState(() => _previewCollapsed = false);
+                                    _persistLayout();
                                   },
                                 ),
-                              ],
+                              )
+                            else
+                              SizedBox(
+                                width: _previewPanelWidth,
+                                child: Stack(
+                                  children: [
+                                    PatrolCard(
+                                      padding: EdgeInsets.zero,
+                                      child: SimulatorPreviewPanel(
+                                        collapsed: false,
+                                        onToggleCollapse: () {
+                                          setState(() => _previewCollapsed = true);
+                                          _persistLayout();
+                                        },
+                                      ),
+                                    ),
+                                    PanelResizeHandle(
+                                      edge: PanelResizeEdge.right,
+                                      onDrag: (delta) {
+                                        setState(() {
+                                          _previewPanelWidth =
+                                              clampPreviewPanelWidth(
+                                            _previewPanelWidth + delta,
+                                          );
+                                          _logsPanelWidth = clampLogsPanelWidth(
+                                            _logsPanelWidth,
+                                            totalWidth:
+                                                width + (_shellPadding * 2),
+                                            previewWidth: _previewPanelWidth,
+                                            rightWidth: _rightPanelWidth,
+                                            previewCollapsed: _previewCollapsed,
+                                          );
+                                        });
+                                      },
+                                      onDragEnd: (_) => _persistLayout(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(width: _panelGutter),
+                            Expanded(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: clampedLogs,
+                                ),
+                                child: Stack(
+                                  children: [
+                                    PatrolCard(
+                                      child: LogsPanel(
+                                        searchFocusNode: _logSearchFocus,
+                                      ),
+                                    ),
+                                    PanelResizeHandle(
+                                      edge: PanelResizeEdge.right,
+                                      onDrag: (delta) {
+                                        setState(() {
+                                          _rightPanelWidth =
+                                              clampRightPanelWidth(
+                                            _rightPanelWidth - delta,
+                                          );
+                                          _logsPanelWidth = clampLogsPanelWidth(
+                                            _logsPanelWidth,
+                                            totalWidth:
+                                                width + (_shellPadding * 2),
+                                            previewWidth: _previewPanelWidth,
+                                            rightWidth: _rightPanelWidth,
+                                            previewCollapsed: _previewCollapsed,
+                                          );
+                                        });
+                                      },
+                                      onDragEnd: (_) => _persistLayout(),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: _panelGutter),
+                            SizedBox(
+                              width: _rightPanelWidth,
+                              child: Stack(
+                                children: [
+                                  PanelResizeHandle(
+                                    onDrag: (delta) {
+                                      setState(() {
+                                        _rightPanelWidth =
+                                            clampRightPanelWidth(
+                                          _rightPanelWidth - delta,
+                                        );
+                                      });
+                                    },
+                                    onDragEnd: (_) => _persistLayout(),
+                                  ),
+                                  PatrolCard(
+                                    child: Column(
+                                      children: [
+                                        _RightPanelTabs(
+                                          selected: _rightTab,
+                                          healthWarnings: healthWarnings,
+                                          onSelected: (tab) =>
+                                              setState(() => _rightTab = tab),
+                                        ),
+                                        Expanded(
+                                          child: switch (_rightTab) {
+                                            RightPanelTab.tests => TestExplorer(
+                                                onRefresh: () => ref
+                                                    .read(appProvider.notifier)
+                                                    .scanTests(),
+                                              ),
+                                            RightPanelTab.inspector =>
+                                              const HierarchyInspector(),
+                                            RightPanelTab.recordings =>
+                                              const RecordingsPanel(),
+                                            RightPanelTab.history =>
+                                              const RunHistory(),
+                                            RightPanelTab.health =>
+                                              const EnvironmentHealth(),
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
               ],
             ),
             if (_showSettings) _settingsModal(settings),
@@ -278,9 +399,6 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   void _requestCloseSettings() {
-    if (_settingsDirty) {
-      // Simple discard for now.
-    }
     setState(() => _showSettings = false);
   }
 }

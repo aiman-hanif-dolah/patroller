@@ -88,11 +88,23 @@ String? getQueueRunDisabledReason({
   return null;
 }
 
-({String label, String value}) describeTestAllQueueBadge(int queuedCount) {
-  if (queuedCount == 0) {
-    return (label: 'Test All', value: 'All files');
+bool isRunnableTestFile(TestFile file) => file.detectedTestCount > 0;
+
+bool isHelperTestFile(TestFile file) => file.detectedTestCount == 0;
+
+List<TestFile> runnableTestFiles(List<TestFile> files) =>
+    files.where(isRunnableTestFile).toList();
+
+({String label, String value}) describeTestAllQueueBadge(int selectedCount) {
+  if (selectedCount == 0) {
+    return (label: 'Test All', value: 'All runnable');
   }
-  return (label: 'Test All', value: '$queuedCount selected');
+  return (label: 'Test All', value: '$selectedCount selected');
+}
+
+String formatTestAllSelectionBanner(int selectedCount) {
+  if (selectedCount == 0) return 'All runnable files';
+  return '$selectedCount file${selectedCount == 1 ? '' : 's'} selected for Test All';
 }
 
 String formatTestExplorerHeader(

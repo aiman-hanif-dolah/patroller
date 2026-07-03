@@ -71,6 +71,33 @@ final _warningPatterns = [
   RegExp(r'\bwarn\b', caseSensitive: false),
   RegExp(r'overridden!', caseSensitive: false),
   RegExp(r'!\s+[a-z_][\w.-]*', caseSensitive: false),
+  RegExp(r'resolving dependencies', caseSensitive: false),
+  RegExp(r'changed \d+ dependenc', caseSensitive: false),
+  RegExp(r'packages? have newer versions', caseSensitive: false),
+  RegExp(r'outdated', caseSensitive: false),
+  RegExp(r'cocoapods', caseSensitive: false),
+  RegExp(r'swift package manager', caseSensitive: false),
+  RegExp(r'\bspm\b', caseSensitive: false),
+  RegExp(r'pod install', caseSensitive: false),
+  RegExp(r'package\.resolved', caseSensitive: false),
+];
+
+final _dependencyWarningPatterns = [
+  RegExp(r'resolving dependencies', caseSensitive: false),
+  RegExp(r'got dependencies', caseSensitive: false),
+  RegExp(r'changed \d+ dependenc', caseSensitive: false),
+  RegExp(r'packages? have newer versions', caseSensitive: false),
+  RegExp(r'cocoapods', caseSensitive: false),
+  RegExp(r'swift package manager', caseSensitive: false),
+  RegExp(r'pod install', caseSensitive: false),
+];
+
+final _patrolFailurePatterns = [
+  RegExp(r'patrol.*failed', caseSensitive: false),
+  RegExp(r'test failed', caseSensitive: false),
+  RegExp(r'assertion failed', caseSensitive: false),
+  RegExp(r'══╡.*exception', caseSensitive: false),
+  RegExp(r'expected:.*actual:', caseSensitive: false),
 ];
 
 final _patrolPatterns = [
@@ -108,11 +135,25 @@ bool _matchesAny(String text, List<RegExp> patterns) {
   return patterns.any((pattern) => pattern.hasMatch(text));
 }
 
+bool isDependencyToolWarning(String text) {
+  return _matchesAny(text, _dependencyWarningPatterns);
+}
+
+bool isPatrolFailureOutput(String text) {
+  return _matchesAny(text, _patrolFailurePatterns) ||
+      _matchesAny(text, _errorPatterns);
+}
+
 LogCategory classifyLog(LogEvent log) {
   final text = sanitizeLogText(log.text);
+  if (_matchesAny(text, _dependencyWarningPatterns)) return LogCategory.warning;
   if (_matchesAny(text, _warningPatterns)) return LogCategory.warning;
+  if (_matchesAny(text, _patrolFailurePatterns)) return LogCategory.error;
   if (_matchesAny(text, _errorPatterns)) return LogCategory.error;
-  if (log.streamType == LogStreamType.stderr) return LogCategory.error;
+  if (log.streamType == LogStreamType.stderr &&
+      !_matchesAny(text, _flutterPatterns)) {
+    return LogCategory.error;
+  }
 
   if (log.source == LogSource.patrol || _matchesAny(text, _patrolPatterns)) {
     return LogCategory.patrol;
@@ -237,6 +278,57 @@ bool matchesLogFilters(LogEvent log, LogFilters filters, String search) {
 String formatLogLineCount(int total, int filtered, bool filtersActive) {
   if (!filtersActive) return '$total lines';
   return '$filtered / $total lines';
+}
+
+bool _isCollapsibleWarningBlock(LogEvent log) {
+  final text = sanitizeLogText(log.text);
+  final category = classifyLog(log);
+  return isDependencyToolWarning(text) ||
+      category == LogCategory.warning ||
+      (category == LogCategory.flutter && _matchesAny(text, _flutterPatterns));
+}
+
+List<LogEvent> collapseRepeatedLogBlocks(List<LogEvent> logs) {
+  if (logs.length < 3) return logs;
+  final result = <LogEvent>[];
+  var index = 0;
+  while (index < logs.length) {
+    final current = logs[index];
+    if (!_isCollapsibleWarningBlock(current)) {
+      result.add(current);
+      index++;
+      continue;
+    }
+
+    var end = index + 1;
+    while (end < logs.length && _isCollapsibleWarningBlock(logs[end])) {
+      end++;
+    }
+
+    final blockLength = end - index;
+    if (blockLength >= 3) {
+      result.add(current);
+      result.add(
+        LogEvent(
+          runId: current.runId,
+          streamType: current.streamType,
+          timestamp: current.timestamp,
+          text: '… ${blockLength - 2} similar messages collapsed …',
+          lineNumber: current.lineNumber,
+          source: LogSource.system,
+        ),
+      );
+      result.add(logs[end - 1]);
+      index = end;
+      continue;
+    }
+
+    for (var i = index; i < end; i++) {
+      result.add(logs[i]);
+    }
+    index = end;
+  }
+  return result;
 }
 
 String formatLogTimestamp(String timestamp) {

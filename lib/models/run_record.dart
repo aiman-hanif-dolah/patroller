@@ -72,6 +72,7 @@ class LogEvent {
     required this.text,
     required this.lineNumber,
     required this.source,
+    this.rawText,
   });
 
   final String runId;
@@ -80,6 +81,9 @@ class LogEvent {
   final String text;
   final int lineNumber;
   final LogSource source;
+  final String? rawText;
+
+  String get exportText => rawText ?? text;
 
   Map<String, dynamic> toJson() => {
         'runId': runId,
@@ -88,6 +92,7 @@ class LogEvent {
         'text': text,
         'lineNumber': lineNumber,
         'source': source.toJson(),
+        if (rawText != null) 'rawText': rawText,
       };
 
   factory LogEvent.fromJson(Map<String, dynamic> json) => LogEvent(
@@ -97,6 +102,7 @@ class LogEvent {
         text: json['text'] as String? ?? '',
         lineNumber: json['lineNumber'] as int? ?? 0,
         source: LogSource.fromJson(json['source'] as String? ?? 'Unknown'),
+        rawText: json['rawText'] as String?,
       );
 }
 

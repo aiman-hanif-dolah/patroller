@@ -196,7 +196,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
             active: lifecycle == RunLifecycle.stopping,
             enabled: sessionBusy || runner.stopFailure != null,
             tooltip: sessionBusy
-                ? 'Stop the active run or queue.'
+                ? 'Stop the active test or develop session.'
                 : 'Nothing is running.',
             activeColor: PatrolColors.red400,
             onPressed: () => ref.read(runnerProvider.notifier).stop(),

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/patrol_colors.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
-import '../../providers/facade_provider.dart';
+import '../../providers/health_provider.dart';
 import '../../providers/runner_provider.dart';
 
 class EnvironmentHealth extends ConsumerStatefulWidget {
@@ -17,49 +17,42 @@ class EnvironmentHealth extends ConsumerStatefulWidget {
 }
 
 class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
-  List<HealthCheck> _checks = [];
-  bool _loading = false;
-
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => _runChecks());
+    Future.microtask(_runChecks);
   }
 
   Future<void> _runChecks({bool forceRefresh = false}) async {
     final project = ref.read(appProvider).currentProject;
     if (project == null) return;
-    setState(() => _loading = true);
-    try {
-      final results = await ref
-          .read(patrolStudioFacadeProvider)
-          .health
-          .check(project.projectPath, forceRefresh: forceRefresh);
-      final warnings = results
-          .where(
-            (c) =>
-                c.status == HealthStatus.warning ||
-                c.status == HealthStatus.failed,
-          )
-          .length;
-      ref.read(appProvider.notifier).setHealthWarningCount(warnings);
-      ref.read(appProvider.notifier).setHealthStale(false);
-      setState(() => _checks = results);
-    } catch (e) {
-      ref.read(runnerProvider.notifier).showSnackbar(e.toString());
-    } finally {
-      setState(() => _loading = false);
-    }
+    await ref
+        .read(healthProvider.notifier)
+        .runChecks(project.projectPath, forceRefresh: forceRefresh);
+    final health = ref.read(healthProvider);
+    ref.read(appProvider.notifier).setHealthWarningCount(health.warningCount);
+    ref.read(appProvider.notifier).setHealthStale(
+          health.state == HealthCheckState.stale,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
+    final health = ref.watch(healthProvider);
+    final checks = health.checks;
     final passed =
-        _checks.where((c) => c.status == HealthStatus.passed).length;
+        checks.where((c) => c.status == HealthStatus.passed).length;
     final warnings =
-        _checks.where((c) => c.status == HealthStatus.warning).length;
+        checks.where((c) => c.status == HealthStatus.warning).length;
     final failed =
-        _checks.where((c) => c.status == HealthStatus.failed).length;
+        checks.where((c) => c.status == HealthStatus.failed).length;
+    final loading = health.state == HealthCheckState.checking;
+
+    ref.listen(appProvider.select((s) => s.healthStale), (prev, next) {
+      if (next == true && health.state == HealthCheckState.current) {
+        ref.read(healthProvider.notifier).markStale();
+      }
+    });
 
     return Column(
       children: [
@@ -74,8 +67,16 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
                 'ENVIRONMENT HEALTH',
                 style: Theme.of(context).textTheme.labelSmall,
               ),
+              const SizedBox(width: 8),
+              Text(
+                _stateLabel(health.state),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: _stateColor(health.state),
+                ),
+              ),
               const Spacer(),
-              if (_loading)
+              if (loading)
                 const SizedBox(
                   width: 14,
                   height: 14,
@@ -88,10 +89,10 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
                   tooltip: 'Re-run checks',
                 ),
               IconButton(
-                onPressed: _checks.isEmpty
+                onPressed: checks.isEmpty
                     ? null
                     : () {
-                        final text = _checks
+                        final text = checks
                             .map(
                               (c) =>
                                   '${c.name}: ${c.status.name}\n${c.explanation}\n${c.fixInstruction}',
@@ -108,7 +109,7 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
             ],
           ),
         ),
-        if (_checks.isNotEmpty)
+        if (checks.isNotEmpty)
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -141,84 +142,137 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
             ),
           ),
         Expanded(
-          child: _checks.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Run health checks to verify your environment.',
-                    style: TextStyle(fontSize: 12, color: PatrolColors.steel),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _checks.length,
-                  itemBuilder: (context, index) {
-                    final check = _checks[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: PatrolColors.fog,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: PatrolColors.pebble),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            check.status == HealthStatus.passed
-                                ? Icons.check_circle_outline
-                                : check.status == HealthStatus.warning
-                                    ? Icons.warning_amber_outlined
-                                    : Icons.cancel_outlined,
-                            size: 14,
-                            color: check.status == HealthStatus.passed
-                                ? PatrolColors.psPassed
-                                : check.status == HealthStatus.warning
-                                    ? PatrolColors.ember
-                                    : PatrolColors.red400,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  check.name,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: PatrolColors.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  check.explanation,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: PatrolColors.graphite,
-                                  ),
-                                ),
-                                if (check.fixInstruction.isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    check.fixInstruction,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: PatrolColors.steel,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+          child: _buildBody(health),
         ),
       ],
     );
+  }
+
+  Widget _buildBody(HealthState health) {
+    if (health.state == HealthCheckState.unchecked) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Health has not been checked yet.',
+                style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _runChecks,
+                child: const Text('Run checks'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (health.state == HealthCheckState.checking && health.checks.isEmpty) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+
+    if (health.checks.isEmpty) {
+      return Center(
+        child: Text(
+          health.error ?? 'No health results available.',
+          style: const TextStyle(fontSize: 12, color: PatrolColors.red400),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: health.checks.length,
+      itemBuilder: (context, index) {
+        final check = health.checks[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: PatrolColors.fog,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: PatrolColors.pebble),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                check.status == HealthStatus.passed
+                    ? Icons.check_circle_outline
+                    : check.status == HealthStatus.warning
+                        ? Icons.warning_amber_outlined
+                        : Icons.cancel_outlined,
+                size: 14,
+                color: check.status == HealthStatus.passed
+                    ? PatrolColors.psPassed
+                    : check.status == HealthStatus.warning
+                        ? PatrolColors.ember
+                        : PatrolColors.red400,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      check.name,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: PatrolColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      check.explanation,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: PatrolColors.graphite,
+                      ),
+                    ),
+                    if (check.fixInstruction.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        check.fixInstruction,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: PatrolColors.steel,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _stateLabel(HealthCheckState state) {
+    return switch (state) {
+      HealthCheckState.unchecked => 'Not checked',
+      HealthCheckState.checking => 'Checking',
+      HealthCheckState.current => 'Current',
+      HealthCheckState.stale => 'Stale',
+      HealthCheckState.failed => 'Failed',
+    };
+  }
+
+  Color _stateColor(HealthCheckState state) {
+    return switch (state) {
+      HealthCheckState.current => PatrolColors.psPassed,
+      HealthCheckState.checking => PatrolColors.sky400,
+      HealthCheckState.stale => PatrolColors.ember,
+      HealthCheckState.failed => PatrolColors.red400,
+      HealthCheckState.unchecked => PatrolColors.steel,
+    };
   }
 }

@@ -32,6 +32,8 @@ class AppSettings {
     required this.autoStartDriver,
     required this.rightPanelWidth,
     required this.logsPanelWidth,
+    required this.previewPanelWidth,
+    required this.previewCollapsed,
   });
 
   final String patrolPath;
@@ -64,6 +66,8 @@ class AppSettings {
   final bool autoStartDriver;
   final int rightPanelWidth;
   final int logsPanelWidth;
+  final int previewPanelWidth;
+  final bool previewCollapsed;
 
   static AppSettings defaults() => const AppSettings(
         patrolPath: 'patrol',
@@ -95,7 +99,9 @@ class AppSettings {
         hierarchyPollIntervalMs: 1500,
         autoStartDriver: true,
         rightPanelWidth: 380,
-        logsPanelWidth: 640,
+        logsPanelWidth: 480,
+        previewPanelWidth: 390,
+        previewCollapsed: false,
       );
 
   AppSettings copyWith({
@@ -129,6 +135,8 @@ class AppSettings {
     bool? autoStartDriver,
     int? rightPanelWidth,
     int? logsPanelWidth,
+    int? previewPanelWidth,
+    bool? previewCollapsed,
   }) =>
       AppSettings(
         patrolPath: patrolPath ?? this.patrolPath,
@@ -168,6 +176,8 @@ class AppSettings {
         autoStartDriver: autoStartDriver ?? this.autoStartDriver,
         rightPanelWidth: rightPanelWidth ?? this.rightPanelWidth,
         logsPanelWidth: logsPanelWidth ?? this.logsPanelWidth,
+        previewPanelWidth: previewPanelWidth ?? this.previewPanelWidth,
+        previewCollapsed: previewCollapsed ?? this.previewCollapsed,
       );
 
   Map<String, dynamic> toJson() => {
@@ -201,6 +211,8 @@ class AppSettings {
         'autoStartDriver': autoStartDriver,
         'rightPanelWidth': rightPanelWidth,
         'logsPanelWidth': logsPanelWidth,
+        'previewPanelWidth': previewPanelWidth,
+        'previewCollapsed': previewCollapsed,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -249,6 +261,10 @@ class AppSettings {
       autoStartDriver: json['autoStartDriver'] as bool? ?? defaults.autoStartDriver,
       rightPanelWidth: json['rightPanelWidth'] as int? ?? defaults.rightPanelWidth,
       logsPanelWidth: json['logsPanelWidth'] as int? ?? defaults.logsPanelWidth,
+      previewPanelWidth:
+          json['previewPanelWidth'] as int? ?? defaults.previewPanelWidth,
+      previewCollapsed:
+          json['previewCollapsed'] as bool? ?? defaults.previewCollapsed,
     );
   }
 }

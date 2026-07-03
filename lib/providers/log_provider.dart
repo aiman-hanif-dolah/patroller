@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/log_classification.dart';
+import '../domain/log_sanitizer.dart';
 import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
 import 'facade_provider.dart';
@@ -97,7 +98,8 @@ class LogNotifier extends StateNotifier<LogState> {
 
     if (accepted.isEmpty) return;
 
-    final combined = [...state.logs, ...accepted];
+    final sanitized = accepted.map(_sanitizeIncomingLog).toList();
+    final combined = [...state.logs, ...sanitized];
     state = state.copyWith(
       logs: _trim(combined, state.logRetentionCount),
       activeLogRunId: activeId,
@@ -149,6 +151,20 @@ class LogNotifier extends StateNotifier<LogState> {
     state = state.copyWith(autoScroll: value);
   }
 
+  LogEvent _sanitizeIncomingLog(LogEvent log) {
+    final sanitized = sanitizeLogText(log.text);
+    if (sanitized == log.text) return log;
+    return LogEvent(
+      runId: log.runId,
+      streamType: log.streamType,
+      timestamp: log.timestamp,
+      text: sanitized,
+      lineNumber: log.lineNumber,
+      source: log.source,
+      rawText: log.rawText ?? log.text,
+    );
+  }
+
   void appendSystemLog(String runId, String text) {
     final log = LogEvent(
       runId: runId,
@@ -174,14 +190,16 @@ final filteredLogsProvider = Provider<List<LogEvent>>((ref) {
   final logState = ref.watch(logProvider);
   final filtersActive = isLogFilterActive(logState.logFilters) ||
       logState.logSearch.trim().isNotEmpty;
-  if (!filtersActive) return logState.logs;
-  return logState.logs
-      .where(
-        (log) => matchesLogFilters(
-          log,
-          logState.logFilters,
-          logState.logSearch,
-        ),
-      )
-      .toList();
+  final base = filtersActive
+      ? logState.logs
+          .where(
+            (log) => matchesLogFilters(
+              log,
+              logState.logFilters,
+              logState.logSearch,
+            ),
+          )
+          .toList()
+      : logState.logs;
+  return collapseRepeatedLogBlocks(base);
 });

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
 import 'facade_provider.dart';
+import 'health_provider.dart';
 import 'runner_provider.dart';
 import 'settings_provider.dart';
 
@@ -179,6 +180,7 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   void _showProject(ProjectMetadata project) {
+    _ref.read(healthProvider.notifier).markUnchecked();
     state = state.copyWith(
       currentProject: project,
       activeView: AppView.project,
@@ -188,6 +190,7 @@ class AppNotifier extends StateNotifier<AppState> {
       clearSelectedTestCase: true,
       clearScanError: true,
       healthStale: true,
+      healthWarningCount: null,
       isScanning: true,
     );
   }
@@ -251,7 +254,10 @@ class AppNotifier extends StateNotifier<AppState> {
   void selectAllFiles(bool select) {
     state = state.copyWith(
       selectedFileIds: select
-          ? state.testFiles.map((f) => f.absolutePath).toSet()
+          ? state.testFiles
+              .where((f) => f.detectedTestCount > 0)
+              .map((f) => f.absolutePath)
+              .toSet()
           : {},
     );
   }
