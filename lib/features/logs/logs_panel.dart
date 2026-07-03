@@ -56,8 +56,11 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
           showFilterMenu: _showFilterMenu,
           onToggleFilterMenu: () =>
               setState(() => _showFilterMenu = !_showFilterMenu),
-          onCloseFilterMenu: () => setState(() => _showFilterMenu = false),
         ),
+        if (_showFilterMenu)
+          _FilterPanel(
+            onClose: () => setState(() => _showFilterMenu = false),
+          ),
         Expanded(
           child: Stack(
             children: [
@@ -171,13 +174,11 @@ class _LogsToolbar extends ConsumerWidget {
     this.searchFocusNode,
     required this.showFilterMenu,
     required this.onToggleFilterMenu,
-    required this.onCloseFilterMenu,
   });
 
   final FocusNode? searchFocusNode;
   final bool showFilterMenu;
   final VoidCallback onToggleFilterMenu;
-  final VoidCallback onCloseFilterMenu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -229,26 +230,16 @@ class _LogsToolbar extends ConsumerWidget {
                 ? 'Pause auto-scroll'
                 : 'Resume auto-scroll',
           ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                onPressed: onToggleFilterMenu,
-                icon: Icon(
-                  Icons.filter_list,
-                  size: 12,
-                  color: filtersActive
-                      ? PatrolColors.ink
-                      : PatrolColors.steel,
-                ),
-              ),
-              if (showFilterMenu)
-                Positioned(
-                  top: 36,
-                  right: 0,
-                  child: _FilterMenu(onClose: onCloseFilterMenu),
-                ),
-            ],
+          IconButton(
+            onPressed: onToggleFilterMenu,
+            icon: Icon(
+              showFilterMenu ? Icons.filter_list_off : Icons.filter_list,
+              size: 12,
+              color: showFilterMenu || filtersActive
+                  ? PatrolColors.ink
+                  : PatrolColors.steel,
+            ),
+            tooltip: showFilterMenu ? 'Hide filters' : 'Show filters',
           ),
           if (filtersActive) ...[
             Container(
@@ -304,8 +295,8 @@ class _LogsToolbar extends ConsumerWidget {
   }
 }
 
-class _FilterMenu extends ConsumerWidget {
-  const _FilterMenu({required this.onClose});
+class _FilterPanel extends ConsumerWidget {
+  const _FilterPanel({required this.onClose});
 
   final VoidCallback onClose;
 
@@ -315,92 +306,160 @@ class _FilterMenu extends ConsumerWidget {
     final notifier = ref.read(logProvider.notifier);
 
     return Material(
-      elevation: 8,
-      color: PatrolColors.mist,
-      borderRadius: BorderRadius.circular(14),
+      color: PatrolColors.fog,
       child: Container(
-        width: 240,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: PatrolColors.pebble),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        decoration: const BoxDecoration(
+          color: PatrolColors.fog,
+          border: Border(
+            bottom: BorderSide(color: PatrolColors.pebble),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
                 const Text(
-                  'FILTER',
+                  'LOG FILTERS',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
                     color: PatrolColors.steel,
                   ),
                 ),
                 const Spacer(),
                 TextButton(
-                  onPressed: () {
-                    notifier.resetLogUiState();
-                    onClose();
-                  },
-                  child: const Text('Reset', style: TextStyle(fontSize: 10)),
+                  onPressed: notifier.resetLogUiState,
+                  child: const Text('Reset all', style: TextStyle(fontSize: 10)),
+                ),
+                IconButton(
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close, size: 14),
+                  tooltip: 'Close filters',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text('Mode', style: TextStyle(fontSize: 10, color: PatrolColors.steel)),
             Row(
-              children: LogFilterMode.values.map((mode) {
-                final selected = filters.mode == mode;
-                return Expanded(
-                  child: TextButton(
-                    onPressed: () => notifier.setLogFilterMode(mode),
-                    style: TextButton.styleFrom(
-                      backgroundColor:
-                          selected ? PatrolColors.fog : Colors.transparent,
-                      foregroundColor:
-                          selected ? PatrolColors.ink : PatrolColors.steel,
-                    ),
-                    child: Text(
-                      mode == LogFilterMode.include ? 'Show only' : 'Hide',
-                      style: const TextStyle(fontSize: 10),
-                    ),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(
+                  width: 52,
+                  child: Text(
+                    'Mode',
+                    style: TextStyle(fontSize: 10, color: PatrolColors.steel),
                   ),
-                );
-              }).toList(),
+                ),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    children: LogFilterMode.values.map((mode) {
+                      final selected = filters.mode == mode;
+                      return ChoiceChip(
+                        label: Text(
+                          mode == LogFilterMode.include ? 'Show only' : 'Hide',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: selected
+                                ? PatrolColors.obsidian
+                                : PatrolColors.steel,
+                          ),
+                        ),
+                        selected: selected,
+                        onSelected: (_) => notifier.setLogFilterMode(mode),
+                        selectedColor: PatrolColors.ink,
+                        backgroundColor: PatrolColors.mist,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
-            const Text('Sources', style: TextStyle(fontSize: 10, color: PatrolColors.steel)),
-            ...LogFilterKey.values.map((key) {
-              return CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  logFilterLabels[key]!,
-                  style: const TextStyle(fontSize: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(
+                  width: 52,
+                  child: Text(
+                    'Stream',
+                    style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+                  ),
                 ),
-                value: filters.sources[key],
-                onChanged: (_) => notifier.toggleLogFilterSource(key),
-              );
-            }),
-            const Text('Stream', style: TextStyle(fontSize: 10, color: PatrolColors.steel)),
-            ...LogStreamFilter.values.map((stream) {
-              return RadioListTile<LogStreamFilter>(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  stream.name,
-                  style: const TextStyle(fontSize: 12),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    children: LogStreamFilter.values.map((stream) {
+                      final selected = filters.stream == stream;
+                      return ChoiceChip(
+                        label: Text(
+                          stream.name,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: selected
+                                ? PatrolColors.obsidian
+                                : PatrolColors.steel,
+                          ),
+                        ),
+                        selected: selected,
+                        onSelected: (_) => notifier.setLogStreamFilter(stream),
+                        selectedColor: PatrolColors.ink,
+                        backgroundColor: PatrolColors.mist,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      );
+                    }).toList(),
+                  ),
                 ),
-                value: stream,
-                groupValue: filters.stream,
-                onChanged: (value) {
-                  if (value != null) notifier.setLogStreamFilter(value);
-                },
-              );
-            }),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(
+                  width: 52,
+                  child: Text(
+                    'Sources',
+                    style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+                  ),
+                ),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: LogFilterKey.values.map((key) {
+                      final enabled = filters.sources[key] ?? true;
+                      return FilterChip(
+                        label: Text(
+                          logFilterLabels[key]!,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: enabled
+                                ? PatrolColors.obsidian
+                                : PatrolColors.steel,
+                          ),
+                        ),
+                        selected: enabled,
+                        onSelected: (_) => notifier.toggleLogFilterSource(key),
+                        selectedColor: PatrolColors.ink,
+                        backgroundColor: PatrolColors.mist,
+                        checkmarkColor: PatrolColors.obsidian,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
