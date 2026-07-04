@@ -94,6 +94,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                         ? PatrolColors.ash
                         : PatrolColors.steel,
                   ),
+                  tooltip: 'Refresh test explorer',
                 ),
             ],
           ),
@@ -226,6 +227,9 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                                         : Icons.chevron_right,
                                     size: 14,
                                   ),
+                                  tooltip: expanded
+                                      ? 'Collapse file tests'
+                                      : 'Expand file tests',
                                 ),
                                 const Icon(Icons.description_outlined, size: 14),
                                 const SizedBox(width: 8),
