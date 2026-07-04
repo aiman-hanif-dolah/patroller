@@ -101,6 +101,7 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
               IconButton(
                 onPressed: _loadHistory,
                 icon: const Icon(Icons.refresh, size: 12),
+                tooltip: 'Refresh history',
               ),
             ],
           ),
@@ -196,6 +197,7 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                             IconButton(
                               onPressed: () => _deleteRun(record),
                               icon: const Icon(Icons.delete_outline, size: 14),
+                              tooltip: 'Delete run',
                             ),
                           ],
                         ),
