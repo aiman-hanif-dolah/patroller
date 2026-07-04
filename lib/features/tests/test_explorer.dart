@@ -25,7 +25,15 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
 
   @override
   Widget build(BuildContext context) {
-    final app = ref.watch(appProvider);
+    // ⚡ Bolt: optimized by selecting only necessary fields to prevent unnecessary list rebuilds
+    final app = ref.watch(appProvider.select((state) => (
+          scanError: state.scanError,
+          isScanning: state.isScanning,
+          testFiles: state.testFiles,
+          selectedFileIds: state.selectedFileIds,
+          selectedFile: state.selectedFile,
+          selectedTestCase: state.selectedTestCase,
+        )));
     final runner = ref.watch(runnerProvider);
     final activeRunFile = ref.watch(activeRunFileProvider);
     final testFiles = app.testFiles;
