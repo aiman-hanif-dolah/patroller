@@ -1,0 +1,4 @@
+## 2024-05-24 - Command Injection in AppleScript construction
+**Vulnerability:** Command Injection via string interpolation in AppleScript strings that are executed using `osascript`. Only double quotes were being escaped, allowing an attacker to inject AppleScript commands by using trailing backslashes or creating a sequence that breaks out of the string boundary.
+**Learning:** When generating strings that will be interpolated into external commands like `osascript`, simply escaping double quotes (`"`) is insufficient if the target environment supports escape sequences with backslashes (`\`). A string like `\"` becomes a literal quote, potentially un-escaping a quote intended by the developer.
+**Prevention:** Always escape backslashes first before escaping double quotes, e.g., `value.replaceAll(r'\', r'\\').replaceAll('"', r'\"')`.

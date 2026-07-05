@@ -33,8 +33,11 @@ const _simulatorProcess = 'Simulator';
 ScreenBounds? findSimulatorWindowBounds({String? deviceName}) {
   if (!Platform.isMacOS) return null;
 
+  // SECURITY: Escape backslashes before escaping double quotes to prevent
+  // command injection when constructing the AppleScript command via string
+  // interpolation for osascript execution.
   final nameFilter = deviceName != null
-      ? 'whose name contains "${deviceName.replaceAll('"', r'\"')}"'
+      ? 'whose name contains "${deviceName.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"'
       : '';
 
   final script = '''
