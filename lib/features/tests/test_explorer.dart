@@ -26,6 +26,13 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
   String _filterChip = 'all';
   String? _flowFilter;
   final _expandedFiles = <String>{};
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,12 +99,25 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: TextField(
+            controller: _searchController,
             onChanged: (v) => setState(() => _search = v),
             style: const TextStyle(fontSize: 12, color: PatrolColors.ink),
             decoration: InputDecoration(
               hintText: 'Search tests...',
               hintStyle: const TextStyle(fontSize: 12, color: PatrolColors.steel),
               prefixIcon: const Icon(Icons.search_rounded, size: 16, color: PatrolColors.steel),
+              suffixIcon: _search.isNotEmpty
+                  ? AccessibleIconButton(
+                      icon: Icons.close_rounded,
+                      label: 'Clear search',
+                      size: 14,
+                      color: PatrolColors.steel,
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _search = '');
+                      },
+                    )
+                  : null,
               isDense: true,
               filled: true,
               fillColor: PatrolColors.obsidian.withValues(alpha: 0.45),
