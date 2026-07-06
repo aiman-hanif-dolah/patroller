@@ -89,7 +89,8 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final app = ref.watch(appProvider);
+    final healthWarningCount =
+        ref.watch(appProvider.select((a) => a.healthWarningCount));
     final settings = ref.watch(settingsProvider).settings;
     final totalWidth = MediaQuery.sizeOf(context).width;
 
@@ -124,8 +125,10 @@ class _AppShellState extends ConsumerState<AppShell> {
             Column(
               children: [
                 RunToolbar(
-                  onOpenProject: () => ref.read(appProvider.notifier).openProject(),
-                  onRefreshTests: () => ref.read(appProvider.notifier).scanTests(),
+                  onOpenProject: () =>
+                      ref.read(appProvider.notifier).openProject(),
+                  onRefreshTests: () =>
+                      ref.read(appProvider.notifier).scanTests(),
                   onOpenSettings: () => setState(() => _showSettings = true),
                 ),
                 const WorkflowStatusStrip(),
@@ -154,7 +157,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                               const SizedBox(width: _panelGutter),
                               _buildWorkspaceColumn(
                                 healthState: ref.watch(healthProvider),
-                                app: app,
+                                healthWarningCount: healthWarningCount,
                               ),
                             ],
                           );
@@ -230,10 +233,9 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   Widget _buildWorkspaceColumn({
     required HealthState healthState,
-    required AppState app,
+    required int? healthWarningCount,
   }) {
-    final healthWarnings =
-        healthState.warningCount ?? app.healthWarningCount ?? 0;
+    final healthWarnings = healthState.warningCount ?? healthWarningCount ?? 0;
     if (_rightCollapsed) {
       return PatrolCard(
         padding: EdgeInsets.zero,
@@ -445,7 +447,8 @@ class _WorkspacePanelTabs extends StatelessWidget {
                 : null;
             final icon = switch (tab) {
               WorkspacePanelTab.tests => Icons.science_outlined,
-              WorkspacePanelTab.recordings => Icons.fiber_manual_record_outlined,
+              WorkspacePanelTab.recordings =>
+                Icons.fiber_manual_record_outlined,
               WorkspacePanelTab.history => Icons.history_rounded,
               WorkspacePanelTab.health => Icons.monitor_heart_outlined,
             };
