@@ -1,0 +1,4 @@
+## 2024-07-06 - [AppleScript Command Injection via Insufficient Escaping]
+**Vulnerability:** Command injection vulnerability in `lib/services/simulator_window_bounds.dart` where `deviceName` was only escaping double quotes (`"`) when constructed into an AppleScript evaluated by `osascript`. An attacker could pass a string like `\" & do shell script "echo pwned" & \"` which, after single-character escaping, would result in `\"` escaping the escaped quote, breaking out of the string context and allowing arbitrary AppleScript execution.
+**Learning:** When constructing commands with string interpolation (e.g., AppleScript strings) in Dart, escaping *only* the string delimiter (like `"`) is insufficient if the escape character itself (`\`) is not also escaped first.
+**Prevention:** Always escape backslashes *before* escaping string delimiters (e.g., `.replaceAll(r'\', r'\\').replaceAll('"', r'\"')`) to ensure proper sanitization for string contexts in evaluated scripts.
