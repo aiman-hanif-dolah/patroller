@@ -1,10 +1,13 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/patrol_colors.dart';
+import '../../domain/settings_validation.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../widgets/panel_resize_handle.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({
@@ -31,6 +34,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _initialized = false;
   bool _saving = false;
   String? _saveError;
+  Map<String, String> _fieldErrors = {};
 
   @override
   void initState() {
@@ -57,8 +61,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
   }
 
+  void _validateLocal() {
+    final errors = validateAppSettings(_local);
+    setState(() {
+      _fieldErrors = {for (final e in errors) e.field: e.message};
+    });
+  }
+
   Future<bool> _handleSave() async {
     if (!_isDirty) return true;
+    _validateLocal();
+    if (_fieldErrors.isNotEmpty) {
+      setState(() => _saveError = 'Fix validation errors before saving.');
+      return false;
+    }
     setState(() {
       _saving = true;
       _saveError = null;
@@ -187,7 +203,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           _checkboxRow(
-            'Stop queue on failure',
+            'Stop Test All on first failure',
             _local.stopQueueOnFirstFailure,
             (v) => _set(
               (s) => s.stopQueueOnFirstFailure,
@@ -196,22 +212,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           _section('Logs'),
-          _row(
-            'Retention count',
-            TextField(
-              keyboardType: TextInputType.number,
-              controller:
-                  TextEditingController(text: '${_local.logRetentionCount}'),
-              onChanged: (v) {
-                final parsed = int.tryParse(v);
-                if (parsed != null) {
-                  _set(
-                    (s) => s.logRetentionCount,
-                    (s, v) => s.copyWith(logRetentionCount: v),
-                    parsed,
-                  );
-                }
-              },
+          _numericRow(
+            field: 'logRetentionCount',
+            label: 'Retention count',
+            value: '${_local.logRetentionCount}',
+            min: 10,
+            max: 1000,
+            onValid: (parsed) => _set(
+              (s) => s.logRetentionCount,
+              (s, v) => s.copyWith(logRetentionCount: v),
+              parsed,
             ),
           ),
           _checkboxRow(
@@ -223,86 +233,132 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               v,
             ),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Show raw stderr'),
+            subtitle: const Text(
+              'Off hides dependency notices behind a collapsible summary.',
+              style: TextStyle(fontSize: 11, color: PatrolColors.steel),
+            ),
+            value: _local.showRawStderr,
+            onChanged: (value) => _set(
+              (s) => s.showRawStderr,
+              (s, v) => s.copyWith(showRawStderr: v),
+              value,
+            ),
+          ),
           _section('CLI Paths'),
-          _row(
-            'Patrol',
-            TextField(
-              controller: TextEditingController(text: _local.patrolPath),
-              onChanged: (v) => _set(
-                (s) => s.patrolPath,
-                (s, v) => s.copyWith(patrolPath: v),
-                v,
-              ),
+          _pathRow(
+            field: 'patrolPath',
+            label: 'Patrol',
+            value: _local.patrolPath,
+            onChanged: (v) => _set(
+              (s) => s.patrolPath,
+              (s, v) => s.copyWith(patrolPath: v),
+              v,
             ),
           ),
-          _row(
-            'Flutter',
-            TextField(
-              controller: TextEditingController(text: _local.flutterPath),
-              onChanged: (v) => _set(
-                (s) => s.flutterPath,
-                (s, v) => s.copyWith(flutterPath: v),
-                v,
-              ),
+          _pathRow(
+            field: 'flutterPath',
+            label: 'Flutter',
+            value: _local.flutterPath,
+            onChanged: (v) => _set(
+              (s) => s.flutterPath,
+              (s, v) => s.copyWith(flutterPath: v),
+              v,
             ),
           ),
-          _row(
-            'Dart',
-            TextField(
-              controller: TextEditingController(text: _local.dartPath),
-              onChanged: (v) => _set(
-                (s) => s.dartPath,
-                (s, v) => s.copyWith(dartPath: v),
-                v,
-              ),
+          _pathRow(
+            field: 'dartPath',
+            label: 'Dart',
+            value: _local.dartPath,
+            onChanged: (v) => _set(
+              (s) => s.dartPath,
+              (s, v) => s.copyWith(dartPath: v),
+              v,
             ),
           ),
-          _row(
-            'xcrun',
-            TextField(
-              controller: TextEditingController(text: _local.xcrunPath),
-              onChanged: (v) => _set(
-                (s) => s.xcrunPath,
-                (s, v) => s.copyWith(xcrunPath: v),
-                v,
-              ),
+          _pathRow(
+            field: 'xcrunPath',
+            label: 'xcrun',
+            value: _local.xcrunPath,
+            onChanged: (v) => _set(
+              (s) => s.xcrunPath,
+              (s, v) => s.copyWith(xcrunPath: v),
+              v,
             ),
           ),
           _section('Layout'),
-          _row(
-            'Right panel width',
-            TextField(
-              keyboardType: TextInputType.number,
-              controller:
-                  TextEditingController(text: '${_local.rightPanelWidth.round()}'),
-              onChanged: (v) {
-                final parsed = double.tryParse(v);
-                if (parsed != null) {
-                  _set(
-                    (s) => s.rightPanelWidth,
-                    (s, v) => s.copyWith(rightPanelWidth: v),
-                    parsed.round(),
-                  );
-                }
-              },
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Show Logs panel'),
+            subtitle: const Text(
+              'Turn off to collapse Logs into a narrow rail.',
+              style: TextStyle(fontSize: 11, color: PatrolColors.steel),
+            ),
+            value: !_local.logsCollapsed,
+            onChanged: (value) => _set(
+              (s) => s.logsCollapsed,
+              (s, v) => s.copyWith(logsCollapsed: !value),
+              !value,
             ),
           ),
-          _row(
-            'Logs panel width',
-            TextField(
-              keyboardType: TextInputType.number,
-              controller:
-                  TextEditingController(text: '${_local.logsPanelWidth.round()}'),
-              onChanged: (v) {
-                final parsed = double.tryParse(v);
-                if (parsed != null) {
-                  _set(
-                    (s) => s.logsPanelWidth,
-                    (s, v) => s.copyWith(logsPanelWidth: v),
-                    parsed.round(),
-                  );
-                }
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Show Workspace panel'),
+            subtitle: const Text(
+              'Turn off to collapse Tests, History, Record, and Health.',
+              style: TextStyle(fontSize: 11, color: PatrolColors.steel),
+            ),
+            value: !_local.rightCollapsed,
+            onChanged: (value) => _set(
+              (s) => s.rightCollapsed,
+              (s, v) => s.copyWith(rightCollapsed: !value),
+              !value,
+            ),
+          ),
+          _numericRow(
+            field: 'rightPanelWidth',
+            label: 'Right panel width',
+            value: '${_local.rightPanelWidth}',
+            min: rightPanelMinWidth.round(),
+            max: rightPanelMaxWidth.round(),
+            onValid: (parsed) => _set(
+              (s) => s.rightPanelWidth,
+              (s, v) => s.copyWith(rightPanelWidth: v),
+              parsed,
+            ),
+          ),
+          _numericRow(
+            field: 'logsPanelWidth',
+            label: 'Logs panel width',
+            value: '${_local.logsPanelWidth}',
+            min: logsPanelMinWidth.round(),
+            max: logsPanelMaxWidth.round(),
+            onValid: (parsed) => _set(
+              (s) => s.logsPanelWidth,
+              (s, v) => s.copyWith(logsPanelWidth: v),
+              parsed,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final reset = AppSettings.resetLayoutDefaults(_local);
+                setState(() => _local = reset);
+                _validateLocal();
+                widget.onDirtyChanged(_isDirty);
+                await ref.read(settingsProvider.notifier).updatePartial({
+                  'logsCollapsed': reset.logsCollapsed,
+                  'rightCollapsed': reset.rightCollapsed,
+                  'logsPanelWidth': reset.logsPanelWidth,
+                  'rightPanelWidth': reset.rightPanelWidth,
+                });
               },
+              icon: const Icon(Icons.restart_alt, size: 14),
+              label: const Text('Reset layout'),
             ),
           ),
           if (_saving)
@@ -355,6 +411,119 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       title: Text(label, style: const TextStyle(fontSize: 14)),
       value: value,
       onChanged: (v) => onChanged(v ?? false),
+    );
+  }
+
+  Widget _numericRow({
+    required String field,
+    required String label,
+    required String value,
+    required int min,
+    required int max,
+    required ValueChanged<int> onValid,
+  }) {
+    final error = _fieldErrors[field];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 160,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 14, color: PatrolColors.graphite),
+            ),
+          ),
+          Expanded(
+            child: TextField(
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                isDense: true,
+                errorText: error,
+                helperText: '$min–$max',
+                helperStyle: const TextStyle(fontSize: 10),
+              ),
+              controller: TextEditingController(text: value),
+              onChanged: (v) {
+                final parsed = parsePositiveInt(v, min: min, max: max);
+                setState(() {
+                  if (parsed == null && v.trim().isNotEmpty) {
+                    _fieldErrors = {
+                      ..._fieldErrors,
+                      field: 'Enter a number between $min and $max.',
+                    };
+                  } else {
+                    final next = Map<String, String>.from(_fieldErrors)
+                      ..remove(field);
+                    _fieldErrors = next;
+                  }
+                });
+                if (parsed != null) onValid(parsed);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pathRow({
+    required String field,
+    required String label,
+    required String value,
+    required ValueChanged<String> onChanged,
+  }) {
+    final error = _fieldErrors[field];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 160,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 14, color: PatrolColors.graphite),
+            ),
+          ),
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                isDense: true,
+                errorText: error,
+              ),
+              controller: TextEditingController(text: value),
+              onChanged: (v) {
+                setState(() {
+                  if (v.trim().isEmpty) {
+                    _fieldErrors = {
+                      ..._fieldErrors,
+                      field: 'Path cannot be empty.',
+                    };
+                  } else {
+                    final next = Map<String, String>.from(_fieldErrors)
+                      ..remove(field);
+                    _fieldErrors = next;
+                  }
+                });
+                onChanged(v);
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: () async {
+              final result = await FilePicker.platform.pickFiles(
+                dialogTitle: 'Select $label executable',
+              );
+              final path = result?.files.single.path;
+              if (path != null) onChanged(path);
+            },
+            child: const Text('Browse'),
+          ),
+        ],
+      ),
     );
   }
 }

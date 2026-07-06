@@ -77,8 +77,13 @@ class XCTestClient {
     await _post('/pressButton', {'button': name.toLowerCase()});
   }
 
-  Future<HierarchyNode> viewHierarchy({String? appId}) async {
-    final appIds = appId != null ? [appId] : <String>[];
+  Future<HierarchyNode> viewHierarchy({
+    String? appId,
+    List<String> candidateAppIds = const [],
+  }) async {
+    final appIds = appId != null
+        ? [appId]
+        : List<String>.from(candidateAppIds);
     final response = await _postJson('/viewHierarchy', {
       'appIds': appIds,
       'excludeKeyboardElements': false,
@@ -86,8 +91,10 @@ class XCTestClient {
     return _normalizeHierarchyNode(response);
   }
 
-  Future<String?> runningApp() async {
-    final result = await _postJson('/runningApp', {'appIds': <String>[]});
+  Future<String?> runningApp({List<String> candidateAppIds = const []}) async {
+    final result = await _postJson('/runningApp', {
+      'appIds': List<String>.from(candidateAppIds),
+    });
     if (result is String) return result;
     if (result is Map<String, dynamic>) {
       return result['runningAppBundleId'] as String? ??

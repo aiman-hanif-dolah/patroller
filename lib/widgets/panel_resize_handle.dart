@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/patrol_colors.dart';
+import 'collapsible_panel.dart';
 
-const double logsPanelDefaultWidth = 480;
+const double logsPanelDefaultWidth = 640;
 const double logsPanelMinWidth = 280;
 const double logsPanelMaxWidth = 720;
-
-const double previewPanelDefaultWidth = 390;
-const double previewPanelMinWidth = 280;
-const double previewPanelMaxWidth = 520;
 
 const double rightPanelDefaultWidth = 380;
 const double rightPanelMinWidth = 280;
@@ -17,40 +14,50 @@ const double rightPanelMaxWidth = 560;
 const double _panelGutter = 12;
 const double _shellPadding = 12;
 
-double clampPreviewPanelWidth(double width) =>
-    width.clamp(previewPanelMinWidth, previewPanelMaxWidth);
-
 double clampRightPanelWidth(double width) =>
     width.clamp(rightPanelMinWidth, rightPanelMaxWidth);
+
+double availableHorizontalSpace({
+  required double totalWidth,
+  required double logsWidth,
+  required double rightWidth,
+  required bool logsCollapsed,
+  required bool rightCollapsed,
+}) {
+  final logs = logsCollapsed ? panelCollapseRailWidth : logsWidth;
+  final right = rightCollapsed ? panelCollapseRailWidth : rightWidth;
+  final gutters = _panelGutter + (_shellPadding * 2);
+  return totalWidth - logs - right - gutters;
+}
 
 double clampLogsPanelWidth(
   double width, {
   required double totalWidth,
-  required double previewWidth,
   required double rightWidth,
-  required bool previewCollapsed,
+  required bool logsCollapsed,
+  required bool rightCollapsed,
 }) {
-  final preview = previewCollapsed ? 36.0 : previewWidth;
-  final reserved = preview +
-      rightWidth +
-      (_panelGutter * 2) +
-      (_shellPadding * 2);
-  final maxLogs = (totalWidth - reserved).clamp(logsPanelMinWidth, 2000.0);
+  if (logsCollapsed) return panelCollapseRailWidth;
+
+  final right = rightCollapsed ? panelCollapseRailWidth : rightWidth;
+  final gutters = _panelGutter + (_shellPadding * 2);
+  final maxLogs =
+      (totalWidth - right - gutters).clamp(logsPanelMinWidth, logsPanelMaxWidth);
   return width.clamp(logsPanelMinWidth, maxLogs);
 }
 
 double minLogsPanelWidth({
   required double totalWidth,
-  required double previewWidth,
   required double rightWidth,
-  required bool previewCollapsed,
+  required bool logsCollapsed,
+  required bool rightCollapsed,
 }) {
   return clampLogsPanelWidth(
     logsPanelMinWidth,
     totalWidth: totalWidth,
-    previewWidth: previewWidth,
     rightWidth: rightWidth,
-    previewCollapsed: previewCollapsed,
+    logsCollapsed: logsCollapsed,
+    rightCollapsed: rightCollapsed,
   );
 }
 
@@ -83,7 +90,8 @@ class PanelResizeHandle extends StatelessWidget {
                 : details.delta.dx;
             onDrag(delta);
           },
-          onHorizontalDragEnd: (details) => onDragEnd(details.primaryVelocity ?? 0),
+          onHorizontalDragEnd: (details) =>
+              onDragEnd(details.primaryVelocity ?? 0),
           child: Container(
             width: 12,
             alignment: Alignment.center,

@@ -4,9 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/patrol_colors.dart';
 import '../../models/models.dart';
+import '../../domain/runner_helpers.dart';
+import '../../domain/simulator_driver_readiness.dart' show historyFilterLabel;
 import '../../providers/app_provider.dart';
 import '../../providers/facade_provider.dart';
 import '../../providers/runner_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../widgets/accessible_icon_button.dart';
+import '../../widgets/patrol_components.dart';
 import '../../widgets/status_badge.dart';
 
 class RunHistory extends ConsumerStatefulWidget {
@@ -60,7 +65,7 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
           record.status != RunRecordStatus.cancelled) {
         return false;
       }
-      if (_filter == 'queues' && record.isQueueSummary != true) return false;
+      if (_filter == 'batches' && record.isQueueSummary != true) return false;
       if (_search.trim().isNotEmpty) {
         final q = _search.toLowerCase();
         final file = record.targetFile?.split('/').last.toLowerCase() ?? '';
@@ -98,10 +103,22 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                 style: Theme.of(context).textTheme.labelSmall,
               ),
               const Spacer(),
-              IconButton(
+              AccessibleIconButton(
+                icon: Icons.refresh,
+                label: 'Refresh run history',
                 onPressed: _loadHistory,
-                icon: const Icon(Icons.refresh, size: 12),
+                size: 12,
               ),
+              if (_records.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                AccessibleIconButton(
+                  icon: Icons.delete_sweep_outlined,
+                  label: 'Clear all history',
+                  onPressed: _clearAll,
+                  size: 12,
+                  color: PatrolColors.steel,
+                ),
+              ],
             ],
           ),
         ),
@@ -120,22 +137,22 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
-            children: ['all', 'failed', 'passed', 'cancelled', 'queues']
+            children: ['all', 'failed', 'passed', 'cancelled', 'batches']
                 .map((chip) {
-              final selectedChip = _filter == chip;
               return Padding(
                 padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  label: Text(chip, style: const TextStyle(fontSize: 10)),
-                  selected: selectedChip,
-                  onSelected: (_) => setState(() => _filter = chip),
-                  backgroundColor: PatrolColors.fog,
-                  selectedColor: PatrolColors.ink,
-                  labelStyle: TextStyle(
-                    color: selectedChip
-                        ? PatrolColors.obsidian
-                        : PatrolColors.steel,
-                  ),
+                child: PatrolFilterPill(
+                  label: historyFilterLabel(chip),
+                  selected: _filter == chip,
+                  color: switch (chip) {
+                    'all' => PatrolColors.steel,
+                    'failed' => PatrolColors.psFailed,
+                    'passed' => PatrolColors.psPassed,
+                    'cancelled' => PatrolColors.orange400,
+                    'batches' => PatrolColors.violet400,
+                    _ => null,
+                  },
+                  onTap: () => setState(() => _filter = chip),
                 ),
               );
             }).toList(),
@@ -174,9 +191,10 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    record.targetFile?.split('/').last ??
-                                        record.queueLabel ??
-                                        'Run',
+                                    middleTruncate(
+                                      _historyTitle(record),
+                                      42,
+                                    ),
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: PatrolColors.ink,
@@ -193,9 +211,11 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                                 ],
                               ),
                             ),
-                            IconButton(
+                            AccessibleIconButton(
+                              icon: Icons.delete_outline,
+                              label: 'Delete run record',
                               onPressed: () => _deleteRun(record),
-                              icon: const Icon(Icons.delete_outline, size: 14),
+                              size: 14,
                             ),
                           ],
                         ),
@@ -224,17 +244,45 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () {
-                    Clipboard.setData(
-                      ClipboardData(text: selected.fullCommandForDisplay),
-                    );
-                    ref
-                        .read(runnerProvider.notifier)
-                        .showSnackbar('Command copied');
-                  },
-                  icon: const Icon(Icons.copy, size: 12),
-                  label: const Text('Copy command'),
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        Clipboard.setData(
+                          ClipboardData(text: selected.fullCommandForDisplay),
+                        );
+                        ref
+                            .read(runnerProvider.notifier)
+                            .showSnackbar('Command copied');
+                      },
+                      icon: const Icon(Icons.copy, size: 12),
+                      label: const Text('Copy command'),
+                    ),
+                    if (isFailedRunStatus(selected.status)) ...[
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: () {
+                          final text = formatRunLogsForExport(
+                            logs: selected.logs,
+                            combinedLog: selected.combinedLog,
+                            stderrLog: selected.stderrLog,
+                          );
+                          if (text.trim().isEmpty) {
+                            ref.read(runnerProvider.notifier).showSnackbar(
+                                  'No logs saved for this run',
+                                );
+                            return;
+                          }
+                          Clipboard.setData(ClipboardData(text: text));
+                          ref
+                              .read(runnerProvider.notifier)
+                              .showSnackbar('Failed logs copied');
+                        },
+                        icon: const Icon(Icons.content_paste, size: 12),
+                        label: const Text('Copy failed logs'),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -243,9 +291,42 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
     );
   }
 
+  String _historyTitle(RunRecord record) {
+    final file = record.targetFile?.split('/').last;
+    if (file != null) return file;
+    final label = record.queueLabel;
+    if (label != null) {
+      return label.replaceFirst(RegExp(r'^Queue\b'), 'Batch');
+    }
+    return 'Run';
+  }
+
   Future<void> _deleteRun(RunRecord record) async {
     final project = ref.read(appProvider).currentProject;
     if (project == null) return;
+    final settings = ref.read(settingsProvider).settings;
+    if (settings.confirmBeforeClearHistory) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete run record?'),
+          content: Text(
+            'Remove this ${record.runMode.toJson()} run from history? This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
     try {
       await ref.read(patrolStudioFacadeProvider).history.delete(
             record.runId,
@@ -254,6 +335,43 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
       setState(() {
         _records.removeWhere((r) => r.runId == record.runId);
         if (_selectedRunId == record.runId) _selectedRunId = null;
+      });
+    } catch (e) {
+      ref.read(runnerProvider.notifier).showSnackbar(e.toString());
+    }
+  }
+
+  Future<void> _clearAll() async {
+    final project = ref.read(appProvider).currentProject;
+    if (project == null) return;
+    final settings = ref.read(settingsProvider).settings;
+    if (settings.confirmBeforeClearHistory) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Clear all history?'),
+          content: const Text(
+            'Remove all run records for this project? This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Clear'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    try {
+      await ref.read(patrolStudioFacadeProvider).history.clear(project.projectPath);
+      setState(() {
+        _records.clear();
+        _selectedRunId = null;
       });
     } catch (e) {
       ref.read(runnerProvider.notifier).showSnackbar(e.toString());

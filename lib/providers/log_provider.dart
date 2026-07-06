@@ -5,6 +5,7 @@ import '../domain/log_sanitizer.dart';
 import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
 import 'facade_provider.dart';
+import 'settings_provider.dart';
 
 class LogState {
   const LogState({
@@ -188,6 +189,7 @@ final logProvider = StateNotifierProvider<LogNotifier, LogState>(
 
 final filteredLogsProvider = Provider<List<LogEvent>>((ref) {
   final logState = ref.watch(logProvider);
+  final showRaw = ref.watch(settingsProvider).settings.showRawStderr;
   final filtersActive = isLogFilterActive(logState.logFilters) ||
       logState.logSearch.trim().isNotEmpty;
   final base = filtersActive
@@ -201,5 +203,7 @@ final filteredLogsProvider = Provider<List<LogEvent>>((ref) {
           )
           .toList()
       : logState.logs;
-  return collapseRepeatedLogBlocks(base);
+  final collapsed = collapseRepeatedLogBlocks(base);
+  if (showRaw) return collapsed;
+  return summarizeDependencyNotices(collapsed);
 });

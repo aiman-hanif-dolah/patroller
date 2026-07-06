@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import '../models/models.dart';
 import 'cli_env.dart';
 import 'settings_store.dart';
+import 'simulator_driver_health.dart';
 
 class _CommandProbeResult {
   const _CommandProbeResult({
@@ -55,6 +56,8 @@ Future<_CommandProbeResult> _runCommand(
 Future<List<HealthCheck>> runHealthChecks(
   String projectPath, {
   SettingsStore? settingsStore,
+  DriverStatus? driverStatus,
+  bool hasBootedSimulator = false,
 }) async {
   final settings = settingsStore ?? SettingsStore.instance;
   await settings.getAsync();
@@ -229,6 +232,20 @@ Future<List<HealthCheck>> runHealthChecks(
             'Create test files ending with _test.dart in the Patrol test directory.',
         rawOutput: testFiles.isEmpty ? 'None found' : testFiles.join('\n'),
       ),
+    );
+  }
+
+  if (Platform.isMacOS) {
+    final artifacts = inspectSimulatorDriverArtifacts();
+    checks.addAll(
+      buildSimulatorDriverHealthChecks(
+        artifacts: artifacts,
+        driverStatus: driverStatus,
+        hasBootedSimulator: hasBootedSimulator,
+      ),
+    );
+    checks.addAll(
+      await probeSimulatorDriverEndpoints(driverStatus: driverStatus),
     );
   }
 

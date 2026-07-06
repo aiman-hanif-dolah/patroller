@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +11,8 @@ import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../providers/log_provider.dart';
 import '../../providers/runner_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../widgets/accessible_icon_button.dart';
 
 
 class LogsPanel extends ConsumerStatefulWidget {
@@ -22,14 +25,71 @@ class LogsPanel extends ConsumerStatefulWidget {
 }
 
 class _LogsPanelState extends ConsumerState<LogsPanel> {
+  static const _bottomThreshold = 56.0;
+
   final _scrollController = ScrollController();
   bool _showJumpToBottom = false;
   bool _showFilterMenu = false;
+  bool _programmaticScroll = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_syncJumpToBottomVisibility);
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_syncJumpToBottomVisibility);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  bool _isAtBottom() {
+    if (!_scrollController.hasClients) return true;
+    final position = _scrollController.position;
+    return position.maxScrollExtent - position.pixels <= _bottomThreshold;
+  }
+
+  void _syncJumpToBottomVisibility() {
+    if (_programmaticScroll) return;
+    final showJump = !_isAtBottom();
+    if (showJump != _showJumpToBottom) {
+      setState(() => _showJumpToBottom = showJump);
+    }
+  }
+
+  void _scrollToBottom({bool resumeAutoScroll = false}) {
+    _programmaticScroll = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) {
+        _programmaticScroll = false;
+        return;
+      }
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+        _programmaticScroll = false;
+        if (mounted) {
+          setState(() => _showJumpToBottom = false);
+        }
+      });
+    });
+    if (resumeAutoScroll && !ref.read(logProvider).autoScroll) {
+      ref.read(logProvider.notifier).setAutoScroll(true);
+    }
+  }
+
+  bool _handleUserScroll(ScrollNotification notification) {
+    if (notification is UserScrollNotification &&
+        notification.direction != ScrollDirection.idle &&
+        !_isAtBottom() &&
+        ref.read(logProvider).autoScroll) {
+      ref.read(logProvider.notifier).setAutoScroll(false);
+    }
+    return false;
   }
 
   @override
@@ -40,12 +100,17 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
     final sessionBusy = isSessionBusy(runner.isRunning, runner.currentRun);
 
     ref.listen(logProvider.select((s) => s.revision), (prev, next) {
-      if (logState.autoScroll && !_showJumpToBottom) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-          }
-        });
+      if (ref.read(logProvider).autoScroll) {
+        _scrollToBottom();
+      }
+    });
+
+    ref.listen(filteredLogsProvider, (prev, next) {
+      if (prev == null || prev.length == next.length) return;
+      if (ref.read(logProvider).autoScroll) {
+        _scrollToBottom();
+      } else {
+        _syncJumpToBottomVisibility();
       }
     });
 
@@ -54,6 +119,8 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
         _LogsToolbar(
           searchFocusNode: widget.searchFocusNode,
           showFilterMenu: _showFilterMenu,
+          showJumpToBottom: _showJumpToBottom,
+          onJumpToBottom: () => _scrollToBottom(resumeAutoScroll: true),
           onToggleFilterMenu: () =>
               setState(() => _showFilterMenu = !_showFilterMenu),
         ),
@@ -67,44 +134,53 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
               if (filteredLogs.isEmpty)
                 _EmptyLogsState(sessionBusy: sessionBusy)
               else
-                Scrollbar(
-                  controller: _scrollController,
-                  child: SelectionArea(
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
+                Column(
+                  children: [
+                    const _LogColumnHeader(),
+                    Expanded(
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: _handleUserScroll,
+                        child: Scrollbar(
+                          controller: _scrollController,
+                          child: SelectionArea(
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              itemCount: filteredLogs.length,
+                              itemBuilder: (context, index) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 2),
+                                  child: _LogLine(log: filteredLogs[index]),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                       ),
-                      itemCount: filteredLogs.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: _LogLine(log: filteredLogs[index]),
-                        );
-                      },
                     ),
-                  ),
+                  ],
                 ),
               if (_showJumpToBottom)
                 Positioned(
                   right: 20,
                   bottom: 12,
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      _scrollController.jumpTo(
-                        _scrollController.position.maxScrollExtent,
-                      );
-                      setState(() => _showJumpToBottom = false);
-                    },
-                    icon: const Icon(Icons.arrow_downward, size: 12),
-                    label: const Text('Jump to bottom'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: PatrolColors.ink,
-                      foregroundColor: PatrolColors.obsidian,
-                      textStyle: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                  child: Semantics(
+                    button: true,
+                    label: 'Jump to bottom of logs',
+                    child: FilledButton.icon(
+                      onPressed: () => _scrollToBottom(resumeAutoScroll: true),
+                      icon: const Icon(Icons.arrow_downward, size: 12),
+                      label: const Text('Jump to bottom'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: PatrolColors.ink,
+                        foregroundColor: PatrolColors.obsidian,
+                        textStyle: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -124,45 +200,183 @@ class _LogLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final category = classifyLog(log);
-    final style = logCategoryStyles[category]!;
-    final timestamp = formatLogTimestamp(log.timestamp);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        color: style.background,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text.rich(
-        TextSpan(
+    if (isDependencyNoticeBlock(log)) {
+      final countLabel = log.text.replaceFirst(dependencyNoticeBlockPrefix, '');
+      return ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        title: Text(
+          'Dependency notices ($countLabel)',
           style: const TextStyle(
             fontFamily: 'Menlo',
             fontSize: 11,
-            height: 1.5,
+            color: PatrolColors.steel,
           ),
-          children: [
-            TextSpan(
-              text: '$timestamp ',
-              style: const TextStyle(color: PatrolColors.steel),
+        ),
+        children: [
+          SelectableText(
+            log.rawText ?? '',
+            style: const TextStyle(
+              fontFamily: 'Menlo',
+              fontSize: 10,
+              height: 1.4,
+              color: PatrolColors.graphite,
             ),
-            TextSpan(
-              text: '${style.label} ',
-              style: TextStyle(
-                color: style.tag,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            ...buildLogTextSpans(
-              log.text,
-              defaultColor: style.text,
-              baseStyle: const TextStyle(
+          ),
+        ],
+      );
+    }
+
+    final category = classifyLog(log);
+    final style = logCategoryStyles[category]!;
+    final timestamp = formatLogTimestamp(log.timestamp);
+    const messageStyle = TextStyle(
+      fontFamily: 'Menlo',
+      fontSize: 11,
+      height: 1.5,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: style.background,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: PatrolColors.pebble.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: _LogLineLayout.timeWidth,
+            child: Text(
+              timestamp,
+              style: const TextStyle(
                 fontFamily: 'Menlo',
-                fontSize: 11,
+                fontSize: 10,
                 height: 1.5,
+                color: PatrolColors.steel,
               ),
             ),
-          ],
+          ),
+          const SizedBox(width: _LogLineLayout.gutter),
+          _LogLabelBadge(style: style),
+          const SizedBox(width: _LogLineLayout.gutter),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                style: messageStyle,
+                children: buildLogTextSpans(
+                  log.text,
+                  defaultColor: style.text,
+                  baseStyle: messageStyle,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogLineLayout {
+  static const double timeWidth = 52;
+  static const double labelWidth = 56;
+  static const double gutter = 8;
+  static const double horizontalPadding = 8;
+}
+
+class _LogColumnHeader extends StatelessWidget {
+  const _LogColumnHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        _LogLineLayout.horizontalPadding + 12,
+        4,
+        12,
+        4,
+      ),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: PatrolColors.pebble)),
+        color: Color(0x3309090B),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: _LogLineLayout.timeWidth,
+            child: Text(
+              'TIME',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+                color: PatrolColors.steel.withValues(alpha: 0.9),
+              ),
+            ),
+          ),
+          const SizedBox(width: _LogLineLayout.gutter),
+          SizedBox(
+            width: _LogLineLayout.labelWidth,
+            child: Text(
+              'LABEL',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+                color: PatrolColors.steel.withValues(alpha: 0.9),
+              ),
+            ),
+          ),
+          const SizedBox(width: _LogLineLayout.gutter),
+          const Expanded(
+            child: Text(
+              'MESSAGE',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+                color: PatrolColors.steel,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogLabelBadge extends StatelessWidget {
+  const _LogLabelBadge({required this.style});
+
+  final LogCategoryStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _LogLineLayout.labelWidth,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: style.tag.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: style.tag.withValues(alpha: 0.45)),
+      ),
+      child: Text(
+        style.label,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontFamily: 'Menlo',
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
+          color: style.tag,
+          height: 1.3,
         ),
       ),
     );
@@ -173,16 +387,21 @@ class _LogsToolbar extends ConsumerWidget {
   const _LogsToolbar({
     this.searchFocusNode,
     required this.showFilterMenu,
+    required this.showJumpToBottom,
+    required this.onJumpToBottom,
     required this.onToggleFilterMenu,
   });
 
   final FocusNode? searchFocusNode;
   final bool showFilterMenu;
+  final bool showJumpToBottom;
+  final VoidCallback onJumpToBottom;
   final VoidCallback onToggleFilterMenu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logState = ref.watch(logProvider);
+    final showRaw = ref.watch(settingsProvider).settings.showRawStderr;
     final filtered = ref.watch(filteredLogsProvider);
     final filtersActive = isLogFilterActive(logState.logFilters) ||
         logState.logSearch.trim().isNotEmpty;
@@ -218,28 +437,42 @@ class _LogsToolbar extends ConsumerWidget {
               ),
             ),
           ),
-          IconButton(
-            onPressed: () => ref
-                .read(logProvider.notifier)
-                .setAutoScroll(!logState.autoScroll),
-            icon: Icon(
-              logState.autoScroll ? Icons.pause : Icons.play_arrow,
-              size: 12,
-            ),
-            tooltip: logState.autoScroll
+          AccessibleIconButton(
+            icon: logState.autoScroll ? Icons.pause : Icons.play_arrow,
+            label: logState.autoScroll
                 ? 'Pause auto-scroll'
                 : 'Resume auto-scroll',
+            onPressed: () {
+              final next = !logState.autoScroll;
+              ref.read(logProvider.notifier).setAutoScroll(next);
+              if (next) onJumpToBottom();
+            },
+            size: 12,
           ),
-          IconButton(
+          AccessibleIconButton(
+            icon: Icons.arrow_downward,
+            label: 'Jump to bottom of logs',
+            color: showJumpToBottom ? PatrolColors.ink : PatrolColors.steel,
+            onPressed: filtered.isEmpty ? null : onJumpToBottom,
+            size: 12,
+          ),
+          AccessibleIconButton(
+            icon: showFilterMenu ? Icons.filter_list_off : Icons.filter_list,
+            label: showFilterMenu ? 'Hide log filters' : 'Show log filters',
+            color: showFilterMenu || filtersActive
+                ? PatrolColors.ink
+                : PatrolColors.steel,
             onPressed: onToggleFilterMenu,
-            icon: Icon(
-              showFilterMenu ? Icons.filter_list_off : Icons.filter_list,
-              size: 12,
-              color: showFilterMenu || filtersActive
-                  ? PatrolColors.ink
-                  : PatrolColors.steel,
-            ),
-            tooltip: showFilterMenu ? 'Hide filters' : 'Show filters',
+            size: 12,
+          ),
+          AccessibleIconButton(
+            icon: showRaw ? Icons.article_outlined : Icons.article,
+            label: showRaw ? 'Hide raw stderr' : 'Show raw stderr',
+            color: showRaw ? PatrolColors.ink : PatrolColors.steel,
+            onPressed: () => ref.read(settingsProvider.notifier).updatePartial({
+              'showRawStderr': !showRaw,
+            }),
+            size: 12,
           ),
           if (filtersActive) ...[
             Container(
@@ -265,7 +498,9 @@ class _LogsToolbar extends ConsumerWidget {
             lineLabel,
             style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
           ),
-          IconButton(
+          AccessibleIconButton(
+            icon: Icons.copy,
+            label: 'Copy visible logs',
             onPressed: filtered.isEmpty
                 ? null
                 : () {
@@ -279,15 +514,15 @@ class _LogsToolbar extends ConsumerWidget {
                         .read(runnerProvider.notifier)
                         .showSnackbar('Logs copied');
                   },
-            icon: const Icon(Icons.copy, size: 12),
-            tooltip: 'Copy visible logs',
+            size: 12,
           ),
-          IconButton(
+          AccessibleIconButton(
+            icon: Icons.delete_outline,
+            label: 'Clear all logs',
             onPressed: logState.logs.isEmpty
                 ? null
                 : () => ref.read(logProvider.notifier).clearLogs(),
-            icon: const Icon(Icons.delete_outline, size: 12),
-            tooltip: 'Clear all logs (⌘K)',
+            size: 12,
           ),
         ],
       ),
@@ -309,160 +544,207 @@ class _FilterPanel extends ConsumerWidget {
       color: PatrolColors.fog,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        constraints: const BoxConstraints(maxHeight: 240),
         decoration: const BoxDecoration(
           color: PatrolColors.fog,
           border: Border(
             bottom: BorderSide(color: PatrolColors.pebble),
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'LOG FILTERS',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.6,
-                    color: PatrolColors.steel,
-                  ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: notifier.resetLogUiState,
-                  child: const Text('Reset all', style: TextStyle(fontSize: 10)),
-                ),
-                IconButton(
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close, size: 14),
-                  tooltip: 'Close filters',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
+        child: Scrollbar(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(
-                  width: 52,
-                  child: Text(
-                    'Mode',
-                    style: TextStyle(fontSize: 10, color: PatrolColors.steel),
-                  ),
+                Row(
+                  children: [
+                    const Text(
+                      'LOG FILTERS',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.6,
+                        color: PatrolColors.steel,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: notifier.resetLogUiState,
+                      child: const Text(
+                        'Reset all',
+                        style: TextStyle(fontSize: 10),
+                      ),
+                    ),
+                    AccessibleIconButton(
+                      icon: Icons.close,
+                      label: 'Close log filters',
+                      onPressed: onClose,
+                      size: 14,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: Wrap(
-                    spacing: 6,
-                    children: LogFilterMode.values.map((mode) {
-                      final selected = filters.mode == mode;
-                      return ChoiceChip(
-                        label: Text(
-                          mode == LogFilterMode.include ? 'Show only' : 'Hide',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: selected
-                                ? PatrolColors.obsidian
-                                : PatrolColors.steel,
-                          ),
-                        ),
-                        selected: selected,
-                        onSelected: (_) => notifier.setLogFilterMode(mode),
-                        selectedColor: PatrolColors.ink,
-                        backgroundColor: PatrolColors.mist,
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      );
-                    }).toList(),
-                  ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(
+                      width: 52,
+                      child: Text(
+                        'Mode',
+                        style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+                      ),
+                    ),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        children: LogFilterMode.values.map((mode) {
+                          final selected = filters.mode == mode;
+                          return ChoiceChip(
+                            label: Text(
+                              mode == LogFilterMode.include ? 'Show only' : 'Hide',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: selected
+                                    ? PatrolColors.ink
+                                    : PatrolColors.steel,
+                              ),
+                            ),
+                            selected: selected,
+                            onSelected: (_) => notifier.setLogFilterMode(mode),
+                            selectedColor: PatrolColors.fog,
+                            backgroundColor: PatrolColors.fog,
+                            side: BorderSide(
+                              color: selected ? PatrolColors.ink : PatrolColors.graphite,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(
+                      width: 52,
+                      child: Text(
+                        'Stream',
+                        style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+                      ),
+                    ),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        children: LogStreamFilter.values.map((stream) {
+                          final selected = filters.stream == stream;
+                          return ChoiceChip(
+                            label: Text(
+                              stream.name,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: selected
+                                    ? PatrolColors.ink
+                                    : PatrolColors.steel,
+                              ),
+                            ),
+                            selected: selected,
+                            onSelected: (_) =>
+                                notifier.setLogStreamFilter(stream),
+                            selectedColor: PatrolColors.fog,
+                            backgroundColor: PatrolColors.fog,
+                            side: BorderSide(
+                              color: selected ? PatrolColors.ink : PatrolColors.graphite,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(
+                      width: 52,
+                      child: Text(
+                        'Sources',
+                        style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+                      ),
+                    ),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: LogFilterKey.values.map((key) {
+                          final enabled = filters.sources[key] ?? true;
+                          return FilterChip(
+                            label: Text(
+                              logFilterLabels[key]!,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: enabled
+                                    ? PatrolColors.ink
+                                    : PatrolColors.steel,
+                              ),
+                            ),
+                            selected: enabled,
+                            onSelected: (_) =>
+                                notifier.toggleLogFilterSource(key),
+                            showCheckmark: false,
+                            selectedColor: PatrolColors.fog,
+                            backgroundColor: PatrolColors.fog,
+                            side: BorderSide(
+                              color: enabled ? PatrolColors.ink : PatrolColors.graphite,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(
-                  width: 52,
-                  child: Text(
-                    'Stream',
-                    style: TextStyle(fontSize: 10, color: PatrolColors.steel),
-                  ),
-                ),
-                Expanded(
-                  child: Wrap(
-                    spacing: 6,
-                    children: LogStreamFilter.values.map((stream) {
-                      final selected = filters.stream == stream;
-                      return ChoiceChip(
-                        label: Text(
-                          stream.name,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: selected
-                                ? PatrolColors.obsidian
-                                : PatrolColors.steel,
-                          ),
-                        ),
-                        selected: selected,
-                        onSelected: (_) => notifier.setLogStreamFilter(stream),
-                        selectedColor: PatrolColors.ink,
-                        backgroundColor: PatrolColors.mist,
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(
-                  width: 52,
-                  child: Text(
-                    'Sources',
-                    style: TextStyle(fontSize: 10, color: PatrolColors.steel),
-                  ),
-                ),
-                Expanded(
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: LogFilterKey.values.map((key) {
-                      final enabled = filters.sources[key] ?? true;
-                      return FilterChip(
-                        label: Text(
-                          logFilterLabels[key]!,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: enabled
-                                ? PatrolColors.obsidian
-                                : PatrolColors.steel,
-                          ),
-                        ),
-                        selected: enabled,
-                        onSelected: (_) => notifier.toggleLogFilterSource(key),
-                        selectedColor: PatrolColors.ink,
-                        backgroundColor: PatrolColors.mist,
-                        checkmarkColor: PatrolColors.obsidian,
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _ScrollableCenteredBody extends StatelessWidget {
+  const _ScrollableCenteredBody({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Scrollbar(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(child: child),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -476,7 +758,7 @@ class _EmptyLogsState extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final logState = ref.watch(logProvider);
     if (logState.logs.isNotEmpty) {
-      return Center(
+      return _ScrollableCenteredBody(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -494,7 +776,7 @@ class _EmptyLogsState extends ConsumerWidget {
     }
 
     if (sessionBusy) {
-      return const Center(
+      return const _ScrollableCenteredBody(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -504,13 +786,16 @@ class _EmptyLogsState extends ConsumerWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             SizedBox(height: 8),
-            Text('Starting...', style: TextStyle(fontSize: 10, color: PatrolColors.steel)),
+            Text(
+              'Starting...',
+              style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+            ),
           ],
         ),
       );
     }
 
-    return const Center(child: _SessionDashboard());
+    return const _ScrollableCenteredBody(child: _SessionDashboard());
   }
 }
 
@@ -571,8 +856,10 @@ class _SessionDashboard extends ConsumerWidget {
               : 'None yet',
         ),
         const SizedBox(height: 16),
-        Row(
-          mainAxisSize: MainAxisSize.min,
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             _dashboardButton(
               label: 'Test',
@@ -580,14 +867,12 @@ class _SessionDashboard extends ConsumerWidget {
               enabled: runDisabled == null,
               onPressed: () => ref.read(runnerProvider.notifier).runSelected(),
             ),
-            const SizedBox(width: 8),
             _dashboardButton(
               label: 'Test All',
               color: PatrolColors.sky400,
               enabled: queueDisabled == null,
               onPressed: () => ref.read(runnerProvider.notifier).runAll(),
             ),
-            const SizedBox(width: 8),
             _dashboardButton(
               label: 'Develop All',
               color: PatrolColors.violet400,

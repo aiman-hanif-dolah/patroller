@@ -43,29 +43,17 @@ String toProjectRelativePath(String projectPath, String filePath) {
   }
 }
 
-List<String> _developSuiteTargetArgs(RunConfig config) {
-  final targets = config.targetFiles != null && config.targetFiles!.isNotEmpty
-      ? List<String>.from(config.targetFiles!)
-      : config.targetFile != null
-          ? [config.targetFile!]
-          : <String>[];
-
-  if (targets.length == 1) {
-    return [
-      '--target',
-      toProjectRelativePath(config.projectPath, targets.first),
-    ];
+List<String> _developTargetArgs(RunConfig config) {
+  final target = config.targetFile?.trim() ?? '';
+  if (target.isEmpty) {
+    throw ArgumentError(
+      'Patrol develop requires exactly one --target test file.',
+    );
   }
-
-  final excluded = config.excludedFiles ?? <String>[];
-  return excluded
-      .expand(
-        (file) => [
-          '--exclude',
-          toProjectRelativePath(config.projectPath, file),
-        ],
-      )
-      .toList();
+  return [
+    '--target',
+    toProjectRelativePath(config.projectPath, target),
+  ];
 }
 
 PatrolCommand buildPatrolCommand(PatrolCommandInput input) {
@@ -77,18 +65,12 @@ PatrolCommand buildPatrolCommand(PatrolCommandInput input) {
       args.add('test');
       break;
     case RunMode.develop:
-      args.addAll([
-        'develop',
-        '--target',
-        toProjectRelativePath(
-          config.projectPath,
-          config.targetFile ?? '',
-        ),
-      ]);
+      args.add('develop');
+      args.addAll(_developTargetArgs(config));
       break;
     case RunMode.developSuite:
       args.add('develop');
-      args.addAll(_developSuiteTargetArgs(config));
+      args.addAll(_developTargetArgs(config));
       break;
     case RunMode.test:
       args.addAll([

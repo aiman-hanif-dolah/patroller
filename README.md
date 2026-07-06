@@ -14,7 +14,7 @@ Release build:
 
 ```bash
 flutter build macos
-open build/macos/Build/Products/Release/patroller.app
+open build/macos/Build/Products/Release/Patroller.app
 ```
 
 ## Feature parity

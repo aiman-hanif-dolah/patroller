@@ -5,98 +5,46 @@ import '../../core/theme/patrol_colors.dart';
 import '../../domain/runner_helpers.dart';
 import '../../models/models.dart';
 import '../../providers/runner_provider.dart';
+import '../../widgets/accessible_icon_button.dart';
 
-class DevicePickerMenu extends ConsumerWidget {
-  const DevicePickerMenu({
-    super.key,
-    required this.onClose,
-  });
+class DevicePickerList extends ConsumerWidget {
+  const DevicePickerList({super.key, this.onSelected});
 
-  final VoidCallback onClose;
+  final VoidCallback? onSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final runner = ref.watch(runnerProvider);
     final devices = runner.devices;
 
-    return Material(
-      elevation: 8,
-      color: PatrolColors.mist,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        width: 280,
-        constraints: const BoxConstraints(maxHeight: 320),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: PatrolColors.pebble),
+    if (devices.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'No simulators found. Refresh to scan again.',
+          style: TextStyle(fontSize: 12, color: PatrolColors.steel),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Select simulator',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: PatrolColors.ink,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () =>
-                        ref.read(runnerProvider.notifier).refreshDevices(),
-                    icon: const Icon(Icons.refresh, size: 14),
-                    tooltip: 'Refresh devices',
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: PatrolColors.pebble),
-            Flexible(
-              child: devices.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'No devices found',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: PatrolColors.steel,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: devices.length,
-                      itemBuilder: (context, index) {
-                        final device = devices[index];
-                        return _DeviceRow(
-                          device: device,
-                          selected: runner.selectedDevice?.id == device.id,
-                          onSelect: () {
-                            ref
-                                .read(runnerProvider.notifier)
-                                .setSelectedDevice(device);
-                            onClose();
-                          },
-                          onBoot: device.state == DeviceState.shutdown &&
-                              isSelectableDevice(device)
-                              ? () => ref
-                                  .read(runnerProvider.notifier)
-                                  .bootSimulator()
-                              : null,
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      itemCount: devices.length,
+      itemBuilder: (context, index) {
+        final device = devices[index];
+        return _DeviceRow(
+          device: device,
+          selected: runner.selectedDevice?.id == device.id,
+          onSelect: () {
+            ref.read(runnerProvider.notifier).setSelectedDevice(device);
+            onSelected?.call();
+          },
+          onBoot: device.state == DeviceState.shutdown &&
+                  isSelectableDevice(device)
+              ? () => ref.read(runnerProvider.notifier).bootDevice(device.id)
+              : null,
+        );
+      },
     );
   }
 }
@@ -154,11 +102,13 @@ class _DeviceRow extends StatelessWidget {
                 ),
               ),
               if (onBoot != null)
-                IconButton(
+                AccessibleIconButton(
+                  icon: Icons.play_arrow,
+                  label: 'Boot ${device.name}',
                   onPressed: onBoot,
-                  icon: const Icon(Icons.play_arrow, size: 14),
-                  tooltip: 'Boot simulator',
-                  visualDensity: VisualDensity.compact,
+                  size: 14,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
               if (selectable)
                 Text(

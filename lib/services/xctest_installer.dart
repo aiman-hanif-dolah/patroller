@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/enums.dart';
 import '../models/hierarchy.dart';
 import 'bundled_resources.dart';
 import 'cli_env.dart';
+import 'simulator_driver_health.dart';
 import 'xctest_client.dart';
 
 const _runnerReadyTimeoutMs = 120000;
@@ -92,6 +94,40 @@ class XCTestInstaller {
         'Run scripts/build-simulator-driver.sh and bundle resources into the app.',
       );
     }
+  }
+
+  /// Clears cached artifacts, stops any active session, and reinstalls the
+  /// runner app before starting a fresh driver session on [udid].
+  Future<void> repairSession({
+    required String udid,
+    required DeviceType deviceType,
+    required int port,
+    String? xcrunPath,
+  }) async {
+    clearSimulatorDriverCache();
+    stopSession(udid);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (deviceType != DeviceType.physicalIos) {
+      await Process.run(
+        resolveExecutable('xcrun', configuredPath: xcrunPath),
+        ['simctl', 'terminate', udid, _driverArtifacts.runnerBundleId],
+        environment: developerToolEnv(),
+      );
+    }
+    await Process.run(
+      'bash',
+      [
+        '-lc',
+        'lsof -ti tcp:$port | xargs kill -9 2>/dev/null || true',
+      ],
+      environment: developerToolEnv(),
+    );
+    await ensureSession(
+      udid: udid,
+      deviceType: deviceType,
+      port: port,
+      xcrunPath: xcrunPath,
+    );
   }
 
   Future<void> ensureSession({
@@ -250,20 +286,53 @@ class XCTestInstaller {
   }
 
   Future<void> _extractRunnerZips(Directory directory) async {
-    await for (final entity
-        in directory.list(recursive: true, followLinks: false)) {
+    await for (final entity in directory.list(followLinks: false)) {
       if (entity is Directory) {
         await _extractRunnerZips(entity);
       } else if (entity is File && entity.path.endsWith('.zip')) {
-        final parent = p.dirname(entity.path);
-        final result = await Process.run(
-          'ditto',
-          ['-x', '-k', entity.path, parent],
-          environment: developerToolEnv(),
-        );
-        if (result.exitCode != 0) {
-          throw Exception('${result.stderr}');
-        }
+        await _extractZipIfNeeded(entity);
+      }
+    }
+  }
+
+  Future<void> _extractZipIfNeeded(File zipFile) async {
+    final parent = p.dirname(zipFile.path);
+    final inferredAppName = p.basename(zipFile.path).replaceAll('.zip', '');
+    final inferredApp = Directory(p.join(parent, inferredAppName));
+    if (inferredApp.existsSync()) return;
+
+    try {
+      await _extractZipArchive(zipFile, parent);
+      return;
+    } catch (archiveError) {
+      final result = await Process.run(
+        '/usr/bin/ditto',
+        ['-x', '-k', zipFile.path, parent],
+        environment: developerToolEnv(),
+      );
+      if (result.exitCode == 0) return;
+      final stderr = '${result.stderr}'.trim();
+      throw Exception(
+        stderr.isNotEmpty
+            ? stderr
+            : 'Failed to extract ${zipFile.path}: $archiveError',
+      );
+    }
+  }
+
+  Future<void> _extractZipArchive(File zipFile, String destination) async {
+    final archive = ZipDecoder().decodeBytes(zipFile.readAsBytesSync());
+    for (final file in archive) {
+      final outputPath = p.normalize(p.join(destination, file.name));
+      if (!outputPath.startsWith(p.normalize(destination))) {
+        throw Exception('Unsafe zip entry path: ${file.name}');
+      }
+      if (file.isFile) {
+        final outFile = File(outputPath);
+        outFile.parent.createSync(recursive: true);
+        outFile.writeAsBytesSync(file.content as List<int>);
+      } else {
+        Directory(outputPath).createSync(recursive: true);
       }
     }
   }
@@ -275,17 +344,32 @@ class XCTestInstaller {
     final buildDir = deviceType == DeviceType.physicalIos
         ? 'Debug-iphoneos'
         : 'Debug-iphonesimulator';
-    final appPath = File(
+    final expected = File(
       p.join(
         directory.path,
         buildDir,
         _driverArtifacts.runnerAppFolderName,
       ),
     );
-    if (!appPath.existsSync()) {
-      throw Exception('Simulator driver app is missing at ${appPath.path}');
+    if (expected.existsSync()) return expected;
+
+    final discovered = _discoverRunnerApp(directory);
+    if (discovered != null) return discovered;
+
+    throw Exception(
+      'Simulator driver app is missing at ${expected.path}. '
+      'Reinstall Patroller or run scripts/build-simulator-driver.sh.',
+    );
+  }
+
+  File? _discoverRunnerApp(Directory directory) {
+    final targetName = _driverArtifacts.runnerAppFolderName;
+    for (final entity in directory.listSync(recursive: true, followLinks: false)) {
+      if (entity is Directory && p.basename(entity.path) == targetName) {
+        return File(entity.path);
+      }
     }
-    return appPath;
+    return null;
   }
 
   File _findXctestRunConfig(Directory directory) {

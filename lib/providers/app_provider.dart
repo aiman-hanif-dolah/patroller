@@ -203,6 +203,14 @@ class AppNotifier extends StateNotifier<AppState> {
       });
       await scanTests();
       await _ref.read(runnerProvider.notifier).loadDevices();
+      await _ref
+          .read(healthProvider.notifier)
+          .runChecks(project.projectPath);
+      final health = _ref.read(healthProvider);
+      state = state.copyWith(
+        healthWarningCount: health.warningCount,
+        healthStale: health.state == HealthCheckState.stale,
+      );
       await loadRecentProjects();
     } catch (e) {
       state = state.copyWith(

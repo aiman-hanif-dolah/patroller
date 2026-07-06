@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
 import 'facade_provider.dart';
-import 'health_provider.dart';
+import 'health_stale.dart';
 import 'log_provider.dart';
 
 class SettingsState {
@@ -65,7 +65,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     final updated = await _facade.settings.set(partial);
     state = state.copyWith(settings: updated);
     _ref.read(logProvider.notifier).applySettings(updated);
-    _ref.read(healthProvider.notifier).markStale();
+    markHealthStale(_ref);
   }
 
   void setValidationErrors(Map<String, String> errors) {

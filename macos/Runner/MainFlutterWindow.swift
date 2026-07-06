@@ -11,5 +11,14 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     super.awakeFromNib()
+
+    self.minSize = NSSize(width: 1100, height: 700)
+    maximizeToVisibleScreen()
+  }
+
+  private func maximizeToVisibleScreen() {
+    guard let screen = self.screen ?? NSScreen.main else { return }
+    let visibleFrame = screen.visibleFrame
+    self.setFrame(visibleFrame, display: true)
   }
 }

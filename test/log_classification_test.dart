@@ -49,6 +49,32 @@ void main() {
     });
   });
 
+  group('groupDependencyNotices', () {
+    test('collapses consecutive dependency notices into one block', () {
+      final logs = [
+        LogEvent(
+          runId: 'r1',
+          streamType: LogStreamType.stdout,
+          timestamp: '2026-01-01T00:00:00Z',
+          text: 'Resolving dependencies...',
+          lineNumber: 1,
+          source: LogSource.system,
+        ),
+        LogEvent(
+          runId: 'r1',
+          streamType: LogStreamType.stdout,
+          timestamp: '2026-01-01T00:00:01Z',
+          text: 'Got dependencies!',
+          lineNumber: 2,
+          source: LogSource.system,
+        ),
+      ];
+      final grouped = groupDependencyNotices(logs);
+      expect(grouped.length, 1);
+      expect(isDependencyNoticeBlock(grouped.first), isTrue);
+    });
+  });
+
   group('collapseRepeatedLogBlocks', () {
     test('collapses repeated flutter warning blocks', () {
       final logs = List.generate(

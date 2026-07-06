@@ -7,7 +7,7 @@ void main() {
       final settings = AppSettings.defaults();
       expect(settings.previewPanelWidth, 390);
       expect(settings.previewCollapsed, false);
-      expect(settings.logsPanelWidth, 480);
+      expect(settings.logsPanelWidth, 640);
     });
 
     test('fromJson uses defaults for missing preview keys', () {
@@ -19,6 +19,24 @@ void main() {
       expect(legacy.previewPanelWidth, 390);
       expect(legacy.previewCollapsed, false);
       expect(legacy.logsPanelWidth, 640);
+    });
+
+    test('resetLayoutDefaults restores all panel visibility', () {
+      final collapsed = AppSettings.defaults().copyWith(
+        previewCollapsed: true,
+        logsCollapsed: true,
+        rightCollapsed: true,
+        previewPanelWidth: 300,
+        logsPanelWidth: 900,
+        rightPanelWidth: 500,
+      );
+      final reset = AppSettings.resetLayoutDefaults(collapsed);
+      expect(reset.previewCollapsed, false);
+      expect(reset.logsCollapsed, false);
+      expect(reset.rightCollapsed, false);
+      expect(reset.previewPanelWidth, 390);
+      expect(reset.logsPanelWidth, 640);
+      expect(reset.rightPanelWidth, 380);
     });
 
     test('round-trip preserves preview settings', () {

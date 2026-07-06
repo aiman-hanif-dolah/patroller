@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 String? _augmentedPathCache;
+String? _developerDirCache;
 
 /// Common bin directories for Flutter/Dart/Patrol tooling.
 List<String> developerToolBinDirs() {
@@ -95,6 +96,17 @@ String resolveExecutable(String name, {String? configuredPath}) {
     }
   }
 
+  if (Platform.isMacOS) {
+    for (final systemPath in [
+      p.join('/usr', 'bin', candidate),
+      p.join('/Applications', 'Xcode.app', 'Contents', 'Developer', 'usr', 'bin', candidate),
+    ]) {
+      if (File(systemPath).existsSync() && isTrustedExecutablePath(systemPath)) {
+        return systemPath;
+      }
+    }
+  }
+
   for (final dir in developerToolBinDirs()) {
     final full = p.join(dir, candidate);
     if (Platform.isWindows && !full.toLowerCase().endsWith('.exe')) {
@@ -126,14 +138,37 @@ String resolveExecutable(String name, {String? configuredPath}) {
   return candidate;
 }
 
+String? _resolveDeveloperDir(Map<String, String> env) {
+  if (!Platform.isMacOS) return null;
+  try {
+    final xcodeSelect = resolveExecutable('xcode-select');
+    final result = Process.runSync(
+      xcodeSelect,
+      const ['-p'],
+      environment: env,
+    );
+    if (result.exitCode == 0) {
+      final dir = '${result.stdout}'.trim();
+      if (dir.isNotEmpty) return dir;
+    }
+  } catch (_) {}
+  return null;
+}
+
 /// Spawn/exec env with an augmented PATH for child processes.
 Map<String, String> developerToolEnv() {
   final env = Map<String, String>.from(Platform.environment);
   env['PATH'] = augmentedDeveloperPath();
+  _developerDirCache ??= _resolveDeveloperDir(env);
+  final developerDir = _developerDirCache;
+  if (developerDir != null && developerDir.isNotEmpty) {
+    env['DEVELOPER_DIR'] = developerDir;
+  }
   return env;
 }
 
 /// Clears cached PATH (useful after settings change).
 void clearAugmentedPathCache() {
   _augmentedPathCache = null;
+  _developerDirCache = null;
 }

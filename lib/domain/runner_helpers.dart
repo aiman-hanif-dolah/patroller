@@ -1,3 +1,4 @@
+import 'log_classification.dart';
 import '../models/models.dart';
 
 bool isActiveLifecycle(RunLifecycle? value) {
@@ -67,6 +68,30 @@ String? getRunDisabledReason({
   return null;
 }
 
+bool isDevelopSession(RunRecord? run) {
+  return run?.runMode == RunMode.develop ||
+      run?.runMode == RunMode.developSuite;
+}
+
+String? hotRestartDisabledReason({
+  required bool isRunning,
+  required RunRecord? currentRun,
+}) {
+  if (currentRun == null ||
+      !isDevelopSession(currentRun) ||
+      !isRunning) {
+    return 'No active develop session';
+  }
+  final lifecycle = resolveLifecycle(currentRun);
+  if (lifecycle == RunLifecycle.starting) {
+    return 'Waiting for session to start';
+  }
+  if (lifecycle == RunLifecycle.stopping) {
+    return 'Stopping...';
+  }
+  return null;
+}
+
 String? getQueueRunDisabledReason({
   required bool hasProject,
   required bool hasTestFiles,
@@ -111,12 +136,19 @@ String formatTestExplorerHeader(
   int totalFiles,
   int totalTests,
   int filteredFiles,
-  bool filterActive,
-) {
+  bool filterActive, {
+  int? runnableFiles,
+  int? runnableTests,
+}) {
+  final runnableFileCount = runnableFiles ?? totalFiles;
+  final runnableTestCount = runnableTests ?? totalTests;
   if (filterActive) {
-    return '$filteredFiles / $totalFiles files · $totalTests tests';
+    return '$filteredFiles / $runnableFileCount runnable files · $runnableTestCount tests';
   }
-  return '$totalFiles files · $totalTests tests';
+  if (runnableFileCount == totalFiles) {
+    return '$totalFiles files · $runnableTestCount tests';
+  }
+  return '$runnableFileCount runnable / $totalFiles files · $runnableTestCount tests';
 }
 
 String middleTruncate(String text, int maxLength) {
@@ -133,4 +165,30 @@ TestStatus runRecordStatusToTestStatus(RunRecordStatus status) {
     RunRecordStatus.running => TestStatus.running,
     RunRecordStatus.queued => TestStatus.queued,
   };
+}
+
+String formatLogEventForExport(LogEvent log) {
+  final time = formatLogTimestamp(log.timestamp);
+  final label = logCategoryStyles[classifyLog(log)]!.label;
+  return '$time | $label | ${log.text}';
+}
+
+String formatRunLogsForExport({
+  required List<LogEvent> logs,
+  String? combinedLog,
+  String? stderrLog,
+}) {
+  if (logs.isNotEmpty) {
+    return logs.map(formatLogEventForExport).join('\n');
+  }
+  final combined = combinedLog?.trim() ?? '';
+  final stderr = stderrLog?.trim() ?? '';
+  if (combined.isNotEmpty && stderr.isNotEmpty) {
+    return '$combined\n--- stderr ---\n$stderr';
+  }
+  return combined.isNotEmpty ? combined : stderr;
+}
+
+bool isFailedRunStatus(RunRecordStatus status) {
+  return status == RunRecordStatus.failed || status == RunRecordStatus.error;
 }

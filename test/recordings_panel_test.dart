@@ -1,44 +1,51 @@
 import 'package:flutter_test/flutter_test.dart';
-
-String recordingInstructionCopy({required bool previewReady}) {
-  return previewReady
-      ? 'Interact inside Patroller\'s simulator preview — taps and swipes are recorded automatically.'
-      : 'Preview unavailable — interact in Simulator.app and Patroller will record from the native window.';
-}
-
-String recordingActiveCopy({
-  required bool previewReady,
-  required int actionCount,
-}) {
-  return previewReady
-      ? '$actionCount actions captured in preview. Logs attach on save.'
-      : 'Use Simulator.app to interact. $actionCount actions captured. Logs attach on save.';
-}
+import 'package:patroller/domain/simulator_driver_readiness.dart';
 
 void main() {
   group('Record tab copy', () {
-    test('preview-ready state says interact in Patroller preview', () {
-      expect(
-        recordingInstructionCopy(previewReady: true),
-        contains('Patroller\'s simulator preview'),
+    test('external-ready state says interact in Simulator.app', () {
+      const readiness = SimulatorDriverReadiness(
+        embeddedPreviewReady: false,
+        embeddedRecordingReady: false,
+        canInspect: false,
+        userMessage:
+            'Interact in Simulator.app — taps and swipes are recorded automatically.',
+        fixInstruction: '',
+        allowExternalFallback: true,
       );
-    });
-
-    test('driver-unavailable state falls back to Simulator.app copy', () {
       expect(
-        recordingInstructionCopy(previewReady: false),
+        recordingInstructionCopy(readiness),
         contains('Simulator.app'),
       );
     });
 
-    test('recording action list copy updates while recording', () {
-      expect(
-        recordingActiveCopy(previewReady: true, actionCount: 3),
-        '3 actions captured in preview. Logs attach on save.',
+    test('unavailable state explains missing prerequisites', () {
+      const readiness = SimulatorDriverReadiness(
+        embeddedPreviewReady: false,
+        embeddedRecordingReady: false,
+        canInspect: false,
+        userMessage: 'Boot an iOS Simulator to record actions.',
+        fixInstruction: 'Use the device picker below to boot a simulator.',
+        allowExternalFallback: false,
       );
       expect(
-        recordingActiveCopy(previewReady: false, actionCount: 5),
-        contains('5 actions captured'),
+        recordingInstructionCopy(readiness),
+        contains('Boot an iOS Simulator'),
+      );
+    });
+
+    test('recording action list copy updates while recording', () {
+      const ready = SimulatorDriverReadiness(
+        embeddedPreviewReady: false,
+        embeddedRecordingReady: false,
+        canInspect: false,
+        userMessage: 'ready',
+        fixInstruction: '',
+        allowExternalFallback: true,
+      );
+      expect(
+        recordingActiveCopy(readiness: ready, actionCount: 3),
+        '3 actions captured from Simulator.app. Logs attach on save.',
       );
     });
   });

@@ -1,8 +1,14 @@
+import 'dart:io';
+
+import '../domain/simulator_user_apps.dart';
 import '../models/enums.dart';
 import '../models/hierarchy.dart';
+import 'cli_env.dart';
 import 'settings_store.dart';
 import 'xctest_client.dart';
 import 'xctest_installer.dart';
+
+const _driverRunnerBundleId = 'studio.patrol.PatrolSimulatorDriverUITests.xctrunner';
 
 class SimulatorDriverService {
   SimulatorDriverService({SettingsStore? settingsStore})
@@ -11,6 +17,20 @@ class SimulatorDriverService {
   final SettingsStore _settingsStore;
 
   DriverStatus getDriverStatus() => XCTestInstaller.instance.getDriverStatus();
+
+  Future<DriverStatus> repairDriver({
+    required String udid,
+    required DeviceType deviceType,
+  }) async {
+    final settings = _settingsStore.get();
+    await XCTestInstaller.instance.repairSession(
+      udid: udid,
+      deviceType: deviceType,
+      port: settings.xctestRunnerPort,
+      xcrunPath: settings.xcrunPath,
+    );
+    return getDriverStatus();
+  }
 
   Future<void> ensureSession({
     required String udid,
@@ -153,17 +173,68 @@ class SimulatorDriverService {
     await client.pressKey(key);
   }
 
+  Future<List<String>> listUserBundleIds(String udid) async {
+    if (!Platform.isMacOS) return const [];
+    final settings = _settingsStore.get();
+    final output = await Process.run(
+      resolveExecutable('xcrun', configuredPath: settings.xcrunPath),
+      ['simctl', 'listapps', udid],
+      environment: developerToolEnv(),
+    );
+    if (output.exitCode != 0) return const [];
+    return parseSimulatorUserBundleIds(
+      '${output.stdout}',
+      excludeBundleId: _driverRunnerBundleId,
+    );
+  }
+
+  Future<String?> runningApp({
+    required String udid,
+    required DeviceType deviceType,
+    List<String> candidateAppIds = const [],
+  }) async {
+    await ensureSession(udid: udid, deviceType: deviceType);
+    final client = _client();
+    if (client == null) return null;
+    final candidates = candidateAppIds.isNotEmpty
+        ? candidateAppIds
+        : await listUserBundleIds(udid);
+    if (candidates.isEmpty) return null;
+    return client.runningApp(candidateAppIds: candidates);
+  }
+
   Future<HierarchyNode> viewHierarchy({
     required String udid,
     required DeviceType deviceType,
     String? appId,
+    List<String> candidateAppIds = const [],
   }) async {
     await ensureSession(udid: udid, deviceType: deviceType);
     final client = _client();
     if (client == null) {
       return const HierarchyNode(type: 'stub', children: []);
     }
-    return client.viewHierarchy(appId: appId);
+
+    final candidates = appId != null
+        ? [appId]
+        : (candidateAppIds.isNotEmpty
+            ? candidateAppIds
+            : await listUserBundleIds(udid));
+    if (candidates.isEmpty) {
+      return const HierarchyNode(type: 'stub', children: []);
+    }
+
+    final resolvedAppId = appId ?? await client.runningApp(
+      candidateAppIds: candidates,
+    );
+    if (resolvedAppId == null) {
+      return const HierarchyNode(type: 'stub', children: []);
+    }
+
+    return client.viewHierarchy(
+      appId: resolvedAppId,
+      candidateAppIds: candidates,
+    );
   }
 
   void stopSession([String? udid]) {

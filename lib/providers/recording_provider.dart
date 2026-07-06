@@ -8,7 +8,7 @@ import '../domain/runner_helpers.dart';
 import '../domain/state_snapshot.dart';
 import '../models/models.dart';
 import 'facade_provider.dart';
-import 'preview_provider.dart';
+import 'simulator_driver_readiness_provider.dart';
 import 'runner_provider.dart';
 
 const _enrichmentTimeoutMs = 4000;
@@ -166,21 +166,24 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     _enrichment.lastHierarchy = null;
     _enrichment.lastFingerprint = null;
 
-    final previewReady = _ref.read(previewProvider).isDriverReady;
+    final readiness = _ref.read(simulatorDriverReadinessProvider);
+    if (!readiness.allowExternalFallback) {
+      state = state.copyWith(error: readiness.userMessage);
+      _ref.read(runnerProvider.notifier).showSnackbar(readiness.userMessage);
+      return;
+    }
+
     state = state.copyWith(
       activeActions: const [],
       activeStateSnapshots: const [],
       startedAt: now,
       lastActionAt: now,
       isRecording: true,
-      recordingSource:
-          previewReady ? RecordingSource.embedded : RecordingSource.external,
+      recordingSource: RecordingSource.external,
       clearReplayResult: true,
       clearError: true,
     );
     _captureInitialState(_enrichment.session);
-
-    if (previewReady) return;
 
     try {
       final status = await _ref.read(patrolStudioFacadeProvider).externalRecording.start(
@@ -480,8 +483,6 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
             recording.projectPath,
             selectedDevice.id,
             selectedDevice.type,
-            onActionReplayed: () =>
-                _ref.read(previewProvider.notifier).burst(),
           );
       state = state.copyWith(
         replayResult: result,

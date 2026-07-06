@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
+import '../services/simulator_driver_health.dart';
+import '../services/xctest_installer.dart';
 import 'facade_provider.dart';
+import 'runner_provider.dart';
 
 enum HealthCheckState {
   unchecked,
@@ -54,13 +57,75 @@ class HealthNotifier extends StateNotifier<HealthState> {
     state = const HealthState();
   }
 
+  /// Reinstalls the simulator driver on the selected booted device, then
+  /// optionally re-runs project health checks. Returns an error message on
+  /// failure, or null on success.
+  Future<String?> repairDriver(String? projectPath) async {
+    state = state.copyWith(state: HealthCheckState.checking, clearError: true);
+    try {
+      final runner = _ref.read(runnerProvider);
+      final device = runner.selectedDevice;
+
+      if (device != null && device.state == DeviceState.booted) {
+        final status = await _ref
+            .read(patrolStudioFacadeProvider)
+            .simulator
+            .repairDriver(udid: device.id, deviceType: device.type);
+        if (status.state != DriverState.ready) {
+          final message = status.error?.trim().isNotEmpty == true
+              ? status.error!.trim()
+              : 'Simulator driver failed to start after repair.';
+          state = state.copyWith(
+            state: HealthCheckState.failed,
+            error: message,
+          );
+          return message;
+        }
+      } else {
+        clearSimulatorDriverCache();
+        XCTestInstaller.instance.stopSession();
+        const message =
+            'Select a booted iOS Simulator, then run Repair driver again.';
+        state = state.copyWith(
+          state: HealthCheckState.failed,
+          error: message,
+        );
+        return message;
+      }
+
+      if (projectPath != null && projectPath.isNotEmpty) {
+        await runChecks(projectPath, forceRefresh: true);
+      } else {
+        state = state.copyWith(
+          state: HealthCheckState.current,
+          clearError: true,
+        );
+      }
+      return null;
+    } catch (e) {
+      final message = e.toString().replaceFirst('Exception: ', '');
+      state = state.copyWith(
+        state: HealthCheckState.failed,
+        error: message,
+      );
+      return message;
+    }
+  }
+
   Future<void> runChecks(String projectPath, {bool forceRefresh = false}) async {
     state = state.copyWith(state: HealthCheckState.checking, clearError: true);
     try {
-      final results = await _ref
-          .read(patrolStudioFacadeProvider)
-          .health
-          .check(projectPath, forceRefresh: forceRefresh);
+      final runner = _ref.read(runnerProvider);
+      final device = runner.selectedDevice;
+      final driverStatus =
+          _ref.read(patrolStudioFacadeProvider).simulator.driverStatus();
+      final results = await _ref.read(patrolStudioFacadeProvider).health.check(
+            projectPath,
+            forceRefresh: forceRefresh,
+            driverStatus: driverStatus,
+            hasBootedSimulator:
+                device != null && device.state == DeviceState.booted,
+          );
       final warnings = results
           .where(
             (c) =>
@@ -97,7 +162,7 @@ String formatHealthStripLabel(HealthState health) {
         : '${health.warningCount} warning${health.warningCount == 1 ? '' : 's'} (stale)',
     HealthCheckState.failed => 'Check failed',
     HealthCheckState.current => health.warningCount == null
-        ? '—'
+        ? 'Not checked'
         : health.warningCount == 0
             ? '0 warnings'
             : '${health.warningCount} warning${health.warningCount == 1 ? '' : 's'}',

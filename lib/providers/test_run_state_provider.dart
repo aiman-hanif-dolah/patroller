@@ -23,3 +23,23 @@ final currentQueueFileProvider = Provider<TestFile?>((ref) {
   if (runner.runAllContext == null) return null;
   return _findFile(app.testFiles, runner.currentRun?.targetFile);
 });
+
+/// Suite context for Develop All / Test All: list of files + currently active one.
+class SuiteContext {
+  const SuiteContext({required this.files, this.current});
+  final List<TestFile> files;
+  final TestFile? current;
+}
+
+final suiteContextProvider = Provider<SuiteContext?>((ref) {
+  final runner = ref.watch(runnerProvider);
+  final app = ref.watch(appProvider);
+  final targetFiles = runner.currentRun?.targetFiles;
+  if (targetFiles == null || targetFiles.isEmpty) return null;
+  final files = targetFiles
+      .map((p) => app.testFiles.where((f) => f.absolutePath == p).firstOrNull)
+      .whereType<TestFile>()
+      .toList();
+  final current = _findFile(app.testFiles, runner.currentRun?.targetFile);
+  return SuiteContext(files: files, current: current);
+});

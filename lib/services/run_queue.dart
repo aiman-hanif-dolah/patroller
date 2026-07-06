@@ -68,7 +68,7 @@ class RunQueueService {
         'queue_${DateTime.now().millisecondsSinceEpoch}_${const Uuid().v4().substring(0, 6)}';
     final queueLabel = request.queueLabel?.trim().isNotEmpty == true
         ? request.queueLabel!.trim()
-        : 'Queue of ${request.files.length}';
+        : 'Batch of ${request.files.length}';
 
     _activeQueue = _ActiveQueue(
       queueId: queueId,
@@ -175,7 +175,7 @@ class RunQueueService {
         unawaited(_historyStore.save(finalRecord, _settingsStore));
         completer.complete(finalRecord);
       },
-      options: StartRunOptions(clearLogs: index == 0),
+      options: const StartRunOptions(clearLogs: false),
     );
 
     queue.activeRunId = record.runId;

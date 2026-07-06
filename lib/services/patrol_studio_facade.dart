@@ -145,8 +145,11 @@ class PatrolStudioRunnerApi {
 
   PatrolStudioFacade get _f => PatrolStudioFacade.instance;
 
-  Future<RunRecord> start(RunConfig config) async =>
-      _f._patrolRunner.startRun(config);
+  Future<RunRecord> start(
+    RunConfig config, {
+    void Function(RunRecord record)? onComplete,
+  }) async =>
+      _f._patrolRunner.startRun(config, onComplete: onComplete);
 
   Future<RunRecord> runAndWait(RunConfig config) =>
       _f._patrolRunner.runAndWait(config);
@@ -198,6 +201,8 @@ class PatrolStudioDevicesApi {
 
   Future<List<DeviceInfo>> list() => _f._deviceService.listDevices();
 
+  String? get lastScanError => _f._deviceService.lastScanError;
+
   Future<String> boot(String udid) => _f._deviceService.bootSimulator(udid);
 
   Future<List<DeviceInfo>> refresh() => _f._deviceService.refresh();
@@ -228,8 +233,18 @@ class PatrolStudioHealthApi {
 
   PatrolStudioFacade get _f => PatrolStudioFacade.instance;
 
-  Future<List<HealthCheck>> check(String projectPath, {bool forceRefresh = false}) {
-    return runHealthChecks(projectPath, settingsStore: _f._settingsStore);
+  Future<List<HealthCheck>> check(
+    String projectPath, {
+    bool forceRefresh = false,
+    DriverStatus? driverStatus,
+    bool hasBootedSimulator = false,
+  }) {
+    return runHealthChecks(
+      projectPath,
+      settingsStore: _f._settingsStore,
+      driverStatus: driverStatus,
+      hasBootedSimulator: hasBootedSimulator,
+    );
   }
 }
 
@@ -281,6 +296,12 @@ class PatrolStudioSimulatorApi {
     await _f._simulatorDriver.ensureSession(udid: udid, deviceType: deviceType);
     return _f._simulatorDriver.getDriverStatus();
   }
+
+  Future<DriverStatus> repairDriver({
+    required String udid,
+    required DeviceType deviceType,
+  }) =>
+      _f._simulatorDriver.repairDriver(udid: udid, deviceType: deviceType);
 
   Future<XCTestDeviceInfo> deviceInfo(String udid, DeviceType deviceType) =>
       _f._simulatorDriver.deviceInfo(udid: udid, deviceType: deviceType);

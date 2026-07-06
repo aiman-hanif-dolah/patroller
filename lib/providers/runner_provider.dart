@@ -5,7 +5,8 @@ import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
 import 'app_provider.dart';
 import 'facade_provider.dart';
-import 'health_provider.dart';
+import 'failed_logs_provider.dart';
+import 'health_stale.dart';
 import 'log_provider.dart';
 
 
@@ -100,7 +101,13 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     _facade.runner.onStatus().listen(_handleStatusUpdate);
     _facade.runner.onQueueStatus().listen(_handleQueueStatus);
     _facade.runner.onQueueRunStarted().listen((record) {
-      _ref.read(logProvider.notifier).setActiveLogRunId(record.runId);
+      final file = record.targetFile?.split('/').last ?? 'test';
+      final index = record.queueIndex ?? 0;
+      final total = record.queueTotal ?? 0;
+      _ref.read(logProvider.notifier).appendSystemLog(
+        record.runId,
+        '── Test All $index/$total: $file ──',
+      );
       state = state.copyWith(currentRun: record);
     });
   }
@@ -126,6 +133,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     try {
       final devices = await _facade.devices.list();
       setDevices(devices);
+      _notifyIfNoDevices(devices);
     } catch (e) {
       showSnackbar(e.toString());
     }
@@ -135,9 +143,20 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     try {
       final devices = await _facade.devices.refresh();
       setDevices(devices);
+      _notifyIfNoDevices(devices);
     } catch (e) {
       showSnackbar(e.toString());
     }
+  }
+
+  void _notifyIfNoDevices(List<DeviceInfo> devices) {
+    if (devices.isNotEmpty) return;
+    final detail = _facade.devices.lastScanError;
+    showSnackbar(
+      detail == null
+          ? 'No iOS simulators found. Open Xcode Simulator, then refresh.'
+          : 'Simulator scan failed: $detail',
+    );
   }
 
   void setDevices(List<DeviceInfo> devices, {bool autoSelect = true}) {
@@ -154,7 +173,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
   void setSelectedDevice(DeviceInfo? device) {
     if (device != null && !isSelectableDevice(device)) return;
     state = state.copyWith(selectedDevice: device);
-    _ref.read(healthProvider.notifier).markStale();
+    markHealthStale(_ref);
   }
 
   void showSnackbar(String message) {
@@ -204,6 +223,12 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
             status.durationMs,
           );
     }
+    if (terminal && isFailedRunStatus(status.status)) {
+      _ref.read(failedLogsProvider.notifier).captureFailure(
+            record: run,
+            liveLogs: _ref.read(logProvider).logs,
+          );
+    }
   }
 
   void _handleQueueStatus(QueueStatusUpdate status) {
@@ -232,11 +257,6 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
 
   List<TestFile> _filesForRunAll() {
     final app = _ref.read(appProvider);
-    if (app.selectedFileIds.isNotEmpty) {
-      return app.testFiles
-          .where((f) => app.selectedFileIds.contains(f.absolutePath))
-          .toList();
-    }
     return runnableTestFiles(app.testFiles);
   }
 
@@ -299,8 +319,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     showSnackbar(
       'Test All started (${files.length} file${files.length == 1 ? '' : 's'})',
     );
-    log.resetLogUiState();
-    await log.clearLogs();
+    // Test All keeps logs across every file in the batch — only Test/Develop clear.
     log.setActiveLogRunId(null);
     state = state.copyWith(
       isRunning: true,
@@ -338,6 +357,8 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     );
   }
 
+  List<String> _developSuiteQueue = [];
+
   Future<void> developSuite() async {
     final app = _ref.read(appProvider);
     if (app.currentProject == null ||
@@ -349,26 +370,37 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     final files = _filesForRunAll();
     if (files.isEmpty) return;
 
-    final isSubset = files.length < app.testFiles.length;
-    final selectedPaths = files.map((f) => f.absolutePath).toSet();
-    final excluded = isSubset
-        ? app.testFiles
-            .where((f) => !selectedPaths.contains(f.absolutePath))
-            .map((f) => f.absolutePath)
-            .toList()
-        : <String>[];
+    _developSuiteQueue = files.map((f) => f.absolutePath).toList();
+
+    showSnackbar(
+      files.length == 1
+          ? 'Develop All started'
+          : 'Develop All started (${files.length} files)',
+    );
+
+    await _startNextDevelopSuiteFileInternal();
+  }
+
+  Future<void> _startNextDevelopSuiteFileInternal() async {
+    if (_developSuiteQueue.isEmpty) {
+      state = state.copyWith(isRunning: false, clearCurrentRun: true);
+      return;
+    }
+
+    state = state.copyWith(isRunning: false, clearCurrentRun: true);
+
+    final nextPath = _developSuiteQueue.removeAt(0);
+    final app = _ref.read(appProvider);
+    final nextFile = app.testFiles.firstWhere((f) => f.absolutePath == nextPath);
 
     await _startRun(
       RunConfig(
         projectPath: app.currentProject!.projectPath,
         runMode: RunMode.developSuite,
-        targetFile: files.length == 1 ? files.first.absolutePath : null,
-        targetFiles: isSubset || files.length == 1
-            ? files.map((f) => f.absolutePath).toList()
-            : null,
-        excludedFiles: excluded.isEmpty ? null : excluded,
+        targetFile: nextFile.absolutePath,
+        targetFiles: [nextFile.absolutePath, ..._developSuiteQueue],
       ),
-      'Develop All started (${files.length} files)',
+      '',
     );
   }
 
@@ -399,6 +431,15 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
           deviceId: device.id,
           queueLabel: config.queueLabel,
         ),
+        onComplete: (completed) {
+          if (completed.runMode == RunMode.developSuite &&
+              _developSuiteQueue.isNotEmpty) {
+            Future.microtask(_startNextDevelopSuiteFileInternal);
+          } else if (completed.runMode == RunMode.developSuite &&
+              _developSuiteQueue.isEmpty) {
+            state = state.copyWith(isRunning: false, clearCurrentRun: true);
+          }
+        },
       );
       log.setActiveLogRunId(record.runId);
       state = state.copyWith(currentRun: record);
@@ -451,6 +492,28 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     }
   }
 
+  Future<void> hotRestart() async {
+    final run = state.currentRun;
+    final block = hotRestartDisabledReason(
+      isRunning: state.isRunning,
+      currentRun: run,
+    );
+    if (block != null) {
+      showSnackbar(block);
+      return;
+    }
+
+    try {
+      await _facade.runner.hotRestart(run!.runId);
+      _ref.read(logProvider.notifier).appendSystemLog(
+        run.runId,
+        'Hot restart requested',
+      );
+    } catch (e) {
+      showSnackbar(e.toString());
+    }
+  }
+
   Future<void> forceStop() async {
     final run = state.currentRun;
     if (run == null) return;
@@ -468,10 +531,22 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
 
   Future<void> bootSimulator() async {
     final device = state.selectedDevice;
+    if (device == null) return;
+    await bootDevice(device.id);
+  }
+
+  Future<void> bootDevice(String deviceId) async {
+    final device =
+        state.devices.where((d) => d.id == deviceId).firstOrNull;
     if (device == null || device.state != DeviceState.shutdown) return;
     try {
       await _facade.devices.boot(device.id);
       await refreshDevices();
+      final updated =
+          state.devices.where((d) => d.id == deviceId).firstOrNull;
+      if (updated != null) {
+        setSelectedDevice(updated);
+      }
     } catch (e) {
       showSnackbar(e.toString());
     }

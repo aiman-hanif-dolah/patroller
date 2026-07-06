@@ -1,45 +1,110 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../domain/simctl_device_parser.dart';
 import '../models/models.dart';
 import 'cli_env.dart';
 import 'settings_store.dart';
+
+class DeviceListResult {
+  const DeviceListResult({
+    required this.devices,
+    this.scanError,
+  });
+
+  final List<DeviceInfo> devices;
+  final String? scanError;
+}
 
 class DeviceService {
   DeviceService({SettingsStore? settingsStore})
       : _settingsStore = settingsStore ?? SettingsStore.instance;
 
   final SettingsStore _settingsStore;
+  String? lastScanError;
 
   Future<List<DeviceInfo>> listDevices({bool enrichSimulators = true}) async {
-    await _settingsStore.getAsync();
-    final flutterDevices = await _listFlutterDevices();
-    if (!enrichSimulators || !Platform.isMacOS) {
-      return flutterDevices;
-    }
-
-    final simulators = await _listIosSimulators();
-    final existingIds = flutterDevices.map((d) => d.id).toSet();
-
-    final enriched = flutterDevices.map((device) {
-      if (device.type == DeviceType.iosSimulator || device.platform == 'ios') {
-        final sim = simulators.cast<DeviceInfo?>().firstWhere(
-              (s) => s!.name == device.name || s.id == device.id,
-              orElse: () => null,
-            );
-        if (sim != null) {
-          return device.copyWith(state: sim.state, type: DeviceType.iosSimulator);
-        }
-      }
-      return device;
-    }).toList();
-
-    final missingSims =
-        simulators.where((s) => !existingIds.contains(s.id)).toList();
-    return [...enriched, ...missingSims];
+    final result = await scanDevices(enrichSimulators: enrichSimulators);
+    lastScanError = result.scanError;
+    return result.devices;
   }
 
   Future<List<DeviceInfo>> refresh() => listDevices();
+
+  Future<DeviceListResult> scanDevices({bool enrichSimulators = true}) async {
+    await _settingsStore.getAsync();
+    final errors = <String>[];
+
+    List<DeviceInfo> simulators = [];
+    if (Platform.isMacOS && enrichSimulators) {
+      final simResult = await _listIosSimulators();
+      simulators = simResult.devices;
+      if (simResult.error != null) errors.add(simResult.error!);
+    }
+
+    final flutterResult = await _listFlutterDevices();
+    final flutterDevices = flutterResult.devices;
+    if (flutterResult.error != null) errors.add(flutterResult.error!);
+
+    final merged = _mergeDeviceSources(
+      simulators: simulators,
+      flutterDevices: flutterDevices,
+    );
+
+    return DeviceListResult(
+      devices: merged,
+      scanError: errors.isEmpty ? null : errors.join(' · '),
+    );
+  }
+
+  List<DeviceInfo> _mergeDeviceSources({
+    required List<DeviceInfo> simulators,
+    required List<DeviceInfo> flutterDevices,
+  }) {
+    if (simulators.isEmpty && flutterDevices.isEmpty) return [];
+
+    if (simulators.isEmpty) {
+      return flutterDevices
+          .where((d) => d.type == DeviceType.iosSimulator || d.platform == 'ios')
+          .toList();
+    }
+
+    final byId = {for (final s in simulators) s.id: s};
+    for (final device in flutterDevices) {
+      if (device.type != DeviceType.iosSimulator && device.platform != 'ios') {
+        continue;
+      }
+      final existing = byId[device.id];
+      if (existing != null) {
+        byId[device.id] = existing.copyWith(
+          name: device.name.isNotEmpty ? device.name : existing.name,
+          state: existing.state ?? device.state,
+        );
+      } else {
+        final byName = simulators.where((s) => s.name == device.name).firstOrNull;
+        if (byName != null) {
+          byId[byName.id] = byName.copyWith(
+            state: byName.state ?? device.state,
+          );
+        }
+      }
+    }
+
+    return byId.values.toList()
+      ..sort((a, b) {
+        final bootCmp = _bootOrder(b.state).compareTo(_bootOrder(a.state));
+        if (bootCmp != 0) return bootCmp;
+        return a.name.compareTo(b.name);
+      });
+  }
+
+  int _bootOrder(DeviceState? state) {
+    return switch (state) {
+      DeviceState.booted => 2,
+      DeviceState.shutdown => 1,
+      _ => 0,
+    };
+  }
 
   Future<String> bootSimulator(String udid) async {
     if (!Platform.isMacOS) {
@@ -79,7 +144,7 @@ class DeviceService {
     return stdout.isEmpty ? 'Simulator shutdown successfully' : stdout;
   }
 
-  Future<List<DeviceInfo>> _listFlutterDevices() async {
+  Future<({List<DeviceInfo> devices, String? error})> _listFlutterDevices() async {
     final settings = _settingsStore.get();
     final flutter = resolveExecutable('flutter', configuredPath: settings.flutterPath);
     try {
@@ -88,9 +153,19 @@ class DeviceService {
         ['devices', '--machine'],
         environment: developerToolEnv(),
       ).timeout(const Duration(seconds: 15));
-      return _parseFlutterDevices('${result.stdout}');
+      if (result.exitCode != 0) {
+        final stderr = '${result.stderr}'.trim();
+        return (
+          devices: <DeviceInfo>[],
+          error: stderr.isEmpty ? 'flutter devices failed' : stderr,
+        );
+      }
+      return (
+        devices: _parseFlutterDevices('${result.stdout}'),
+        error: null,
+      );
     } catch (e) {
-      return _parseFlutterDevices(e.toString());
+      return (devices: <DeviceInfo>[], error: e.toString());
     }
   }
 
@@ -132,8 +207,8 @@ class DeviceService {
     }
   }
 
-  Future<List<DeviceInfo>> _listIosSimulators() async {
-    if (!Platform.isMacOS) return [];
+  Future<({List<DeviceInfo> devices, String? error})> _listIosSimulators() async {
+    if (!Platform.isMacOS) return (devices: <DeviceInfo>[], error: null);
     final settings = _settingsStore.get();
     final xcrun = resolveExecutable('xcrun', configuredPath: settings.xcrunPath);
     try {
@@ -142,47 +217,25 @@ class DeviceService {
         ['simctl', 'list', 'devices', '--json'],
         environment: developerToolEnv(),
       ).timeout(const Duration(seconds: 10));
-      return _parseSimctlOutput('${result.stdout}');
-    } catch (_) {
-      return [];
-    }
-  }
-
-  List<DeviceInfo> _parseSimctlOutput(String output) {
-    try {
-      final data = jsonDecode(output) as Map<String, dynamic>;
-      final devicesMap = data['devices'] as Map<String, dynamic>? ?? {};
-      final devices = <DeviceInfo>[];
-
-      for (final entry in devicesMap.entries) {
-        final runtime = entry.key;
-        final deviceList = entry.value as List<dynamic>? ?? [];
-        for (final raw in deviceList) {
-          final device = raw as Map<String, dynamic>;
-          if (device['isAvailable'] != true) continue;
-
-          final runtimeName =
-              runtime.replaceFirst('com.apple.CoreSimulator.SimRuntime.', '');
-          final platform = runtimeName.contains('iOS') ? 'iOS' : runtimeName;
-
-          devices.add(
-            DeviceInfo(
-              name: device['name'] as String? ?? 'Unknown',
-              id: device['udid'] as String? ?? '',
-              platform: platform,
-              type: DeviceType.iosSimulator,
-              availability: 'available',
-              rawLine: jsonEncode(device),
-              state: device['state'] == 'Booted'
-                  ? DeviceState.booted
-                  : DeviceState.shutdown,
-            ),
-          );
-        }
+      if (result.exitCode != 0) {
+        final stderr = '${result.stderr}'.trim();
+        return (
+          devices: <DeviceInfo>[],
+          error: stderr.isEmpty
+              ? 'xcrun simctl list failed (exit ${result.exitCode})'
+              : stderr,
+        );
       }
-      return devices;
-    } catch (_) {
-      return [];
+      final devices = parseSimctlDevicesJson('${result.stdout}');
+      if (devices.isEmpty) {
+        return (
+          devices: devices,
+          error: 'simctl returned no available iOS simulators',
+        );
+      }
+      return (devices: devices, error: null);
+    } catch (e) {
+      return (devices: <DeviceInfo>[], error: e.toString());
     }
   }
 

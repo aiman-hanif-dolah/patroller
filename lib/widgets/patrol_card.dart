@@ -8,36 +8,55 @@ class PatrolCard extends StatelessWidget {
     required this.child,
     this.padding,
     this.clipBehavior = Clip.hardEdge,
+    this.accentStrip = false,
   });
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final Clip clipBehavior;
+  final bool accentStrip;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: PatrolColors.mist,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08FFFFFF),
-            offset: Offset(0, 1),
-            blurRadius: 0,
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: Color(0x40000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(PatrolRadius.panel),
+        border: Border.all(
+          color: PatrolColors.pebble.withValues(alpha: 0.7),
+        ),
+        boxShadow: PatrolShadows.panel,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(PatrolRadius.panel),
         clipBehavior: clipBehavior,
-        child: padding != null ? Padding(padding: padding!, child: child) : child,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  gradient: PatrolGradients.panelSheen,
+                ),
+              ),
+            ),
+            if (accentStrip)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 2,
+                  decoration: const BoxDecoration(
+                    gradient: PatrolGradients.accentStrip,
+                  ),
+                ),
+              ),
+            if (padding != null)
+              Padding(padding: padding!, child: child)
+            else
+              child,
+          ],
+        ),
       ),
     );
   }

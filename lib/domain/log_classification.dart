@@ -288,6 +288,47 @@ bool _isCollapsibleWarningBlock(LogEvent log) {
       (category == LogCategory.flutter && _matchesAny(text, _flutterPatterns));
 }
 
+const dependencyNoticeBlockPrefix = '[[DEPENDENCY_NOTICES]]';
+
+bool isDependencyNoticeBlock(LogEvent log) =>
+    log.text.startsWith(dependencyNoticeBlockPrefix);
+
+List<LogEvent> summarizeDependencyNotices(List<LogEvent> logs) {
+  if (logs.isEmpty) return logs;
+
+  final visible = <LogEvent>[];
+  final hiddenBodies = <String>[];
+  var hiddenCount = 0;
+
+  for (final log in logs) {
+    if (isDependencyToolWarning(sanitizeLogText(log.text))) {
+      hiddenCount++;
+      hiddenBodies.add(log.rawText ?? log.text);
+      continue;
+    }
+    visible.add(log);
+  }
+
+  if (hiddenCount == 0) return visible;
+
+  final summary = LogEvent(
+    runId: visible.isNotEmpty ? visible.first.runId : logs.first.runId,
+    streamType: LogStreamType.stdout,
+    timestamp: visible.isNotEmpty ? visible.first.timestamp : logs.last.timestamp,
+    text:
+        '$dependencyNoticeBlockPrefix$hiddenCount dependency notice${hiddenCount == 1 ? '' : 's'}',
+    lineNumber: visible.isNotEmpty ? visible.first.lineNumber : logs.first.lineNumber,
+    source: LogSource.system,
+    rawText: hiddenBodies.join('\n'),
+  );
+
+  return [summary, ...visible];
+}
+
+@Deprecated('Use summarizeDependencyNotices')
+List<LogEvent> groupDependencyNotices(List<LogEvent> logs) =>
+    summarizeDependencyNotices(logs);
+
 List<LogEvent> collapseRepeatedLogBlocks(List<LogEvent> logs) {
   if (logs.length < 3) return logs;
   final result = <LogEvent>[];

@@ -34,6 +34,8 @@ class AppSettings {
     required this.logsPanelWidth,
     required this.previewPanelWidth,
     required this.previewCollapsed,
+    required this.logsCollapsed,
+    required this.rightCollapsed,
   });
 
   final String patrolPath;
@@ -68,6 +70,8 @@ class AppSettings {
   final int logsPanelWidth;
   final int previewPanelWidth;
   final bool previewCollapsed;
+  final bool logsCollapsed;
+  final bool rightCollapsed;
 
   static AppSettings defaults() => const AppSettings(
         patrolPath: 'patrol',
@@ -86,7 +90,7 @@ class AppSettings {
         autoScrollLogs: true,
         confirmBeforeRun: true,
         confirmBeforeClearHistory: true,
-        showRawStderr: true,
+        showRawStderr: false,
         enableExperimentalParser: false,
         enableSimulatorEnrichment: true,
         stopQueueOnFirstFailure: false,
@@ -96,12 +100,14 @@ class AppSettings {
         previewIdlePollIntervalMs: 500,
         previewActivePollIntervalMs: 100,
         previewInteractionPollIntervalMs: 50,
-        hierarchyPollIntervalMs: 1500,
+        hierarchyPollIntervalMs: 2500,
         autoStartDriver: true,
         rightPanelWidth: 380,
-        logsPanelWidth: 480,
+        logsPanelWidth: 640,
         previewPanelWidth: 390,
         previewCollapsed: false,
+        logsCollapsed: false,
+        rightCollapsed: false,
       );
 
   AppSettings copyWith({
@@ -137,6 +143,8 @@ class AppSettings {
     int? logsPanelWidth,
     int? previewPanelWidth,
     bool? previewCollapsed,
+    bool? logsCollapsed,
+    bool? rightCollapsed,
   }) =>
       AppSettings(
         patrolPath: patrolPath ?? this.patrolPath,
@@ -178,6 +186,8 @@ class AppSettings {
         logsPanelWidth: logsPanelWidth ?? this.logsPanelWidth,
         previewPanelWidth: previewPanelWidth ?? this.previewPanelWidth,
         previewCollapsed: previewCollapsed ?? this.previewCollapsed,
+        logsCollapsed: logsCollapsed ?? this.logsCollapsed,
+        rightCollapsed: rightCollapsed ?? this.rightCollapsed,
       );
 
   Map<String, dynamic> toJson() => {
@@ -213,7 +223,18 @@ class AppSettings {
         'logsPanelWidth': logsPanelWidth,
         'previewPanelWidth': previewPanelWidth,
         'previewCollapsed': previewCollapsed,
+        'logsCollapsed': logsCollapsed,
+        'rightCollapsed': rightCollapsed,
       };
+
+  static AppSettings resetLayoutDefaults(AppSettings current) => current.copyWith(
+        rightPanelWidth: defaults().rightPanelWidth,
+        logsPanelWidth: defaults().logsPanelWidth,
+        previewPanelWidth: defaults().previewPanelWidth,
+        previewCollapsed: false,
+        logsCollapsed: false,
+        rightCollapsed: false,
+      );
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     final defaults = AppSettings.defaults();
@@ -265,6 +286,8 @@ class AppSettings {
           json['previewPanelWidth'] as int? ?? defaults.previewPanelWidth,
       previewCollapsed:
           json['previewCollapsed'] as bool? ?? defaults.previewCollapsed,
+      logsCollapsed: json['logsCollapsed'] as bool? ?? defaults.logsCollapsed,
+      rightCollapsed: json['rightCollapsed'] as bool? ?? defaults.rightCollapsed,
     );
   }
 }

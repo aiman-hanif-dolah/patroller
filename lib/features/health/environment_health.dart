@@ -7,6 +7,7 @@ import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../providers/health_provider.dart';
 import '../../providers/runner_provider.dart';
+import '../../widgets/accessible_icon_button.dart';
 
 class EnvironmentHealth extends ConsumerStatefulWidget {
   const EnvironmentHealth({super.key});
@@ -17,10 +18,36 @@ class EnvironmentHealth extends ConsumerStatefulWidget {
 }
 
 class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
+  bool _repairingDriver = false;
+
   @override
   void initState() {
     super.initState();
     Future.microtask(_runChecks);
+  }
+
+  Future<void> _repairDriver() async {
+    if (_repairingDriver) return;
+    setState(() => _repairingDriver = true);
+    try {
+      final project = ref.read(appProvider).currentProject;
+      final error = await ref
+          .read(healthProvider.notifier)
+          .repairDriver(project?.projectPath);
+      if (!mounted) return;
+      if (error != null) {
+        ref.read(runnerProvider.notifier).showSnackbar('Repair failed: $error');
+      } else {
+        ref.read(runnerProvider.notifier).showSnackbar('Simulator driver repaired');
+        if (project != null) {
+          ref
+              .read(appProvider.notifier)
+              .setHealthWarningCount(ref.read(healthProvider).warningCount);
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _repairingDriver = false);
+    }
   }
 
   Future<void> _runChecks({bool forceRefresh = false}) async {
@@ -54,6 +81,12 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
       }
     });
 
+    ref.listen(healthProvider.select((s) => s.state), (prev, next) {
+      if (next == HealthCheckState.stale) {
+        Future.microtask(() => _runChecks(forceRefresh: true));
+      }
+    });
+
     return Column(
       children: [
         Container(
@@ -83,12 +116,15 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                IconButton(
+                AccessibleIconButton(
+                  icon: Icons.refresh,
+                  label: 'Re-run health checks',
                   onPressed: () => _runChecks(forceRefresh: true),
-                  icon: const Icon(Icons.refresh, size: 14),
-                  tooltip: 'Re-run checks',
+                  size: 14,
                 ),
-              IconButton(
+              AccessibleIconButton(
+                icon: Icons.copy,
+                label: 'Copy health diagnostics',
                 onPressed: checks.isEmpty
                     ? null
                     : () {
@@ -103,8 +139,7 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
                             .read(runnerProvider.notifier)
                             .showSnackbar('Diagnostics copied');
                       },
-                icon: const Icon(Icons.copy, size: 14),
-                tooltip: 'Copy diagnostics',
+                size: 14,
               ),
             ],
           ),
@@ -186,10 +221,34 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
       );
     }
 
+    final driverFailed = health.checks.any(
+      (check) =>
+          check.name.startsWith('Simulator driver') &&
+          check.status == HealthStatus.failed,
+    );
+
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: health.checks.length,
+      itemCount: health.checks.length + (driverFailed ? 1 : 0),
       itemBuilder: (context, index) {
+        if (driverFailed && index == health.checks.length) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 12),
+            child: OutlinedButton.icon(
+              onPressed: _repairingDriver ? null : _repairDriver,
+              icon: _repairingDriver
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.build_circle_outlined, size: 14),
+              label: Text(
+                _repairingDriver ? 'Repairing driver…' : 'Repair simulator driver',
+              ),
+            ),
+          );
+        }
         final check = health.checks[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 8),

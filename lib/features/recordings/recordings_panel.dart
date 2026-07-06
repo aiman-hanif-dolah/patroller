@@ -9,8 +9,12 @@ import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../providers/log_provider.dart';
 import '../../providers/recording_provider.dart';
-import '../../providers/preview_provider.dart';
+import '../../domain/simulator_driver_readiness.dart';
+import '../../providers/health_provider.dart';
+import '../../providers/simulator_driver_readiness_provider.dart';
 import '../../providers/runner_provider.dart';
+import '../../widgets/accessible_icon_button.dart';
+import '../devices/device_picker.dart';
 
 class RecordingsPanel extends ConsumerStatefulWidget {
   const RecordingsPanel({super.key});
@@ -20,6 +24,7 @@ class RecordingsPanel extends ConsumerStatefulWidget {
 }
 
 class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
+  bool _showDeviceList = false;
   Recording? _selectedRecording;
   final _recordingNameController = TextEditingController();
   RecordingEnvironmentProfile _environmentProfile =
@@ -45,7 +50,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     final project = ref.watch(appProvider).currentProject;
     final device = ref.watch(runnerProvider).selectedDevice;
     final recordingState = ref.watch(recordingProvider);
-    final previewReady = ref.watch(previewProvider).isDriverReady;
+    final readiness = ref.watch(simulatorDriverReadinessProvider);
 
     ref.listen(appProvider.select((s) => s.currentProject?.projectPath), (prev, next) {
       if (prev != next && next != null) {
@@ -75,10 +80,16 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
       );
     }
 
+    if (recordingState.isRecording == false && device == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(runnerProvider.notifier).refreshDevices();
+      });
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildPrepareSection(project, device, recordingState, previewReady),
+        _buildPrepareSection(project, device, recordingState, readiness),
         const Divider(height: 1, color: PatrolColors.pebble),
         Expanded(child: _buildSavedList(recordingState)),
         if (_selectedRecording != null)
@@ -91,7 +102,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     ProjectMetadata project,
     DeviceInfo? device,
     RecordingState recordingState,
-    bool previewReady,
+    SimulatorDriverReadiness readiness,
   ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
@@ -113,34 +124,109 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
             ],
           ),
           const SizedBox(height: 8),
+          _SectionHeading(device?.name ?? 'Simulator'),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => setState(() => _showDeviceList = !_showDeviceList),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: PatrolColors.fog,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: PatrolColors.pebble.withValues(alpha: 0.6)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      device == null
+                          ? 'Select simulator'
+                          : device.state == DeviceState.booted
+                              ? device.name
+                              : '${device.name} (boot required)',
+                      style: const TextStyle(fontSize: 14, color: PatrolColors.ink),
+                    ),
+                  ),
+                  Icon(
+                    _showDeviceList ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: PatrolColors.steel,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_showDeviceList) ...[
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 180),
+              decoration: BoxDecoration(
+                color: PatrolColors.obsidian,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: DevicePickerList(
+                onSelected: () => setState(() => _showDeviceList = false),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
           TextField(
             controller: _recordingNameController,
             enabled: !_isSaving && !_isImporting,
-            style: const TextStyle(fontSize: 12),
-            decoration: const InputDecoration(
+            style: const TextStyle(fontSize: 13, color: PatrolColors.ink),
+            decoration: InputDecoration(
               hintText: 'Recording name',
+              hintStyle: const TextStyle(fontSize: 13, color: PatrolColors.steel),
+              prefixIcon: const Icon(Icons.edit_outlined, size: 18, color: PatrolColors.steel),
               isDense: true,
+              filled: true,
+              fillColor: PatrolColors.obsidian.withValues(alpha: 0.45),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(PatrolRadius.chip),
+                borderSide: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(PatrolRadius.chip),
+                borderSide: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(PatrolRadius.chip),
+                borderSide: BorderSide(color: PatrolColors.amber.withValues(alpha: 0.6)),
+              ),
             ),
           ),
           const SizedBox(height: 8),
           Row(
             children: RecordingEnvironmentProfile.values.map((profile) {
               final selected = _environmentProfile == profile;
+              final label = profile.toJson();
               return Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: TextButton(
-                    onPressed: (_isSaving || _isImporting)
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: GestureDetector(
+                    onTap: (_isSaving || _isImporting)
                         ? null
                         : () => setState(() => _environmentProfile = profile),
-                    style: TextButton.styleFrom(
-                      backgroundColor:
-                          selected ? PatrolColors.ink : PatrolColors.fog,
-                      foregroundColor:
-                          selected ? PatrolColors.obsidian : PatrolColors.steel,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: selected ? PatrolColors.ink : PatrolColors.fog,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: selected
+                              ? PatrolColors.obsidian
+                              : PatrolColors.steel,
+                        ),
+                      ),
                     ),
-                    child: Text(profile.toJson()),
                   ),
                 ),
               );
@@ -148,48 +234,109 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
           ),
           const SizedBox(height: 8),
           Text(
-            previewReady
-                ? 'Interact inside Patroller\'s simulator preview — taps and swipes are recorded automatically.'
-                : 'Preview unavailable — interact in Simulator.app and Patroller will record from the native window.',
+            recordingInstructionCopy(readiness),
             style: const TextStyle(fontSize: 11, color: PatrolColors.steel),
           ),
+          if (readiness.showRepairAction) ...[
+            const SizedBox(height: 8),
+            Text(
+              readiness.fixInstruction,
+              style: const TextStyle(fontSize: 10, color: PatrolColors.ember),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => _repairDriver(project),
+                icon: const Icon(Icons.build_circle_outlined, size: 14),
+                label: const Text('Repair driver'),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           const _SectionHeading('Record'),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                child: FilledButton.icon(
-                  onPressed: recordingState.isRecording
+                child: GestureDetector(
+                  onTap: recordingState.isRecording
                       ? (_isSaving ? null : () => _saveActive(project, device))
-                      : () => ref.read(recordingProvider.notifier).startRecording(),
-                  icon: Icon(
-                    recordingState.isRecording ? Icons.save : Icons.fiber_manual_record,
-                    size: 14,
-                  ),
-                  label: Text(
-                    recordingState.isRecording
-                        ? (_isSaving ? 'Saving...' : 'Save')
-                        : 'Record',
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: recordingState.isRecording
-                        ? PatrolColors.ember
-                        : PatrolColors.red400,
+                      : readiness.allowExternalFallback
+                          ? () =>
+                              ref.read(recordingProvider.notifier).startRecording()
+                          : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: recordingState.isRecording
+                          ? PatrolColors.ember
+                          : PatrolColors.red400,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          recordingState.isRecording
+                              ? Icons.save
+                              : Icons.fiber_manual_record,
+                          size: 16,
+                          color: PatrolColors.obsidian,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          recordingState.isRecording
+                              ? (_isSaving ? 'Saving...' : 'Save')
+                              : 'Record',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: PatrolColors.obsidian,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: recordingState.isRecording
+                child: GestureDetector(
+                  onTap: recordingState.isRecording
                       ? () => ref.read(recordingProvider.notifier).cancelRecording()
                       : null,
-                  icon: Icon(
-                    recordingState.isRecording ? Icons.close : Icons.stop,
-                    size: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: PatrolColors.fog,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: PatrolColors.pebble.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          recordingState.isRecording ? Icons.close : Icons.stop,
+                          size: 16,
+                          color: PatrolColors.steel,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          recordingState.isRecording ? 'Cancel' : 'Stop',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: PatrolColors.steel,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  label: Text(recordingState.isRecording ? 'Cancel' : 'Stop'),
                 ),
               ),
             ],
@@ -197,9 +344,10 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
           if (recordingState.isRecording) ...[
             const SizedBox(height: 8),
             Text(
-              previewReady
-                  ? '${recordingState.activeActions.length} actions captured in preview. Logs attach on save.'
-                  : 'Use Simulator.app to interact. ${recordingState.activeActions.length} actions captured. Logs attach on save.',
+              recordingActiveCopy(
+                readiness: readiness,
+                actionCount: recordingState.activeActions.length,
+              ),
               style: const TextStyle(fontSize: 11, color: PatrolColors.steel),
             ),
             if (recordingState.activeActions.isNotEmpty) ...[
@@ -377,9 +525,12 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 14, color: PatrolColors.steel),
+                  AccessibleIconButton(
+                    icon: Icons.edit,
+                    label: 'Rename recording ${recording.name}',
                     onPressed: () => setState(() => _renameValue = recording.name),
+                    size: 14,
+                    color: PatrolColors.steel,
                   ),
                 ],
               )
@@ -581,6 +732,16 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
       ),
       child: Text(label),
     );
+  }
+
+  Future<void> _repairDriver(ProjectMetadata project) async {
+    final error =
+        await ref.read(healthProvider.notifier).repairDriver(project.projectPath);
+    if (error != null) {
+      ref.read(runnerProvider.notifier).showSnackbar('Repair failed: $error');
+    } else {
+      ref.read(runnerProvider.notifier).showSnackbar('Simulator driver repaired');
+    }
   }
 
   Future<void> _saveActive(ProjectMetadata project, DeviceInfo? device) async {

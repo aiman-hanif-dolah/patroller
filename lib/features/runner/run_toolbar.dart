@@ -6,8 +6,8 @@ import '../../domain/runner_helpers.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../providers/runner_provider.dart';
-import '../../widgets/status_badge.dart';
-import '../devices/device_picker.dart';
+import '../../widgets/accessible_icon_button.dart';
+import '../../widgets/patrol_components.dart';
 
 class RunToolbar extends ConsumerStatefulWidget {
   const RunToolbar({
@@ -26,8 +26,6 @@ class RunToolbar extends ConsumerStatefulWidget {
 }
 
 class _RunToolbarState extends ConsumerState<RunToolbar> {
-  bool _showDevicePicker = false;
-
   @override
   Widget build(BuildContext context) {
     final app = ref.watch(appProvider);
@@ -46,6 +44,11 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
         runner.currentRun?.runMode == RunMode.develop;
     final isHotSuite = runner.isRunning &&
         runner.currentRun?.runMode == RunMode.developSuite;
+    final isHotSession = isHotRun || isHotSuite;
+    final hotRestartBlock = hotRestartDisabledReason(
+      isRunning: runner.isRunning,
+      currentRun: runner.currentRun,
+    );
 
     final runDisabled = getRunDisabledReason(
       hasProject: project != null,
@@ -64,92 +67,72 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
 
     final queueStatus = runner.queueStatus;
     final queueProgress = queueStatus != null &&
-        queueStatus.status == QueueStatus.running
+            queueStatus.status == QueueStatus.running
         ? '${queueStatus.passedCount + queueStatus.failedCount + queueStatus.cancelledCount + queueStatus.skippedCount}/${queueStatus.total} · ${queueStatus.passedCount} passed · ${queueStatus.failedCount} failed · ${queueStatus.skippedCount} skipped'
         : null;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
-      decoration: const BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+      decoration: BoxDecoration(
         color: PatrolColors.mist,
-        border: Border(bottom: BorderSide(color: PatrolColors.pebble)),
+        border: Border(
+          bottom: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.8)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: PatrolColors.obsidian.withValues(alpha: 0.5),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          TextButton.icon(
-            onPressed: widget.onOpenProject,
-            icon: const Icon(Icons.folder_open, size: 14),
-            label: Text(
-              project?.projectName ?? 'Patrol Studio',
-              overflow: TextOverflow.ellipsis,
-            ),
-            style: TextButton.styleFrom(
-              foregroundColor: PatrolColors.ink,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-          ),
-          _divider(),
-          Stack(
-            clipBehavior: Clip.none,
+          const PatrolBrandMark(size: 30),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              TextButton.icon(
-                onPressed: () =>
-                    setState(() => _showDevicePicker = !_showDevicePicker),
-                icon: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: sessionBusy
-                        ? PatrolColors.ember
-                        : PatrolColors.psPassed,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                label: Text(
-                  selectedDevice?.name ?? 'No device',
-                  overflow: TextOverflow.ellipsis,
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: PatrolColors.ink,
+              Text(
+                project?.projectName ?? 'Patroller',
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: PatrolColors.ink,
                 ),
               ),
-              if (_showDevicePicker)
-                Positioned(
-                  top: 40,
-                  left: 0,
-                  child: DevicePickerMenu(
-                    onClose: () => setState(() => _showDevicePicker = false),
-                  ),
-                ),
+              Text(
+                project != null ? 'Patrol test runner' : 'Open a project to begin',
+                style: const TextStyle(fontSize: 9, color: PatrolColors.steel),
+              ),
             ],
           ),
-          IconButton(
-            onPressed: () =>
-                ref.read(runnerProvider.notifier).refreshDevices(),
-            icon: const Icon(Icons.refresh, size: 14),
-            tooltip: 'Refresh devices',
+          const SizedBox(width: 6),
+          AccessibleIconButton(
+            icon: Icons.folder_open_rounded,
+            label: 'Open project',
+            size: 14,
+            onPressed: widget.onOpenProject,
           ),
-          if (selectedDevice != null &&
-              selectedDevice.state == DeviceState.shutdown)
-            IconButton(
-              onPressed: () =>
-                  ref.read(runnerProvider.notifier).bootSimulator(),
-              icon: const Icon(Icons.power_settings_new, size: 14),
-              tooltip: 'Boot simulator',
+          if (selectedDevice != null) ...[
+            _divider(),
+            PatrolStatusDot(
+              color: sessionBusy ? PatrolColors.ember : PatrolColors.psPassed,
+              pulse: sessionBusy,
             ),
-          if (selectedDevice != null &&
-              selectedDevice.state == DeviceState.booted &&
-              !sessionBusy)
-            IconButton(
-              onPressed: () =>
-                  ref.read(runnerProvider.notifier).shutdownSimulator(),
-              icon: const Icon(Icons.power_off, size: 14),
-              tooltip: 'Shut down simulator',
+            const SizedBox(width: 8),
+            PatrolMetaChip(
+              label: selectedDevice.name,
+              icon: Icons.phone_iphone_rounded,
+              accent: sessionBusy,
             ),
+          ],
           _divider(),
           _ActionButton(
             label: 'Test',
-            icon: Icons.play_arrow,
+            icon: Icons.play_arrow_rounded,
             active: isTestRun,
             enabled: runDisabled == null,
             tooltip: runDisabled ?? 'Run the selected test file once.',
@@ -159,7 +142,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
           const SizedBox(width: 6),
           _ActionButton(
             label: 'Test All',
-            icon: Icons.format_list_numbered,
+            icon: Icons.format_list_numbered_rounded,
             active: isQueueRun,
             enabled: queueDisabled == null,
             tooltip: queueDisabled ??
@@ -184,15 +167,27 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
             icon: Icons.layers_outlined,
             active: isHotSuite,
             enabled: queueDisabled == null,
-            tooltip: queueDisabled ?? 'Start develop session for all files.',
+            tooltip: queueDisabled ??
+                'Start develop for the selected file, or the first runnable file when none is selected.',
             activeColor: PatrolColors.fuchsia500,
-            onPressed: () =>
-                ref.read(runnerProvider.notifier).developSuite(),
+            onPressed: () => ref.read(runnerProvider.notifier).developSuite(),
           ),
           const SizedBox(width: 6),
+          if (isHotSession)
+            _ActionButton(
+              label: 'Restart',
+              icon: Icons.refresh_rounded,
+              active: hotRestartBlock == null,
+              enabled: hotRestartBlock == null,
+              tooltip: hotRestartBlock ??
+                  'Send hot restart (r) to the running develop session.',
+              activeColor: PatrolColors.amberBright,
+              onPressed: () => ref.read(runnerProvider.notifier).hotRestart(),
+            ),
+          if (isHotSession) const SizedBox(width: 6),
           _ActionButton(
             label: lifecycle == RunLifecycle.stopping ? 'Stopping...' : 'Stop',
-            icon: Icons.stop,
+            icon: Icons.stop_rounded,
             active: lifecycle == RunLifecycle.stopping,
             enabled: sessionBusy || runner.stopFailure != null,
             tooltip: sessionBusy
@@ -203,33 +198,17 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
           ),
           const Spacer(),
           if (queueProgress != null)
-            Text(
-              queueProgress,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: PatrolColors.sky400,
-              ),
+            PatrolMetaChip(
+              label: queueProgress,
+              icon: Icons.sync,
+              color: PatrolColors.sky400,
             ),
-          if (runner.currentRun != null) ...[
-            const SizedBox(width: 12),
-            StatusBadge(
-              status: lifecycle?.name ?? runner.currentRun!.status.name,
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                _activeRunLabel(runner),
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, color: PatrolColors.ink),
-              ),
-            ),
-          ],
           _divider(),
-          IconButton(
+          AccessibleIconButton(
+            icon: Icons.settings_outlined,
+            label: 'Open settings',
+            size: 15,
             onPressed: widget.onOpenSettings,
-            icon: const Icon(Icons.settings, size: 15),
-            tooltip: 'Settings',
           ),
         ],
       ),
@@ -239,19 +218,20 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
   Widget _divider() {
     return Container(
       width: 1,
-      height: 20,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: PatrolColors.pebble,
+      height: 24,
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            PatrolColors.pebble.withValues(alpha: 0),
+            PatrolColors.pebble,
+            PatrolColors.pebble.withValues(alpha: 0),
+          ],
+        ),
+      ),
     );
-  }
-
-  String _activeRunLabel(RunnerState runner) {
-    final run = runner.currentRun!;
-    final target = run.targetFile?.split('/').last ?? 'session';
-    if (runner.runAllContext != null) {
-      return 'Test All · $target (${runner.runAllContext!.current}/${runner.runAllContext!.total})';
-    }
-    return '${run.runMode.name} · $target';
   }
 }
 
@@ -276,47 +256,55 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = active
-        ? activeColor
-        : activeColor.withValues(alpha: 0.15);
+    final bg = active ? activeColor : activeColor.withValues(alpha: 0.12);
     final fg = active ? PatrolColors.obsidian : activeColor;
     final border = active
         ? Colors.transparent
-        : activeColor.withValues(alpha: 0.4);
+        : activeColor.withValues(alpha: 0.35);
 
-    return Tooltip(
-      message: tooltip,
-      child: Opacity(
-        opacity: enabled ? 1 : 0.4,
-        child: Material(
-          color: bg,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            onTap: enabled ? onPressed : null,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: border),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 13, color: fg),
-                  const SizedBox(width: 6),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: active && activeColor == PatrolColors.violet500
-                          ? PatrolColors.snow
-                          : fg,
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: '$label. $tooltip',
+      child: Tooltip(
+        message: tooltip,
+        child: Opacity(
+          opacity: enabled ? 1 : 0.38,
+          child: Material(
+            color: bg,
+            borderRadius: BorderRadius.circular(PatrolRadius.chip),
+            elevation: active ? 2 : 0,
+            shadowColor: activeColor.withValues(alpha: 0.4),
+            child: InkWell(
+              onTap: enabled ? onPressed : null,
+              borderRadius: BorderRadius.circular(PatrolRadius.chip),
+              child: Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(PatrolRadius.chip),
+                  border: Border.all(color: border),
+                  boxShadow: active
+                      ? PatrolShadows.glow(activeColor, blur: 10)
+                      : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 14, color: fg),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: active && activeColor == PatrolColors.violet500
+                            ? PatrolColors.snow
+                            : fg,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

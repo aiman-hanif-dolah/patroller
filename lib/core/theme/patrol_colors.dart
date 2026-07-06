@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Patrol Studio design tokens (matches patrol-studio-tauri Tailwind theme).
+/// Patroller design tokens — dark zinc palette with amber compass accent.
 abstract final class PatrolColors {
   static const obsidian = Color(0xFF09090B);
   static const ink = Color(0xFFFAFAFA);
@@ -13,6 +13,11 @@ abstract final class PatrolColors {
   static const mist = Color(0xFF18181B);
   static const snow = Color(0xFFFFFFFF);
   static const ember = Color(0xFFFF5A00);
+
+  // Brand compass accent (yellow/black logo)
+  static const amber = Color(0xFFF5B800);
+  static const amberBright = Color(0xFFFFD54F);
+  static const amberMuted = Color(0xFF92700A);
 
   static const psPassed = Color(0xFF22C55E);
   static const psFailed = Color(0xFFEF4444);
@@ -30,4 +35,57 @@ abstract final class PatrolColors {
   static const rose300 = Color(0xFFFDA4AF);
   static const green400 = Color(0xFF4ADE80);
   static const orange400 = Color(0xFFFB923C);
+}
+
+abstract final class PatrolGradients {
+  static const brandGlow = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [PatrolColors.amberBright, PatrolColors.amber],
+  );
+
+  static const panelSheen = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x10FFFFFF), Color(0x00FFFFFF)],
+  );
+
+  static const accentStrip = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [PatrolColors.amberBright, PatrolColors.amberMuted],
+  );
+}
+
+abstract final class PatrolShadows {
+  static List<BoxShadow> glow(Color color, {double blur = 14}) => [
+    BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: blur),
+  ];
+
+  static const panel = [
+    BoxShadow(
+      color: Color(0x50000000),
+      blurRadius: 20,
+      offset: Offset(0, 6),
+    ),
+  ];
+}
+
+abstract final class PatrolSpacing {
+  static const s4 = 4.0;
+  static const s6 = 6.0;
+  static const s8 = 8.0;
+  static const s12 = 12.0;
+  static const s16 = 16.0;
+  static const s20 = 20.0;
+  static const s24 = 24.0;
+}
+
+abstract final class PatrolRadius {
+  static const badge = 6.0;
+  static const input = 10.0;
+  static const chip = 12.0;
+  static const card = 18.0;
+  static const panel = 20.0;
+  static const pill = 100.0;
 }
