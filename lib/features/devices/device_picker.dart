@@ -18,11 +18,23 @@ class DevicePickerList extends ConsumerWidget {
     final devices = runner.devices;
 
     if (devices.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Text(
-          'No simulators found. Refresh to scan again.',
-          style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'No simulators found.',
+              style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () =>
+                  ref.read(runnerProvider.notifier).refreshDevices(),
+              icon: const Icon(Icons.refresh, size: 12),
+              label: const Text('Refresh'),
+            ),
+          ],
         ),
       );
     }
