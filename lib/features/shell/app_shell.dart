@@ -89,7 +89,8 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final app = ref.watch(appProvider);
+    // ⚡ Bolt: Prevent unnecessary AppShell rebuilds by selecting only healthWarningCount
+    final healthWarnings = ref.watch(appProvider.select((a) => a.healthWarningCount)) ?? 0;
     final settings = ref.watch(settingsProvider).settings;
     final totalWidth = MediaQuery.sizeOf(context).width;
 
