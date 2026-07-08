@@ -1,0 +1,4 @@
+## 2024-05-18 - AppleScript Command Injection in Dart
+**Vulnerability:** Command injection vulnerability in `lib/services/simulator_window_bounds.dart` where `deviceName` was being interpolated directly into an AppleScript string without properly escaping backslashes first.
+**Learning:** If backslashes are not escaped *before* escaping double quotes (`\"`), an attacker could input a string ending with a backslash, which would combine with the escaped quote `\"` to escape the backslash instead of the quote, allowing them to break out of the string context and execute arbitrary AppleScript.
+**Prevention:** Always escape backslashes first (`.replaceAll(r'\', r'\\')`), then escape double quotes (`.replaceAll('"', r'\"')`) when interpolating user-controlled strings into AppleScript commands in Dart.
