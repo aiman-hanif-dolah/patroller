@@ -15,8 +15,9 @@ class PatrollerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settingsLoaded = ref.watch(settingsProvider).loaded;
-    final activeView = ref.watch(appProvider).activeView;
+    // ⚡ Bolt: prevent unnecessary root rebuilds when unrelated settings/app state changes
+    final settingsLoaded = ref.watch(settingsProvider.select((s) => s.loaded));
+    final activeView = ref.watch(appProvider.select((s) => s.activeView));
 
     return MaterialApp(
       title: 'Patroller',

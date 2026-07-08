@@ -89,11 +89,11 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final app = ref.watch(appProvider);
-    final settings = ref.watch(settingsProvider).settings;
-    final totalWidth = MediaQuery.sizeOf(context).width;
+    // ⚡ Bolt: watch specific properties to avoid rebuilding massive widget tree
+    // on high-frequency state changes like selectedTestCase, testFiles, etc.
+    final settings = ref.watch(settingsProvider.select((s) => s.settings));
 
-    if (ref.watch(settingsProvider).loaded && !_layoutInitialized) {
+    if (ref.watch(settingsProvider.select((s) => s.loaded)) && !_layoutInitialized) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() => _initLayoutFromSettings(settings));
@@ -154,7 +154,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                               const SizedBox(width: _panelGutter),
                               _buildWorkspaceColumn(
                                 healthState: ref.watch(healthProvider),
-                                app: app,
+                                healthWarningCount: ref.watch(appProvider.select((s) => s.healthWarningCount)),
                               ),
                             ],
                           );
@@ -230,10 +230,10 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   Widget _buildWorkspaceColumn({
     required HealthState healthState,
-    required AppState app,
+    required int? healthWarningCount,
   }) {
     final healthWarnings =
-        healthState.warningCount ?? app.healthWarningCount ?? 0;
+        healthState.warningCount ?? healthWarningCount ?? 0;
     if (_rightCollapsed) {
       return PatrolCard(
         padding: EdgeInsets.zero,
