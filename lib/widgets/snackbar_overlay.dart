@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/patrol_colors.dart';
 import '../providers/runner_provider.dart';
+import 'accessible_icon_button.dart';
 
 const _dismissMs = 3500;
 const _animationMs = 220;
@@ -170,19 +171,17 @@ class _SnackbarBanner extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    IconButton(
+                    AccessibleIconButton(
                       onPressed: onDismiss,
-                      icon: const Icon(Icons.close, size: 14),
+                      icon: Icons.close,
+                      size: 14,
+                      label: 'Dismiss',
                       color: PatrolColors.steel,
-                      hoverColor: PatrolColors.fog,
-                      splashRadius: 16,
-                      visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 28,
                         minHeight: 28,
                       ),
-                      tooltip: 'Dismiss',
                     ),
                   ],
                 ),
