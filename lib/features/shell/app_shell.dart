@@ -77,23 +77,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
   }
 
-  void _clampLogsToViewport(double totalWidth) {
-    _logsPanelWidth = clampLogsPanelWidth(
-      _logsPanelWidth,
-      totalWidth: totalWidth,
-      rightWidth: _rightPanelWidth,
-      logsCollapsed: _logsCollapsed,
-      rightCollapsed: _rightCollapsed,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final app = ref.watch(appProvider);
-    final settings = ref.watch(settingsProvider).settings;
-    final totalWidth = MediaQuery.sizeOf(context).width;
+    // ⚡ Bolt: Optimize AppShell to only rebuild when specific settings or warning counts change, rather than the entire state objects.
+    final appHealthWarningCount = ref.watch(appProvider.select((a) => a.healthWarningCount));
+    final settings = ref.watch(settingsProvider.select((s) => s.settings));
 
-    if (ref.watch(settingsProvider).loaded && !_layoutInitialized) {
+    if (ref.watch(settingsProvider.select((s) => s.loaded)) && !_layoutInitialized) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() => _initLayoutFromSettings(settings));
@@ -153,8 +143,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                               _buildLogsColumn(clampedLogs, viewportWidth),
                               const SizedBox(width: _panelGutter),
                               _buildWorkspaceColumn(
-                                healthState: ref.watch(healthProvider),
-                                app: app,
+                                healthStateWarningCount: ref.watch(healthProvider.select((h) => h.warningCount)),
+                                appHealthWarningCount: appHealthWarningCount,
                               ),
                             ],
                           );
@@ -229,11 +219,11 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Widget _buildWorkspaceColumn({
-    required HealthState healthState,
-    required AppState app,
+    required int? healthStateWarningCount,
+    required int? appHealthWarningCount,
   }) {
     final healthWarnings =
-        healthState.warningCount ?? app.healthWarningCount ?? 0;
+        healthStateWarningCount ?? appHealthWarningCount ?? 0;
     if (_rightCollapsed) {
       return PatrolCard(
         padding: EdgeInsets.zero,
