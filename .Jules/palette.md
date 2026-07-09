@@ -1,0 +1,6 @@
+## 2024-07-09 - [AccessibleIconButton pattern]
+ **Learning:** [The project uses AccessibleIconButton for icon-only buttons to ensure they have tooltips and explicit accessibility labels.]
+ **Action:** [Use AccessibleIconButton instead of IconButton with just an icon.]
+## 2024-07-09 - [Loading states in LandingScreen]
+ **Learning:** [Landing screen uses text 'Opening...' for loading state, but lacks a loading spinner which provides better visual feedback. The project already uses CircularProgressIndicator in other files for loading state.]
+ **Action:** [Add a loading spinner to the 'Open Flutter Project' button on the landing screen when it's loading.]

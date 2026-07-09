@@ -132,7 +132,13 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                             onPressed: isLoading
                                 ? null
                                 : () => ref.read(appProvider.notifier).openProject(),
-                            icon: const Icon(Icons.folder_open_rounded, size: 20),
+                            icon: isLoading
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.folder_open_rounded, size: 20),
                             label: Text(
                               isLoading ? 'Opening...' : 'Open Flutter Project',
                               style: const TextStyle(
