@@ -387,9 +387,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                             backgroundColor: PatrolColors.snow,
                             foregroundColor: PatrolColors.obsidian,
                           ),
-                          child: Text(
-                            _settingsSaving ? 'Saving...' : 'Save Settings',
-                          ),
+                          child: _settingsSaving
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: PatrolColors.obsidian,
+                                  ),
+                                )
+                              : const Text('Save Settings'),
                         ),
                       ],
                     ),
