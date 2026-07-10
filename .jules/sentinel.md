@@ -1,0 +1,4 @@
+## 2024-05-15 - [AppleScript Command Injection via String Interpolation]
+**Vulnerability:** In `findSimulatorWindowBounds`, user input (`deviceName`) was being interpolated into an AppleScript string with only double quotes escaped. This allowed an attacker to inject arbitrary AppleScript commands by providing a device name ending in a backslash, which would escape the backslash that escapes the double quote, terminating the string prematurely.
+**Learning:** When constructing AppleScript commands with string interpolation in Dart (e.g., executed via `osascript`), escaping only double quotes is insufficient. A trailing backslash in the input can neutralise the escaping backslash, allowing the string to end and commands to be injected.
+**Prevention:** Always escape backslashes first before escaping double quotes (e.g., `.replaceAll(r'\', r'\\').replaceAll('"', r'\"')`) to prevent command injection vulnerabilities.
