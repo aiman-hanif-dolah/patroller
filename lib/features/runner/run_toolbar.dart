@@ -134,6 +134,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
             label: 'Test',
             icon: Icons.play_arrow_rounded,
             active: isTestRun,
+            isLoading: isTestRun,
             enabled: runDisabled == null,
             tooltip: runDisabled ?? 'Run the selected test file once.',
             activeColor: PatrolColors.psPassed,
@@ -144,6 +145,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
             label: 'Test All',
             icon: Icons.format_list_numbered_rounded,
             active: isQueueRun,
+            isLoading: isQueueRun,
             enabled: queueDisabled == null,
             tooltip: queueDisabled ??
                 'Run selected files, or all files when none are selected.',
@@ -155,6 +157,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
             label: 'Develop',
             icon: Icons.science_outlined,
             active: isHotRun,
+            isLoading: isHotRun,
             enabled: runDisabled == null,
             tooltip: runDisabled ??
                 'Start patrol develop for the selected file.',
@@ -166,6 +169,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
             label: 'Develop All',
             icon: Icons.layers_outlined,
             active: isHotSuite,
+            isLoading: isHotSuite,
             enabled: queueDisabled == null,
             tooltip: queueDisabled ??
                 'Start develop for the selected file, or the first runnable file when none is selected.',
@@ -189,6 +193,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
             label: lifecycle == RunLifecycle.stopping ? 'Stopping...' : 'Stop',
             icon: Icons.stop_rounded,
             active: lifecycle == RunLifecycle.stopping,
+            isLoading: lifecycle == RunLifecycle.stopping,
             enabled: sessionBusy || runner.stopFailure != null,
             tooltip: sessionBusy
                 ? 'Stop the active test or develop session.'
@@ -244,6 +249,7 @@ class _ActionButton extends StatelessWidget {
     required this.tooltip,
     required this.activeColor,
     required this.onPressed,
+    this.isLoading = false,
   });
 
   final String label;
@@ -253,6 +259,7 @@ class _ActionButton extends StatelessWidget {
   final String tooltip;
   final Color activeColor;
   final VoidCallback onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -291,7 +298,17 @@ class _ActionButton extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, size: 14, color: fg),
+                    if (isLoading)
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: fg,
+                        ),
+                      )
+                    else
+                      Icon(icon, size: 14, color: fg),
                     const SizedBox(width: 6),
                     Text(
                       label,
