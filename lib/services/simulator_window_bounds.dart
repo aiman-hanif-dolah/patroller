@@ -34,7 +34,7 @@ ScreenBounds? findSimulatorWindowBounds({String? deviceName}) {
   if (!Platform.isMacOS) return null;
 
   final nameFilter = deviceName != null
-      ? 'whose name contains "${deviceName.replaceAll('"', r'\"')}"'
+      ? 'whose name contains "${deviceName.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"'
       : '';
 
   final script = '''
