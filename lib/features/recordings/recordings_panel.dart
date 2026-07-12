@@ -410,7 +410,13 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                 onPressed: (!_importController.text.trim().isEmpty && !_isImporting)
                     ? () => _importFromJson(project.projectPath)
                     : null,
-                icon: const Icon(Icons.upload, size: 14),
+                icon: _isImporting
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.upload, size: 14),
                 label: Text(_isImporting ? 'Importing...' : 'Import'),
               ),
             ],
@@ -687,7 +693,13 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
               onPressed: _loadingCodePreview
                   ? null
                   : () => _toggleCodePreview(recording, project.projectPath),
-              icon: const Icon(Icons.code, size: 14),
+              icon: _loadingCodePreview
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.code, size: 14),
               label: Text(
                 _loadingCodePreview
                     ? 'Loading preview...'
