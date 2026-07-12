@@ -1,0 +1,3 @@
+## 2024-11-23 - Inline Loading Indicators for Async Operations
+**Learning:** For asynchronous operations (like importing files or fetching data), static buttons leave users uncertain if the action registered. Swapping the static button icon for a `CircularProgressIndicator(strokeWidth: 2)` inside an `OutlinedButton.icon` (while maintaining the button's size with a `SizedBox`) provides immediate, inline feedback without shifting the layout.
+**Action:** Always verify if an action can take multiple seconds, and if so, bind its `icon` parameter to a loading state ternary that yields a consistent `CircularProgressIndicator` instead of leaving the UI static.
