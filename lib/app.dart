@@ -15,8 +15,12 @@ class PatrollerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settingsLoaded = ref.watch(settingsProvider).loaded;
-    final activeView = ref.watch(appProvider).activeView;
+    // ⚡ Bolt: Optimize Riverpod watchers to prevent app-wide rebuilds
+    // By using .select(), we ensure PatrollerApp only rebuilds when these specific
+    // properties change, rather than rebuilding whenever any part of appProvider
+    // or settingsProvider state changes.
+    final settingsLoaded = ref.watch(settingsProvider.select((s) => s.loaded));
+    final activeView = ref.watch(appProvider.select((s) => s.activeView));
 
     return MaterialApp(
       title: 'Patroller',
