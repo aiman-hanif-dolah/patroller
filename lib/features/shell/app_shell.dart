@@ -89,9 +89,10 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final app = ref.watch(appProvider);
+    // ⚡ Bolt optimization: watch only healthWarningCount instead of entire app state
+    // to prevent unnecessary AppShell rebuilds when scanning or running tests
+    final healthWarningCount = ref.watch(appProvider.select((s) => s.healthWarningCount));
     final settings = ref.watch(settingsProvider).settings;
-    final totalWidth = MediaQuery.sizeOf(context).width;
 
     if (ref.watch(settingsProvider).loaded && !_layoutInitialized) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -154,7 +155,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                               const SizedBox(width: _panelGutter),
                               _buildWorkspaceColumn(
                                 healthState: ref.watch(healthProvider),
-                                app: app,
+                                appHealthWarningCount: healthWarningCount,
                               ),
                             ],
                           );
@@ -230,10 +231,10 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   Widget _buildWorkspaceColumn({
     required HealthState healthState,
-    required AppState app,
+    required int? appHealthWarningCount,
   }) {
     final healthWarnings =
-        healthState.warningCount ?? app.healthWarningCount ?? 0;
+        healthState.warningCount ?? appHealthWarningCount ?? 0;
     if (_rightCollapsed) {
       return PatrolCard(
         padding: EdgeInsets.zero,
