@@ -54,8 +54,9 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   void _initLayoutFromSettings(AppSettings settings) {
-    _rightPanelWidth =
-        clampRightPanelWidth(settings.rightPanelWidth.toDouble());
+    _rightPanelWidth = clampRightPanelWidth(
+      settings.rightPanelWidth.toDouble(),
+    );
     _logsCollapsed = false;
     _rightCollapsed = false;
     _logsPanelWidth = clampLogsPanelWidth(
@@ -100,18 +101,24 @@ class _AppShellState extends ConsumerState<AppShell> {
       });
     }
 
-    ref.listen(settingsProvider.select((s) => s.settings.rightPanelWidth),
-        (prev, next) {
+    ref.listen(settingsProvider.select((s) => s.settings.rightPanelWidth), (
+      prev,
+      next,
+    ) {
       if (!_layoutInitialized) return;
       setState(() => _rightPanelWidth = clampRightPanelWidth(next.toDouble()));
     });
-    ref.listen(settingsProvider.select((s) => s.settings.logsCollapsed),
-        (prev, next) {
+    ref.listen(settingsProvider.select((s) => s.settings.logsCollapsed), (
+      prev,
+      next,
+    ) {
       if (!_layoutInitialized) return;
       setState(() => _logsCollapsed = next);
     });
-    ref.listen(settingsProvider.select((s) => s.settings.rightCollapsed),
-        (prev, next) {
+    ref.listen(settingsProvider.select((s) => s.settings.rightCollapsed), (
+      prev,
+      next,
+    ) {
       if (!_layoutInitialized) return;
       setState(() => _rightCollapsed = next);
     });
@@ -124,8 +131,10 @@ class _AppShellState extends ConsumerState<AppShell> {
             Column(
               children: [
                 RunToolbar(
-                  onOpenProject: () => ref.read(appProvider.notifier).openProject(),
-                  onRefreshTests: () => ref.read(appProvider.notifier).scanTests(),
+                  onOpenProject: () =>
+                      ref.read(appProvider.notifier).openProject(),
+                  onRefreshTests: () =>
+                      ref.read(appProvider.notifier).scanTests(),
                   onOpenSettings: () => setState(() => _showSettings = true),
                 ),
                 const WorkflowStatusStrip(),
@@ -202,9 +211,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     _persistLayout();
                   },
                 ),
-                Expanded(
-                  child: LogsShell(searchFocusNode: _logSearchFocus),
-                ),
+                Expanded(child: LogsShell(searchFocusNode: _logSearchFocus)),
               ],
             ),
           ),
@@ -279,9 +286,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                   Expanded(
                     child: switch (_workspaceTab) {
                       WorkspacePanelTab.tests => TestExplorer(
-                          onRefresh: () =>
-                              ref.read(appProvider.notifier).scanTests(),
-                        ),
+                        onRefresh: () =>
+                            ref.read(appProvider.notifier).scanTests(),
+                      ),
                       WorkspacePanelTab.recordings => const RecordingsPanel(),
                       WorkspacePanelTab.history => const RunHistory(),
                       WorkspacePanelTab.health => const EnvironmentHealth(),
@@ -377,8 +384,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                           onPressed: (!_settingsDirty || _settingsSaving)
                               ? null
                               : () async {
-                                  final saved =
-                                      await _settingsSaveNotifier.save?.call();
+                                  final saved = await _settingsSaveNotifier.save
+                                      ?.call();
                                   if (saved == true && mounted) {
                                     setState(() => _showSettings = false);
                                   }
@@ -387,9 +394,22 @@ class _AppShellState extends ConsumerState<AppShell> {
                             backgroundColor: PatrolColors.snow,
                             foregroundColor: PatrolColors.obsidian,
                           ),
-                          child: Text(
-                            _settingsSaving ? 'Saving...' : 'Save Settings',
-                          ),
+                          child: _settingsSaving
+                              ? const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text('Saving...'),
+                                  ],
+                                )
+                              : const Text('Save Settings'),
                         ),
                       ],
                     ),
@@ -445,7 +465,8 @@ class _WorkspacePanelTabs extends StatelessWidget {
                 : null;
             final icon = switch (tab) {
               WorkspacePanelTab.tests => Icons.science_outlined,
-              WorkspacePanelTab.recordings => Icons.fiber_manual_record_outlined,
+              WorkspacePanelTab.recordings =>
+                Icons.fiber_manual_record_outlined,
               WorkspacePanelTab.history => Icons.history_rounded,
               WorkspacePanelTab.health => Icons.monitor_heart_outlined,
             };
