@@ -47,7 +47,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final project = ref.watch(appProvider).currentProject;
+    final project = ref.watch(appProvider.select((s) => s.currentProject));
     final device = ref.watch(runnerProvider).selectedDevice;
     final recordingState = ref.watch(recordingProvider);
     final readiness = ref.watch(simulatorDriverReadinessProvider);
