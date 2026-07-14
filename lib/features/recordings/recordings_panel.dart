@@ -52,7 +52,10 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     final recordingState = ref.watch(recordingProvider);
     final readiness = ref.watch(simulatorDriverReadinessProvider);
 
-    ref.listen(appProvider.select((s) => s.currentProject?.projectPath), (prev, next) {
+    ref.listen(appProvider.select((s) => s.currentProject?.projectPath), (
+      prev,
+      next,
+    ) {
       if (prev != next && next != null) {
         ref.read(recordingProvider.notifier).loadRecordings(next);
       }
@@ -67,7 +70,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
 
     if (project != null && recordingState.recordings.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(recordingProvider.notifier).loadRecordings(project.projectPath);
+        ref
+            .read(recordingProvider.notifier)
+            .loadRecordings(project.projectPath);
       });
     }
 
@@ -93,7 +98,12 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
         const Divider(height: 1, color: PatrolColors.pebble),
         Expanded(child: _buildSavedList(recordingState)),
         if (_selectedRecording != null)
-          _buildSelectedSection(project, device, recordingState, _selectedRecording!),
+          _buildSelectedSection(
+            project,
+            device,
+            recordingState,
+            _selectedRecording!,
+          ),
       ],
     );
   }
@@ -118,7 +128,13 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                   children: [
                     Icon(Icons.circle, size: 8, color: PatrolColors.red400),
                     SizedBox(width: 4),
-                    Text('Recording', style: TextStyle(fontSize: 11, color: PatrolColors.red400)),
+                    Text(
+                      'Recording',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: PatrolColors.red400,
+                      ),
+                    ),
                   ],
                 ),
             ],
@@ -133,7 +149,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
               decoration: BoxDecoration(
                 color: PatrolColors.fog,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: PatrolColors.pebble.withValues(alpha: 0.6)),
+                border: Border.all(
+                  color: PatrolColors.pebble.withValues(alpha: 0.6),
+                ),
               ),
               child: Row(
                 children: [
@@ -142,9 +160,12 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                       device == null
                           ? 'Select simulator'
                           : device.state == DeviceState.booted
-                              ? device.name
-                              : '${device.name} (boot required)',
-                      style: const TextStyle(fontSize: 14, color: PatrolColors.ink),
+                          ? device.name
+                          : '${device.name} (boot required)',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: PatrolColors.ink,
+                      ),
                     ),
                   ),
                   Icon(
@@ -176,23 +197,39 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
             style: const TextStyle(fontSize: 13, color: PatrolColors.ink),
             decoration: InputDecoration(
               hintText: 'Recording name',
-              hintStyle: const TextStyle(fontSize: 13, color: PatrolColors.steel),
-              prefixIcon: const Icon(Icons.edit_outlined, size: 18, color: PatrolColors.steel),
+              hintStyle: const TextStyle(
+                fontSize: 13,
+                color: PatrolColors.steel,
+              ),
+              prefixIcon: const Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: PatrolColors.steel,
+              ),
               isDense: true,
               filled: true,
               fillColor: PatrolColors.obsidian.withValues(alpha: 0.45),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(PatrolRadius.chip),
-                borderSide: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+                borderSide: BorderSide(
+                  color: PatrolColors.pebble.withValues(alpha: 0.7),
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(PatrolRadius.chip),
-                borderSide: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+                borderSide: BorderSide(
+                  color: PatrolColors.pebble.withValues(alpha: 0.7),
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(PatrolRadius.chip),
-                borderSide: BorderSide(color: PatrolColors.amber.withValues(alpha: 0.6)),
+                borderSide: BorderSide(
+                  color: PatrolColors.amber.withValues(alpha: 0.6),
+                ),
               ),
             ),
           ),
@@ -263,9 +300,10 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                   onTap: recordingState.isRecording
                       ? (_isSaving ? null : () => _saveActive(project, device))
                       : readiness.allowExternalFallback
-                          ? () =>
-                              ref.read(recordingProvider.notifier).startRecording()
-                          : null,
+                      ? () => ref
+                            .read(recordingProvider.notifier)
+                            .startRecording()
+                      : null,
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
@@ -305,7 +343,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
               Expanded(
                 child: GestureDetector(
                   onTap: recordingState.isRecording
-                      ? () => ref.read(recordingProvider.notifier).cancelRecording()
+                      ? () => ref
+                            .read(recordingProvider.notifier)
+                            .cancelRecording()
                       : null,
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -406,12 +446,23 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                 },
               ),
               const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: (!_importController.text.trim().isEmpty && !_isImporting)
-                    ? () => _importFromJson(project.projectPath)
-                    : null,
-                icon: const Icon(Icons.upload, size: 14),
-                label: Text(_isImporting ? 'Importing...' : 'Import'),
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _importController,
+                builder: (context, value, child) {
+                  return OutlinedButton.icon(
+                    onPressed: (value.text.trim().isNotEmpty && !_isImporting)
+                        ? () => _importFromJson(project.projectPath)
+                        : null,
+                    icon: _isImporting
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.upload, size: 14),
+                    label: Text(_isImporting ? 'Importing...' : 'Import'),
+                  );
+                },
               ),
             ],
           ),
@@ -447,8 +498,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                           : Colors.transparent,
                       child: InkWell(
                         onTap: () => setState(() {
-                          _selectedRecording =
-                              selected ? null : recording;
+                          _selectedRecording = selected ? null : recording;
                           _savedTestPath = null;
                           _renameValue = null;
                           _codePreview = null;
@@ -496,8 +546,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     RecordingState recordingState,
     Recording recording,
   ) {
-    final latestReplay =
-        recording.replayResults.isNotEmpty ? recording.replayResults.first : null;
+    final latestReplay = recording.replayResults.isNotEmpty
+        ? recording.replayResults.first
+        : null;
     final warnings = _collectWarnings(recording.actions);
 
     return Container(
@@ -528,7 +579,8 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                   AccessibleIconButton(
                     icon: Icons.edit,
                     label: 'Rename recording ${recording.name}',
-                    onPressed: () => setState(() => _renameValue = recording.name),
+                    onPressed: () =>
+                        setState(() => _renameValue = recording.name),
                     size: 14,
                     color: PatrolColors.steel,
                   ),
@@ -546,7 +598,8 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => _submitRename(project.projectPath, recording.id),
+                    onPressed: () =>
+                        _submitRename(project.projectPath, recording.id),
                     child: const Text('Save'),
                   ),
                 ],
@@ -565,7 +618,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: PatrolColors.ember.withValues(alpha: 0.1),
-                  border: Border.all(color: PatrolColors.ember.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: PatrolColors.ember.withValues(alpha: 0.4),
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
@@ -575,12 +630,19 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                         (w) => Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.warning_amber, size: 12, color: PatrolColors.ember),
+                            const Icon(
+                              Icons.warning_amber,
+                              size: 12,
+                              color: PatrolColors.ember,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 w,
-                                style: const TextStyle(fontSize: 10, color: PatrolColors.ember),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: PatrolColors.ember,
+                                ),
                               ),
                             ),
                           ],
@@ -612,8 +674,8 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                     onPressed: (recordingState.isReplaying || device == null)
                         ? null
                         : () => ref
-                            .read(recordingProvider.notifier)
-                            .replayRecording(recording, device),
+                              .read(recordingProvider.notifier)
+                              .replayRecording(recording, device),
                     icon: const Icon(Icons.play_arrow, size: 14),
                     label: Text(
                       recordingState.isReplaying ? 'Replaying' : 'Replay',
@@ -623,7 +685,8 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _saveTest(project.projectPath, recording.id),
+                    onPressed: () =>
+                        _saveTest(project.projectPath, recording.id),
                     icon: const Icon(Icons.save, size: 14),
                     label: const Text('Save Test'),
                   ),
@@ -635,22 +698,46 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
               spacing: 4,
               runSpacing: 4,
               children: [
-                _copyButton('Patrol Test', () => _copyExport(recording, project.projectPath, 'patrolTest')),
-                _copyButton('Flow', () => _copyExport(recording, project.projectPath, 'flow')),
-                _copyButton('JSON', () => _copyExport(recording, project.projectPath, 'json')),
-                _copyButton('Logs', () => _copyExport(recording, project.projectPath, 'logs')),
+                _copyButton(
+                  'Patrol Test',
+                  () =>
+                      _copyExport(recording, project.projectPath, 'patrolTest'),
+                ),
+                _copyButton(
+                  'Flow',
+                  () => _copyExport(recording, project.projectPath, 'flow'),
+                ),
+                _copyButton(
+                  'JSON',
+                  () => _copyExport(recording, project.projectPath, 'json'),
+                ),
+                _copyButton(
+                  'Logs',
+                  () => _copyExport(recording, project.projectPath, 'logs'),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: () => _deleteRecording(project.projectPath, recording.id),
-              icon: const Icon(Icons.delete, size: 14, color: PatrolColors.red400),
-              label: const Text('Delete', style: TextStyle(color: PatrolColors.red400)),
+              onPressed: () =>
+                  _deleteRecording(project.projectPath, recording.id),
+              icon: const Icon(
+                Icons.delete,
+                size: 14,
+                color: PatrolColors.red400,
+              ),
+              label: const Text(
+                'Delete',
+                style: TextStyle(color: PatrolColors.red400),
+              ),
             ),
             if (_savedTestPath != null)
               Text(
                 'Saved: $_savedTestPath',
-                style: const TextStyle(fontSize: 10, color: PatrolColors.psPassed),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: PatrolColors.psPassed,
+                ),
               ),
             if (latestReplay != null) ...[
               const SizedBox(height: 8),
@@ -676,7 +763,10 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                     if (latestReplay.error != null)
                       Text(
                         latestReplay.error!,
-                        style: const TextStyle(fontSize: 10, color: PatrolColors.red400),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: PatrolColors.red400,
+                        ),
                       ),
                   ],
                 ),
@@ -687,13 +777,19 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
               onPressed: _loadingCodePreview
                   ? null
                   : () => _toggleCodePreview(recording, project.projectPath),
-              icon: const Icon(Icons.code, size: 14),
+              icon: _loadingCodePreview
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.code, size: 14),
               label: Text(
                 _loadingCodePreview
                     ? 'Loading preview...'
                     : _codePreview != null
-                        ? 'Hide code preview'
-                        : 'Preview generated code',
+                    ? 'Hide code preview'
+                    : 'Preview generated code',
               ),
             ),
             if (_codePreview != null) ...[
@@ -735,19 +831,24 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
   }
 
   Future<void> _repairDriver(ProjectMetadata project) async {
-    final error =
-        await ref.read(healthProvider.notifier).repairDriver(project.projectPath);
+    final error = await ref
+        .read(healthProvider.notifier)
+        .repairDriver(project.projectPath);
     if (error != null) {
       ref.read(runnerProvider.notifier).showSnackbar('Repair failed: $error');
     } else {
-      ref.read(runnerProvider.notifier).showSnackbar('Simulator driver repaired');
+      ref
+          .read(runnerProvider.notifier)
+          .showSnackbar('Simulator driver repaired');
     }
   }
 
   Future<void> _saveActive(ProjectMetadata project, DeviceInfo? device) async {
     setState(() => _isSaving = true);
     try {
-      final recording = await ref.read(recordingProvider.notifier).saveRecording(
+      final recording = await ref
+          .read(recordingProvider.notifier)
+          .saveRecording(
             projectPath: project.projectPath,
             selectedDevice: device,
             logs: ref.read(logProvider).logs,
@@ -865,11 +966,16 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
       ),
     );
     if (confirmed != true) return;
-    await ref.read(recordingProvider.notifier).deleteRecording(recordingId, projectPath);
+    await ref
+        .read(recordingProvider.notifier)
+        .deleteRecording(recordingId, projectPath);
     setState(() => _selectedRecording = null);
   }
 
-  Future<void> _toggleCodePreview(Recording recording, String projectPath) async {
+  Future<void> _toggleCodePreview(
+    Recording recording,
+    String projectPath,
+  ) async {
     if (_codePreview != null) {
       setState(() => _codePreview = null);
       return;
