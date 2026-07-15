@@ -53,7 +53,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return _local != current;
   }
 
-  void _set<K>(K Function(AppSettings) getter, AppSettings Function(AppSettings, K) updater, K value) {
+  void _set<K>(
+    K Function(AppSettings) getter,
+    AppSettings Function(AppSettings, K) updater,
+    K value,
+  ) {
     setState(() {
       _local = updater(_local, value);
       _saveError = null;
@@ -140,11 +144,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
               onChanged: (v) {
                 if (v != null) {
-                  _set(
-                    (s) => s.theme,
-                    (s, v) => s.copyWith(theme: v),
-                    v,
-                  );
+                  _set((s) => s.theme, (s, v) => s.copyWith(theme: v), v);
                 }
               },
             ),
@@ -193,8 +193,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           _row(
             'Test directory',
-            TextField(
-              controller: TextEditingController(text: _local.testDirectory),
+            _SettingsTextField(
+              initialValue: _local.testDirectory,
               onChanged: (v) => _set(
                 (s) => s.testDirectory,
                 (s, v) => s.copyWith(testDirectory: v),
@@ -272,21 +272,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             field: 'dartPath',
             label: 'Dart',
             value: _local.dartPath,
-            onChanged: (v) => _set(
-              (s) => s.dartPath,
-              (s, v) => s.copyWith(dartPath: v),
-              v,
-            ),
+            onChanged: (v) =>
+                _set((s) => s.dartPath, (s, v) => s.copyWith(dartPath: v), v),
           ),
           _pathRow(
             field: 'xcrunPath',
             label: 'xcrun',
             value: _local.xcrunPath,
-            onChanged: (v) => _set(
-              (s) => s.xcrunPath,
-              (s, v) => s.copyWith(xcrunPath: v),
-              v,
-            ),
+            onChanged: (v) =>
+                _set((s) => s.xcrunPath, (s, v) => s.copyWith(xcrunPath: v), v),
           ),
           _section('Layout'),
           SwitchListTile(
@@ -396,7 +390,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             width: 160,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 14, color: PatrolColors.graphite),
+              style: const TextStyle(
+                fontSize: 14,
+                color: PatrolColors.graphite,
+              ),
             ),
           ),
           Expanded(child: child),
@@ -432,11 +429,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             width: 160,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 14, color: PatrolColors.graphite),
+              style: const TextStyle(
+                fontSize: 14,
+                color: PatrolColors.graphite,
+              ),
             ),
           ),
           Expanded(
-            child: TextField(
+            child: _SettingsTextField(
+              initialValue: value,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 isDense: true,
@@ -444,7 +445,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 helperText: '$min–$max',
                 helperStyle: const TextStyle(fontSize: 10),
               ),
-              controller: TextEditingController(text: value),
               onChanged: (v) {
                 final parsed = parsePositiveInt(v, min: min, max: max);
                 setState(() {
@@ -484,16 +484,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             width: 160,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 14, color: PatrolColors.graphite),
+              style: const TextStyle(
+                fontSize: 14,
+                color: PatrolColors.graphite,
+              ),
             ),
           ),
           Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                isDense: true,
-                errorText: error,
-              ),
-              controller: TextEditingController(text: value),
+            child: _SettingsTextField(
+              initialValue: value,
+              decoration: InputDecoration(isDense: true, errorText: error),
               onChanged: (v) {
                 setState(() {
                   if (v.trim().isEmpty) {
@@ -524,6 +524,58 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SettingsTextField extends StatefulWidget {
+  const _SettingsTextField({
+    required this.initialValue,
+    required this.onChanged,
+    this.decoration,
+    this.keyboardType,
+  });
+
+  final String initialValue;
+  final ValueChanged<String> onChanged;
+  final InputDecoration? decoration;
+  final TextInputType? keyboardType;
+
+  @override
+  State<_SettingsTextField> createState() => _SettingsTextFieldState();
+}
+
+class _SettingsTextFieldState extends State<_SettingsTextField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SettingsTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue &&
+        widget.initialValue != _controller.text) {
+      _controller.text = widget.initialValue;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      decoration: widget.decoration,
+      keyboardType: widget.keyboardType,
+      onChanged: widget.onChanged,
     );
   }
 }
