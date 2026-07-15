@@ -56,7 +56,7 @@ void main() {
   group('formatHealthStripLabel', () {
     test('unchecked shows Not checked', () {
       expect(
-        formatHealthStripLabel(const HealthState()),
+        formatHealthStripLabel(HealthCheckState.unchecked, null),
         'Not checked',
       );
     });
