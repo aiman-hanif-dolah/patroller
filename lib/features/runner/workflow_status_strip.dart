@@ -15,32 +15,56 @@ class WorkflowStatusStrip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final app = ref.watch(appProvider);
-    final runner = ref.watch(runnerProvider);
-    final health = ref.watch(healthProvider);
-    final readiness = ref.watch(simulatorDriverReadinessProvider);
+    final currentProject = ref.watch(
+      appProvider.select((state) => state.currentProject),
+    );
+    if (currentProject == null) return const SizedBox.shrink();
+
+    final selectedFileIdsLength = ref.watch(
+      appProvider.select((state) => state.selectedFileIds.length),
+    );
+    final selectedFile = ref.watch(
+      appProvider.select((state) => state.selectedFile),
+    );
+
+    final selectedDevice = ref.watch(
+      runnerProvider.select((state) => state.selectedDevice),
+    );
+    final isRunning = ref.watch(
+      runnerProvider.select((state) => state.isRunning),
+    );
+
+    final healthState = ref.watch(
+      healthProvider.select((state) => state.state),
+    );
+    final healthWarningCount = ref.watch(
+      healthProvider.select((state) => state.warningCount),
+    );
+
+    final showRepairAction = ref.watch(
+      simulatorDriverReadinessProvider.select(
+        (state) => state.showRepairAction,
+      ),
+    );
     final activeRunFile = ref.watch(activeRunFileProvider);
 
-    if (app.currentProject == null) return const SizedBox.shrink();
-
-    final selectionBadge =
-        describeTestAllQueueBadge(app.selectedFileIds.length);
-    final driverIssue = readiness.showRepairAction;
-    final healthLabel = health.state == HealthCheckState.current &&
+    final selectionBadge = describeTestAllQueueBadge(selectedFileIdsLength);
+    final driverIssue = showRepairAction;
+    final healthLabel = healthState == HealthCheckState.current &&
             driverIssue &&
-            (health.warningCount ?? 0) == 0
+            (healthWarningCount ?? 0) == 0
         ? 'Driver issue'
-        : formatHealthStripLabel(health);
-    final healthWarn = health.state == HealthCheckState.failed ||
+        : formatHealthStripLabel(healthState, healthWarningCount);
+    final healthWarn = healthState == HealthCheckState.failed ||
         driverIssue ||
-        (health.state == HealthCheckState.current &&
-            (health.warningCount ?? 0) > 0) ||
-        health.state == HealthCheckState.stale;
+        (healthState == HealthCheckState.current &&
+            (healthWarningCount ?? 0) > 0) ||
+        healthState == HealthCheckState.stale;
 
-    final activeFileLabel = runner.isRunning && activeRunFile != null
+    final activeFileLabel = isRunning && activeRunFile != null
         ? middleTruncate(activeRunFile.fileName, 36)
-        : middleTruncate(app.selectedFile?.fileName ?? 'None', 36);
-    final activeFileWarn = !runner.isRunning && app.selectedFile == null;
+        : middleTruncate(selectedFile?.fileName ?? 'None', 36);
+    final activeFileWarn = !isRunning && selectedFile == null;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
@@ -56,19 +80,19 @@ class WorkflowStatusStrip extends ConsumerWidget {
           children: [
             WorkflowStatusBadge(
               label: 'Project',
-              value: middleTruncate(app.currentProject!.projectName, 28),
+              value: middleTruncate(currentProject.projectName, 28),
               icon: Icons.folder_outlined,
             ),
             const SizedBox(width: 8),
             WorkflowStatusBadge(
               label: 'Device',
-              value: runner.selectedDevice?.name ?? 'No device',
-              warn: runner.selectedDevice == null,
+              value: selectedDevice?.name ?? 'No device',
+              warn: selectedDevice == null,
               icon: Icons.phone_iphone_outlined,
             ),
             const SizedBox(width: 8),
             WorkflowStatusBadge(
-              label: runner.isRunning ? 'Running file' : 'Selected file',
+              label: isRunning ? 'Running file' : 'Selected file',
               value: activeFileLabel,
               warn: activeFileWarn,
               icon: Icons.description_outlined,

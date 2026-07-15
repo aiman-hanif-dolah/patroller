@@ -112,7 +112,8 @@ class HealthNotifier extends StateNotifier<HealthState> {
     }
   }
 
-  Future<void> runChecks(String projectPath, {bool forceRefresh = false}) async {
+  Future<void> runChecks(String projectPath,
+      {bool forceRefresh = false}) async {
     state = state.copyWith(state: HealthCheckState.checking, clearError: true);
     try {
       final runner = _ref.read(runnerProvider);
@@ -153,18 +154,18 @@ final healthProvider = StateNotifierProvider<HealthNotifier, HealthState>(
   (ref) => HealthNotifier(ref),
 );
 
-String formatHealthStripLabel(HealthState health) {
-  return switch (health.state) {
+String formatHealthStripLabel(HealthCheckState state, int? warningCount) {
+  return switch (state) {
     HealthCheckState.unchecked => 'Not checked',
     HealthCheckState.checking => 'Checking…',
-    HealthCheckState.stale => health.warningCount == null
+    HealthCheckState.stale => warningCount == null
         ? 'Stale'
-        : '${health.warningCount} warning${health.warningCount == 1 ? '' : 's'} (stale)',
+        : '$warningCount warning${warningCount == 1 ? '' : 's'} (stale)',
     HealthCheckState.failed => 'Check failed',
-    HealthCheckState.current => health.warningCount == null
+    HealthCheckState.current => warningCount == null
         ? 'Not checked'
-        : health.warningCount == 0
+        : warningCount == 0
             ? '0 warnings'
-            : '${health.warningCount} warning${health.warningCount == 1 ? '' : 's'}',
+            : '$warningCount warning${warningCount == 1 ? '' : 's'}',
   };
 }
