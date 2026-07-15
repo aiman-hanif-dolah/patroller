@@ -1,0 +1,4 @@
+## 2024-05-18 - [AppleScript Command Injection via Unescaped Backslashes]
+**Vulnerability:** Command injection in `lib/services/simulator_window_bounds.dart` where user-supplied `deviceName` was interpolated into an AppleScript block executed via `osascript`. The original code escaped quotes (`"`) but not backslashes (`\`), allowing attackers to break out of the string literal (e.g. `\"`) and execute arbitrary AppleScript or shell commands.
+**Learning:** String interpolation in shell/osascript commands is highly susceptible to injection if escape characters themselves are not neutralized. Relying only on quote-escaping is insufficient when the language interprets escape characters.
+**Prevention:** Always escape backslashes *before* escaping quotes when interpolating strings into contexts that parse escapes. E.g., `value.replaceAll(r'\', r'\\').replaceAll('"', r'\"')`.
