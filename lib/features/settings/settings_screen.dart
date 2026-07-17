@@ -193,8 +193,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           _row(
             'Test directory',
-            TextField(
-              controller: TextEditingController(text: _local.testDirectory),
+            TextFormField(
+              initialValue: _local.testDirectory,
               onChanged: (v) => _set(
                 (s) => s.testDirectory,
                 (s, v) => s.copyWith(testDirectory: v),
@@ -436,7 +436,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           Expanded(
-            child: TextField(
+            child: TextFormField(
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 isDense: true,
@@ -444,7 +444,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 helperText: '$min–$max',
                 helperStyle: const TextStyle(fontSize: 10),
               ),
-              controller: TextEditingController(text: value),
+              initialValue: value,
               onChanged: (v) {
                 final parsed = parsePositiveInt(v, min: min, max: max);
                 setState(() {
@@ -488,12 +488,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           Expanded(
-            child: TextField(
+            child: TextFormField(
               decoration: InputDecoration(
                 isDense: true,
                 errorText: error,
               ),
-              controller: TextEditingController(text: value),
+              initialValue: value,
               onChanged: (v) {
                 setState(() {
                   if (v.trim().isEmpty) {
