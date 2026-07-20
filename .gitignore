@@ -53,6 +53,9 @@ app.*.map.json
 .cursor/
 .claude/
 
+# Packaged release artifacts (upload via GitHub Releases, do not commit binaries)
+/dist/
+
 # Internal / local-only notes (not for public tree)
 Internship_Project_Report.md
 Internship_Project_Report.txt

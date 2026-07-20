@@ -20,7 +20,8 @@
 <p align="center">
   <a href="#-why-patroller">Why</a> ·
   <a href="#-features">Features</a> ·
-  <a href="#-quick-start">Quick start</a> ·
+  <a href="#installation">Installation</a> ·
+  <a href="#-quick-start">Build from source</a> ·
   <a href="#-prepare-your-flutter-app-for-patrol">Patrol project setup</a> ·
   <a href="#-fork--contribute">Fork</a> ·
   <a href="#-architecture">Architecture</a> ·
@@ -78,12 +79,89 @@ Built with **pure Dart process control** - no Electron shell, no WebView tax for
 
 ---
 
-## 🚀 Quick start
+## Installation
+
+Download a prebuilt app from **[GitHub Releases](https://github.com/aiman-hanif-dolah/patroller/releases)** - no Flutter install required to *run* Patroller.
+
+| Platform | Artifact | How to install |
+|----------|----------|----------------|
+| **macOS** | `Patroller-<version>-macos-arm64.dmg` | Open the DMG → drag **Patroller** into **Applications** |
+| **macOS** | `Patroller-<version>-macos-arm64.zip` | Unzip → drag `Patroller.app` into **Applications** |
+| **Windows** | `Patroller-<version>-windows-x64.zip` | Unzip to a folder → run `patroller.exe` |
+
+<p align="center">
+  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/latest">
+    <img src="https://img.shields.io/github/v/release/aiman-hanif-dolah/patroller?style=for-the-badge&label=Latest%20release" alt="Latest release" />
+  </a>
+  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/latest">
+    <img src="https://img.shields.io/badge/Download-macOS%20%2F%20Windows-0A84FF?style=for-the-badge&logo=github" alt="Download" />
+  </a>
+</p>
+
+### macOS (recommended: DMG)
+
+1. Open [Releases](https://github.com/aiman-hanif-dolah/patroller/releases/latest).
+2. Download **`Patroller-*-macos-*.dmg`** (or the `.zip`).
+3. Open the DMG and drag **Patroller** into **Applications**.
+4. Launch from Launchpad or Spotlight (`Patroller`).
+5. **First open (unsigned builds):** if macOS blocks the app, right-click **Patroller** → **Open** → **Open**.  
+   Or clear quarantine after install:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Patroller.app
+   open -a Patroller
+   ```
+
+Optional helper (if you keep the zip/dmg next to it):
+
+```bash
+# after downloading assets into ./dist
+chmod +x dist/install-macos.sh
+./dist/install-macos.sh   # copies Patroller.app → /Applications
+```
+
+### Windows (portable zip)
+
+1. Open [Releases](https://github.com/aiman-hanif-dolah/patroller/releases/latest).
+2. Download **`Patroller-*-windows-x64.zip`**.
+3. Unzip anywhere (e.g. `%LOCALAPPDATA%\Patroller`).
+4. Run **`patroller.exe`** (pin to taskbar if you like).
+
+No admin installer is required for the portable zip.
+
+### After install: use a Flutter *app* with Patrol
+
+Patroller is the **workbench**. The project you open still needs Patrol configured (deps + Android `MainActivityTest` + iOS **RunnerUITests**). See [Prepare your Flutter app for Patrol](#-prepare-your-flutter-app-for-patrol).
+
+Also install tooling used when *running* tests from Patroller:
+
+```bash
+dart pub global activate patrol_cli
+patrol doctor
+```
+
+### Build installers yourself (maintainers)
+
+```bash
+# macOS host → .app + .zip + .dmg under dist/
+./scripts/package-release.sh --macos-only
+
+# Windows host → portable zip under dist/
+./scripts/package-release.sh --windows-only
+```
+
+Pushing a tag `v*` (e.g. `v1.0.0`) runs [`.github/workflows/release.yml`](.github/workflows/release.yml), which builds **macOS + Windows** artifacts and attaches them to a GitHub Release.
+
+---
+
+## 🚀 Quick start (build from source)
+
+Use this if you are developing Patroller or there is no release yet for your platform.
 
 ### Requirements
 
 - [Flutter](https://docs.flutter.dev/get-started/install) **3.3+**
-- [Patrol CLI](https://pub.dev/packages/patrol_cli) (`dart pub global activate patrol_cli`)
+- [Patrol CLI](https://pub.dev/packages/patrol_cli) (`dart pub global activate patrol_cli`) when running tests
 - macOS: Xcode + iOS Simulator for full runner workflows
 
 ### Clone & run
@@ -95,14 +173,16 @@ flutter pub get
 flutter run -d macos      # or: flutter run -d windows
 ```
 
-### Release build (macOS)
+### Local release-style build (macOS)
 
 ```bash
-flutter build macos
-open build/macos/Build/Products/Release/Patroller.app
+./scripts/package-release.sh --macos-only
+open dist/Patroller-*-macos-*.dmg
+# or install into /Applications:
+# open build/macos/Build/Products/Release/Patroller.app
 ```
 
-### Optional: reinstall helper
+### Optional: reinstall helper (dev)
 
 ```bash
 ./scripts/reinstall-macos.sh

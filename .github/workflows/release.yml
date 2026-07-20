@@ -1,0 +1,141 @@
+name: Release
+
+# Build downloadable installers when a version tag is pushed (e.g. v1.0.0).
+# macOS → .zip + .dmg | Windows → portable .zip
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create/update (e.g. v1.0.0). Leave empty for dry-run artifacts only."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: Package macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Package
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/package-release.sh --macos-only
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: patroller-macos
+          path: |
+            dist/Patroller-*.zip
+            dist/Patroller-*.dmg
+            dist/install-macos.sh
+            dist/SHA256SUMS-*.txt
+          if-no-files-found: error
+
+  windows:
+    name: Package Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Package
+        shell: bash
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/package-release.sh --windows-only
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: patroller-windows
+          path: |
+            dist/Patroller-*.zip
+            dist/install-windows.txt
+            dist/SHA256SUMS-*.txt
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: patroller-macos
+          path: dist
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: patroller-windows
+          path: dist
+
+      - name: Resolve tag
+        id: meta
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+          ls -la dist
+
+      - name: Create / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Patroller ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            dist/Patroller-*.zip
+            dist/Patroller-*.dmg
+            dist/install-macos.sh
+            dist/install-windows.txt
+            dist/SHA256SUMS-*.txt
+          body: |
+            ## Install
+
+            ### macOS
+            1. Download **Patroller-*-macos-*.dmg** (or `.zip`).
+            2. Open the DMG and drag **Patroller** into **Applications** (or unzip and move `Patroller.app`).
+            3. First launch: right-click → **Open** if Gatekeeper blocks an unsigned build.
+
+            ### Windows
+            1. Download **Patroller-*-windows-x64.zip**.
+            2. Unzip to a folder and run **patroller.exe**.
+
+            ## Notes
+            - Patroller runs Patrol tests against Flutter projects that already have Android/iOS native Patrol setup.
+            - See the [README](https://github.com/aiman-hanif-dolah/patroller#installation) for full docs.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
