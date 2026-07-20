@@ -84,17 +84,13 @@ List<HealthCheck> buildSimulatorDriverHealthChecks({
   checks.add(
     HealthCheck(
       name: 'Simulator driver runner app',
-      status: artifacts.runnerAppExists
+      status: artifacts.runnerAppExists || artifacts.runnerZipExists
           ? HealthStatus.passed
-          : artifacts.runnerZipExists
-              ? HealthStatus.warning
-              : HealthStatus.failed,
-      explanation: artifacts.runnerAppExists
+          : HealthStatus.failed,
+      explanation: artifacts.runnerAppExists || artifacts.runnerZipExists
           ? 'Runner app is bundled and ready to install.'
-          : artifacts.runnerZipExists
-              ? 'Only the runner zip is bundled. Patroller must extract it before recording works.'
-              : 'PatrolSimulatorDriverUITests-Runner.app is missing from bundled resources.',
-      fixInstruction: artifacts.runnerAppExists
+          : 'PatrolSimulatorDriverUITests-Runner.app is missing from bundled resources.',
+      fixInstruction: artifacts.runnerAppExists || artifacts.runnerZipExists
           ? ''
           : 'Reinstall Patroller or run Repair driver after rebuilding simulator driver artifacts.',
       rawOutput: runnerExpectedPath,
@@ -117,28 +113,37 @@ List<HealthCheck> buildSimulatorDriverHealthChecks({
 
   if (hasBootedSimulator) {
     final state = driverStatus?.state ?? DriverState.idle;
+    // Idle/stopped is expected until recording or replay starts the session.
+    // Do not treat that as a permanent environment warning.
     final status = switch (state) {
-      DriverState.ready => HealthStatus.passed,
+      DriverState.ready || DriverState.idle || DriverState.stopped =>
+        HealthStatus.passed,
       DriverState.starting || DriverState.restarting => HealthStatus.warning,
       DriverState.error => HealthStatus.failed,
-      DriverState.stopped || DriverState.idle => HealthStatus.warning,
     };
     checks.add(
       HealthCheck(
         name: 'Simulator driver session',
         status: status,
         explanation: switch (state) {
-          DriverState.ready => 'Driver session is connected to the selected simulator.',
+          DriverState.ready =>
+            'Driver session is connected to the selected simulator.',
           DriverState.starting => 'Driver session is starting.',
           DriverState.restarting => 'Driver session is restarting.',
           DriverState.error =>
             driverStatus?.error ?? 'Driver session failed to start.',
-          DriverState.stopped => 'Driver session is stopped.',
-          DriverState.idle => 'Driver session has not started yet.',
+          DriverState.stopped =>
+            'Driver session is stopped. It will restart when recording or replay begins.',
+          DriverState.idle =>
+            'Driver session is idle. It starts automatically when recording or replay begins.',
         },
-        fixInstruction: state == DriverState.ready
-            ? ''
-            : 'Use Repair driver, then retry recording or replay.',
+        fixInstruction: switch (state) {
+          DriverState.ready || DriverState.idle || DriverState.stopped => '',
+          DriverState.starting || DriverState.restarting =>
+            'Wait a few seconds for the driver to become ready.',
+          DriverState.error =>
+            'Use Repair driver, then retry recording or replay.',
+        },
         rawOutput: driverStatus?.logTail ?? '',
       ),
     );

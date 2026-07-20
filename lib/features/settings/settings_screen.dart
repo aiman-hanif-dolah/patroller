@@ -96,6 +96,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final loaded = ref.watch(settingsProvider).loaded;
     if (loaded && !_initialized) {
       _local = ref.read(settingsProvider).settings;
@@ -236,9 +237,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Show raw stderr'),
-            subtitle: const Text(
+            subtitle: Text(
               'Off hides dependency notices behind a collapsible summary.',
-              style: TextStyle(fontSize: 11, color: PatrolColors.steel),
+              style: TextStyle(fontSize: 11, color: p.textMuted),
             ),
             value: _local.showRawStderr,
             onChanged: (value) => _set(
@@ -289,34 +290,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           _section('Layout'),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Show Logs panel'),
-            subtitle: const Text(
-              'Turn off to collapse Logs into a narrow rail.',
-              style: TextStyle(fontSize: 11, color: PatrolColors.steel),
-            ),
-            value: !_local.logsCollapsed,
-            onChanged: (value) => _set(
-              (s) => s.logsCollapsed,
-              (s, v) => s.copyWith(logsCollapsed: !value),
-              !value,
-            ),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Show Workspace panel'),
-            subtitle: const Text(
-              'Turn off to collapse Tests, History, Record, and Health.',
-              style: TextStyle(fontSize: 11, color: PatrolColors.steel),
-            ),
-            value: !_local.rightCollapsed,
-            onChanged: (value) => _set(
-              (s) => s.rightCollapsed,
-              (s, v) => s.copyWith(rightCollapsed: !value),
-              !value,
-            ),
-          ),
           _numericRow(
             field: 'rightPanelWidth',
             label: 'Right panel width',
@@ -341,6 +314,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               parsed,
             ),
           ),
+          _section('DevTools Extension'),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Enable DevTools extension server'),
+            subtitle: Text(
+              'Exposes Patroller over a local HTTP/WebSocket server so the '
+              'DevTools panel can drive runs, devices, inspector, and recordings.',
+              style: TextStyle(fontSize: 11, color: p.textMuted),
+            ),
+            value: _local.enableDevtoolsExtension,
+            onChanged: (value) => _set(
+              (s) => s.enableDevtoolsExtension,
+              (s, v) => s.copyWith(enableDevtoolsExtension: v),
+              value,
+            ),
+          ),
+          _numericRow(
+            field: 'devtoolsExtensionPort',
+            label: 'Extension port',
+            value: '${_local.devtoolsExtensionPort}',
+            min: 1024,
+            max: 65535,
+            onValid: (parsed) => _set(
+              (s) => s.devtoolsExtensionPort,
+              (s, v) => s.copyWith(devtoolsExtensionPort: v),
+              parsed,
+            ),
+          ),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
@@ -353,6 +354,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 await ref.read(settingsProvider.notifier).updatePartial({
                   'logsCollapsed': reset.logsCollapsed,
                   'rightCollapsed': reset.rightCollapsed,
+                  'controlDeckCollapsed': reset.controlDeckCollapsed,
                   'logsPanelWidth': reset.logsPanelWidth,
                   'rightPanelWidth': reset.rightPanelWidth,
                 });
@@ -372,21 +374,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _section(String title) {
+    final p = PatrolPalette.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 24, bottom: 12),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.8,
-          color: PatrolColors.steel,
+          color: p.textMuted,
         ),
       ),
     );
   }
 
   Widget _row(String label, Widget child) {
+    final p = PatrolPalette.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -396,7 +400,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             width: 160,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 14, color: PatrolColors.graphite),
+              style: TextStyle(fontSize: 14, color: p.textSecondary),
             ),
           ),
           Expanded(child: child),
@@ -422,6 +426,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required int max,
     required ValueChanged<int> onValid,
   }) {
+    final p = PatrolPalette.of(context);
     final error = _fieldErrors[field];
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -432,7 +437,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             width: 160,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 14, color: PatrolColors.graphite),
+              style: TextStyle(fontSize: 14, color: p.textSecondary),
             ),
           ),
           Expanded(
@@ -474,6 +479,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required String value,
     required ValueChanged<String> onChanged,
   }) {
+    final p = PatrolPalette.of(context);
     final error = _fieldErrors[field];
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -484,7 +490,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             width: 160,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 14, color: PatrolColors.graphite),
+              style: TextStyle(fontSize: 14, color: p.textSecondary),
             ),
           ),
           Expanded(

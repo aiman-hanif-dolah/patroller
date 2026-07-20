@@ -79,4 +79,135 @@ void main() {
       expect(text, contains('stderr line'));
     });
   });
+
+  group('Develop All stop abort', () {
+    test('stop clears queue and blocks auto-advance', () {
+      // Simulate Develop All with 2+ queued files, then one Stop.
+      var queue = [
+        '/project/a_test.dart',
+        '/project/b_test.dart',
+        '/project/c_test.dart',
+      ];
+      var userStopped = false;
+      var isRunning = true;
+
+      // stop() / forceStop() contract
+      userStopped = true;
+      queue = [];
+      isRunning = false;
+
+      expect(queue, isEmpty);
+      expect(isRunning, isFalse);
+      expect(
+        shouldAdvanceDevelopSuite(
+          userStopped: userStopped,
+          completedMode: RunMode.developSuite,
+          queueNotEmpty: queue.isNotEmpty,
+        ),
+        isFalse,
+      );
+    });
+
+    test('onComplete does not advance when userStopped even if queue remains', () {
+      expect(
+        shouldAdvanceDevelopSuite(
+          userStopped: true,
+          completedMode: RunMode.developSuite,
+          queueNotEmpty: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('onComplete advances only when not stopped and queue has files', () {
+      expect(
+        shouldAdvanceDevelopSuite(
+          userStopped: false,
+          completedMode: RunMode.developSuite,
+          queueNotEmpty: true,
+        ),
+        isTrue,
+      );
+      expect(
+        shouldAdvanceDevelopSuite(
+          userStopped: false,
+          completedMode: RunMode.developSuite,
+          queueNotEmpty: false,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldAdvanceDevelopSuite(
+          userStopped: false,
+          completedMode: RunMode.develop,
+          queueNotEmpty: true,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('session completion snackbar', () {
+    test('detects patrol develop all-tests message', () {
+      expect(
+        isAllTestsExecutedMessage(
+          '📝   All tests were executed. Press "r" to start again or "q" to quit',
+        ),
+        isTrue,
+      );
+      expect(
+        isAllTestsExecutedMessage('Running integration tests...'),
+        isFalse,
+      );
+    });
+
+    test('returns develop message when all tests were seen', () {
+      expect(
+        sessionCompletionSnackbarMessage(
+          runMode: RunMode.develop,
+          status: RunRecordStatus.running,
+          allTestsExecutedSeen: true,
+        ),
+        'Develop session finished — all tests executed',
+      );
+    });
+
+    test('returns test passed message on terminal success', () {
+      expect(
+        sessionCompletionSnackbarMessage(
+          runMode: RunMode.test,
+          status: RunRecordStatus.passed,
+          allTestsExecutedSeen: false,
+        ),
+        'Test finished — all tests passed',
+      );
+    });
+
+    test('skips develop suite snackbar while queue has more files', () {
+      expect(
+        sessionCompletionSnackbarMessage(
+          runMode: RunMode.developSuite,
+          status: RunRecordStatus.passed,
+          allTestsExecutedSeen: true,
+          developSuiteHasMore: true,
+        ),
+        isNull,
+      );
+    });
+  });
+
+  group('emptyLogsBusyMessage', () {
+    test('Starting only while lifecycle is starting', () {
+      expect(emptyLogsBusyMessage(RunLifecycle.starting), 'Starting...');
+    });
+
+    test('Stopping while lifecycle is stopping', () {
+      expect(emptyLogsBusyMessage(RunLifecycle.stopping), 'Stopping...');
+    });
+
+    test('Running otherwise when busy', () {
+      expect(emptyLogsBusyMessage(RunLifecycle.running), 'Running...');
+      expect(emptyLogsBusyMessage(null), 'Running...');
+    });
+  });
 }

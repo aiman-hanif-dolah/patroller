@@ -421,21 +421,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
         clearError: true,
         recordings: state.recordings.map((recording) {
           if (recording.id != recordingId) return recording;
-          return Recording(
-            id: recording.id,
-            name: recording.name,
-            projectPath: recording.projectPath,
-            createdAt: recording.createdAt,
-            updatedAt: recording.updatedAt,
-            deviceName: recording.deviceName,
-            deviceType: recording.deviceType,
-            environmentProfile: recording.environmentProfile,
-            actionCount: recording.actionCount,
-            durationMs: recording.durationMs,
-            actions: recording.actions,
-            logs: recording.logs,
-            stateSnapshots: recording.stateSnapshots,
-            replayResults: recording.replayResults,
+          return recording.copyWith(
             generatedTestFiles: [
               testFile,
               ...recording.generatedTestFiles,
@@ -444,6 +430,32 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
         }).toList(),
       );
       return testFile;
+    } catch (e) {
+      final message = e.toString();
+      state = state.copyWith(error: message);
+      _ref.read(runnerProvider.notifier).showSnackbar(message);
+      return null;
+    }
+  }
+
+  /// Flow Editor: persist a full replacement of the action list.
+  Future<Recording?> updateRecordingActions(
+    String recordingId,
+    String projectPath,
+    List<RecordingAction> actions,
+  ) async {
+    try {
+      final updated = await _ref
+          .read(patrolStudioFacadeProvider)
+          .recordings
+          .replaceActions(recordingId, projectPath, actions);
+      state = state.copyWith(
+        clearError: true,
+        recordings: state.recordings
+            .map((r) => r.id == recordingId ? updated : r)
+            .toList(),
+      );
+      return updated;
     } catch (e) {
       final message = e.toString();
       state = state.copyWith(error: message);

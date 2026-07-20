@@ -10,30 +10,21 @@ void main() {
         900,
         totalWidth: total,
         rightWidth: right,
-        logsCollapsed: false,
-        rightCollapsed: false,
       );
       expect(clamped, lessThan(900));
       expect(clamped, greaterThanOrEqualTo(logsPanelMinWidth));
       expect(right + clamped, lessThan(total));
     });
 
-    test('collapsed logs frees horizontal space', () {
-      final expanded = clampLogsPanelWidth(
+    test('logs width stays within min/max bounds', () {
+      final clamped = clampLogsPanelWidth(
         500,
         totalWidth: 1200,
         rightWidth: 380,
-        logsCollapsed: false,
-        rightCollapsed: false,
       );
-      final collapsed = clampLogsPanelWidth(
-        500,
-        totalWidth: 1200,
-        rightWidth: 380,
-        logsCollapsed: true,
-        rightCollapsed: false,
-      );
-      expect(collapsed, lessThan(expanded));
+      expect(clamped, greaterThanOrEqualTo(logsPanelMinWidth));
+      expect(clamped, lessThanOrEqualTo(logsPanelMaxWidth));
+      expect(clamped, 500);
     });
   });
 }

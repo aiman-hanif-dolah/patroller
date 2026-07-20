@@ -59,4 +59,27 @@ class DeviceInfo {
         rawLine: rawLine ?? this.rawLine,
         state: state ?? this.state,
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DeviceInfo &&
+          name == other.name &&
+          id == other.id &&
+          platform == other.platform &&
+          type == other.type &&
+          availability == other.availability &&
+          rawLine == other.rawLine &&
+          state == other.state;
+
+  @override
+  int get hashCode => Object.hash(
+        name,
+        id,
+        platform,
+        type,
+        availability,
+        rawLine,
+        state,
+      );
 }

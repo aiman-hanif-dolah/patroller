@@ -19,6 +19,11 @@ dependencies:
   google_fonts: ^6.2.1
   http: ^1.2.2
   archive: ^4.0.7
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  shelf_static: ^1.1.3
+  web_socket_channel: ^3.0.0
+  shelf_web_socket: ^2.0.0
 
 dev_dependencies:
   flutter_test:

@@ -21,6 +21,7 @@ class _FailedLogsPanelState extends ConsumerState<FailedLogsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final state = ref.watch(failedLogsProvider);
     final entries = state.entries;
     final selected = _selectedRunId == null
@@ -28,13 +29,13 @@ class _FailedLogsPanelState extends ConsumerState<FailedLogsPanel> {
         : entries.where((e) => e.runId == _selectedRunId).firstOrNull;
 
     if (entries.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
             'Failed test logs appear here after a run fails.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+            style: TextStyle(fontSize: 12, color: p.textMuted),
           ),
         ),
       );
@@ -44,8 +45,8 @@ class _FailedLogsPanelState extends ConsumerState<FailedLogsPanel> {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: PatrolColors.pebble)),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: p.border)),
           ),
           child: Row(
             children: [
@@ -76,7 +77,7 @@ class _FailedLogsPanelState extends ConsumerState<FailedLogsPanel> {
               return InkWell(
                 onTap: () => setState(() => _selectedRunId = entry.runId),
                 child: Container(
-                  color: isSelected ? PatrolColors.fog : Colors.transparent,
+                  color: isSelected ? p.surfaceMuted : Colors.transparent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 10,
@@ -91,17 +92,17 @@ class _FailedLogsPanelState extends ConsumerState<FailedLogsPanel> {
                           children: [
                             Text(
                               middleTruncate(title, 42),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: PatrolColors.ink,
+                                color: p.text,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               entry.startTime,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 10,
-                                color: PatrolColors.steel,
+                                color: p.textMuted,
                               ),
                             ),
                           ],
@@ -125,9 +126,9 @@ class _FailedLogsPanelState extends ConsumerState<FailedLogsPanel> {
             flex: 3,
             child: Container(
               width: double.infinity,
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: PatrolColors.pebble)),
-                color: PatrolColors.fog,
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: p.border)),
+                color: p.surfaceMuted,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -143,10 +144,10 @@ class _FailedLogsPanelState extends ConsumerState<FailedLogsPanel> {
                                   selected.runId,
                               48,
                             ),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: PatrolColors.ink,
+                              color: p.text,
                             ),
                           ),
                         ),
@@ -163,11 +164,11 @@ class _FailedLogsPanelState extends ConsumerState<FailedLogsPanel> {
                       padding: const EdgeInsets.all(12),
                       child: SelectableText(
                         selected.exportText,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Menlo',
                           fontSize: 10,
                           height: 1.45,
-                          color: PatrolColors.graphite,
+                          color: p.textSecondary,
                         ),
                       ),
                     ),

@@ -246,7 +246,7 @@ _ResolvedSgrStyle _resolveSgrStyle(List<int> params, Color defaultColor) {
       case 36:
         color = const Color(0xFF22D3EE);
       case 37:
-        color = PatrolColors.ink;
+        color = defaultColor;
       case 90:
         color = PatrolColors.steel;
       case 94:
@@ -265,7 +265,7 @@ _ResolvedSgrStyle _resolveSgrStyle(List<int> params, Color defaultColor) {
 Color _ansi256Color(int code) {
   if (code < 16) {
     const palette = [
-      Color(0xFF18181B),
+      Color(0xFF202020),
       Color(0xFFEF4444),
       Color(0xFF22C55E),
       Color(0xFFF59E0B),
@@ -280,7 +280,7 @@ Color _ansi256Color(int code) {
       Color(0xFF60A5FA),
       Color(0xFFC084FC),
       Color(0xFF22D3EE),
-      Color(0xFFFAFAFA),
+      Color(0xFF202020),
     ];
     return palette[code.clamp(0, 15)];
   }

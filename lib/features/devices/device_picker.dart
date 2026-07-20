@@ -7,22 +7,42 @@ import '../../models/models.dart';
 import '../../providers/runner_provider.dart';
 import '../../widgets/accessible_icon_button.dart';
 
-class DevicePickerList extends ConsumerWidget {
+class DevicePickerList extends ConsumerStatefulWidget {
   const DevicePickerList({super.key, this.onSelected});
 
   final VoidCallback? onSelected;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final runner = ref.watch(runnerProvider);
+  ConsumerState<DevicePickerList> createState() => _DevicePickerListState();
+}
+
+class _DevicePickerListState extends ConsumerState<DevicePickerList> {
+  @override
+  void initState() {
+    super.initState();
+    // One-shot refresh so externally booted sims appear when picker opens.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(runnerProvider.notifier).refreshDevices(silent: true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
+    final runner = ref.watch(
+      runnerProvider.select(
+        (s) => (devices: s.devices, selectedId: s.selectedDevice?.id),
+      ),
+    );
     final devices = runner.devices;
 
     if (devices.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.all(16),
         child: Text(
           'No simulators found. Refresh to scan again.',
-          style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+          style: TextStyle(fontSize: 12, color: p.textMuted),
         ),
       );
     }
@@ -34,10 +54,10 @@ class DevicePickerList extends ConsumerWidget {
         final device = devices[index];
         return _DeviceRow(
           device: device,
-          selected: runner.selectedDevice?.id == device.id,
+          selected: runner.selectedId == device.id,
           onSelect: () {
             ref.read(runnerProvider.notifier).setSelectedDevice(device);
-            onSelected?.call();
+            widget.onSelected?.call();
           },
           onBoot: device.state == DeviceState.shutdown &&
                   isSelectableDevice(device)
@@ -64,6 +84,7 @@ class _DeviceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final selectable = isSelectableDevice(device);
     final reason = getDeviceUnavailableReason(device);
 
@@ -73,10 +94,10 @@ class _DeviceRow extends StatelessWidget {
         opacity: selectable ? 1 : 0.5,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: selected ? PatrolColors.fog : Colors.transparent,
+          color: selected ? p.surfaceMuted : Colors.transparent,
           child: Row(
             children: [
-              const Icon(Icons.smartphone, size: 14, color: PatrolColors.steel),
+              Icon(Icons.smartphone, size: 14, color: p.textMuted),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -84,17 +105,17 @@ class _DeviceRow extends StatelessWidget {
                   children: [
                     Text(
                       device.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: PatrolColors.ink,
+                        color: p.text,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       reason ?? device.type.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
-                        color: PatrolColors.steel,
+                        color: p.textMuted,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -110,19 +131,29 @@ class _DeviceRow extends StatelessWidget {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
-              if (selectable)
+              if (selectable) ...[
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: device.state == DeviceState.booted
+                        ? PatrolColors.psPassed
+                        : device.state == DeviceState.shutdown
+                            ? PatrolColors.psCancelled
+                            : p.textMuted,
+                  ),
+                ),
+                const SizedBox(width: 6),
                 Text(
                   device.state?.name ?? 'unknown',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: device.state == DeviceState.booted
-                        ? PatrolColors.psPassed
-                        : device.state == DeviceState.shutdown
-                            ? PatrolColors.psCancelled
-                            : PatrolColors.steel,
+                    color: p.textMuted,
                   ),
                 ),
+              ],
             ],
           ),
         ),

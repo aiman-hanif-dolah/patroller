@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../core/theme/patrol_colors.dart';
 
@@ -9,65 +10,59 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _styleFor(status);
+    final p = PatrolPalette.of(context);
+    final style = _styleFor(status, p);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
         color: style.background,
         borderRadius: BorderRadius.circular(PatrolRadius.badge),
-        border: style.border ??
-            Border.all(color: style.foreground.withValues(alpha: 0.25)),
-        boxShadow: style.glow
-            ? PatrolShadows.glow(style.foreground, blur: 6)
-            : null,
+        border: Border.all(color: style.foreground.withValues(alpha: 0.22)),
       ),
       child: Text(
-        status,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.2,
+        status.toUpperCase(),
+        style: GoogleFonts.jetBrainsMono(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
           color: style.foreground,
         ),
       ),
     );
   }
 
-  _BadgeStyle _styleFor(String value) {
+  _BadgeStyle _styleFor(String value, PatrolPalette p) {
     switch (value) {
       case 'passed':
         return const _BadgeStyle(
-          background: Color(0x66145A32),
+          background: Color(0x1A22C55E),
           foreground: PatrolColors.green400,
-          glow: true,
         );
       case 'failed':
       case 'error':
       case 'interrupted':
         return const _BadgeStyle(
-          background: Color(0x667F1D1D),
+          background: Color(0x1AEF4444),
           foreground: PatrolColors.red400,
-          glow: true,
         );
       case 'cancelled':
       case 'stopped':
       case 'skipped':
         return const _BadgeStyle(
-          background: Color(0x667C2D12),
+          background: Color(0x1AFB923C),
           foreground: PatrolColors.orange400,
         );
       case 'starting':
       case 'running':
       case 'stopping':
-        return const _BadgeStyle(
-          background: PatrolColors.ink,
-          foreground: PatrolColors.obsidian,
-          glow: true,
+        return _BadgeStyle(
+          background: p.psRunning,
+          foreground: p.onCta,
         );
       default:
-        return const _BadgeStyle(
-          background: PatrolColors.pebble,
-          foreground: PatrolColors.steel,
+        return _BadgeStyle(
+          background: p.fill,
+          foreground: p.textMuted,
         );
     }
   }
@@ -77,14 +72,10 @@ class _BadgeStyle {
   const _BadgeStyle({
     required this.background,
     required this.foreground,
-    this.border,
-    this.glow = false,
   });
 
   final Color background;
   final Color foreground;
-  final Border? border;
-  final bool glow;
 }
 
 class WorkflowStatusBadge extends StatelessWidget {
@@ -105,42 +96,47 @@ class WorkflowStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
+    final accentColor = accent ?? PatrolColors.signalBlue;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
         color: warn
-            ? PatrolColors.ember.withValues(alpha: 0.12)
-            : (accent ?? PatrolColors.fog).withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(PatrolRadius.chip),
+            ? PatrolColors.ember.withValues(alpha: 0.1)
+            : accentColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(PatrolRadius.pill),
         border: Border.all(
           color: warn
-              ? PatrolColors.ember.withValues(alpha: 0.35)
-              : (accent ?? PatrolColors.pebble).withValues(alpha: 0.55),
+              ? PatrolColors.ember.withValues(alpha: 0.3)
+              : accentColor.withValues(alpha: 0.28),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 11, color: warn ? PatrolColors.ember : (accent ?? PatrolColors.steel)),
+            Icon(
+              icon,
+              size: 12,
+              color: warn ? PatrolColors.ember : accentColor,
+            ),
             const SizedBox(width: 6),
           ],
           Text(
             '$label:',
             style: TextStyle(
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-              color: warn ? PatrolColors.ember : PatrolColors.steel,
+              color: warn ? PatrolColors.ember : p.textMuted,
             ),
           ),
           const SizedBox(width: 5),
           Text(
             value,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: warn ? FontWeight.w700 : FontWeight.w500,
-              color: warn ? PatrolColors.ember : PatrolColors.ink,
+              color: warn ? PatrolColors.ember : p.text,
             ),
           ),
         ],

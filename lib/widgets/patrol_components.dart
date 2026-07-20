@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../core/theme/patrol_colors.dart';
 
@@ -10,13 +11,16 @@ class PatrolEyebrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return Text(
       text.toUpperCase(),
-      style: TextStyle(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.jetBrainsMono(
         fontSize: 10,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         letterSpacing: 0.8,
-        color: color ?? PatrolColors.steel,
+        color: color ?? p.textMuted,
       ),
     );
   }
@@ -38,31 +42,47 @@ class PatrolMetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: accent
-            ? PatrolColors.amber.withValues(alpha: 0.12)
-            : PatrolColors.obsidian.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(PatrolRadius.badge),
+            ? (color == PatrolColors.steel
+                    ? PatrolColors.amber
+                    : color)
+                .withValues(alpha: 0.12)
+            : p.surfaceMuted,
+        borderRadius: BorderRadius.circular(PatrolRadius.pill),
         border: Border.all(
           color: accent
-              ? PatrolColors.amber.withValues(alpha: 0.35)
-              : PatrolColors.pebble.withValues(alpha: 0.5),
+              ? (color == PatrolColors.steel
+                      ? PatrolColors.amber
+                      : color)
+                  .withValues(alpha: 0.35)
+              : p.border,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 10, color: accent ? PatrolColors.amber : color),
-            const SizedBox(width: 4),
+            Icon(
+              icon,
+              size: 11,
+              color: accent
+                  ? (color == PatrolColors.steel ? PatrolColors.amber : color)
+                  : color,
+            ),
+            const SizedBox(width: 5),
           ],
           Text(
             label,
             style: TextStyle(
-              fontSize: 9,
-              color: accent ? PatrolColors.amberBright : color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: accent
+                  ? (color == PatrolColors.steel ? PatrolColors.amber : color)
+                  : color,
             ),
           ),
         ],
@@ -89,6 +109,8 @@ class PatrolFilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
+    final accent = color ?? PatrolColors.amber;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -96,23 +118,14 @@ class PatrolFilterPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(PatrolRadius.pill),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            gradient: selected && color != null
-                ? LinearGradient(colors: [color!, color!.withValues(alpha: 0.85)])
-                : selected
-                    ? PatrolGradients.brandGlow
-                    : null,
-            color: selected ? null : PatrolColors.mist,
+            color: selected ? accent : p.surfaceMuted,
             borderRadius: BorderRadius.circular(PatrolRadius.pill),
             border: Border.all(
-              color: selected
-                  ? (color ?? PatrolColors.amber).withValues(alpha: 0.5)
-                  : PatrolColors.pebble,
+              color: selected ? accent : p.border,
             ),
-            boxShadow: selected
-                ? PatrolShadows.glow(color ?? PatrolColors.amber, blur: 8)
-                : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -120,28 +133,31 @@ class PatrolFilterPill extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? PatrolColors.obsidian : PatrolColors.steel,
-                  letterSpacing: 0.2,
+                  color: selected ? p.onAccent : p.textMuted,
+                  letterSpacing: 0.1,
                 ),
               ),
               if (count != null && count! > 0) ...[
-                const SizedBox(width: 5),
+                const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
                     color: selected
-                        ? PatrolColors.obsidian.withValues(alpha: 0.2)
-                        : PatrolColors.fog,
+                        ? p.onAccent.withValues(alpha: 0.15)
+                        : p.fill,
                     borderRadius: BorderRadius.circular(PatrolRadius.pill),
                   ),
                   child: Text(
                     '$count',
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: selected ? PatrolColors.obsidian : PatrolColors.graphite,
+                      color: selected
+                          ? p.onAccent
+                          : p.textSecondary,
                     ),
                   ),
                 ),
@@ -158,7 +174,7 @@ class PatrolAvatar extends StatelessWidget {
   const PatrolAvatar({
     super.key,
     required this.icon,
-    this.color = PatrolColors.amber,
+    this.color = PatrolColors.brandViolet,
     this.size = 32,
   });
 
@@ -172,16 +188,9 @@ class PatrolAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: 0.25),
-            color.withValues(alpha: 0.06),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(size * 0.28),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(size * 0.5),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Icon(icon, size: size * 0.48, color: color),
     );
@@ -195,15 +204,17 @@ class PatrolBrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * 0.22),
-        boxShadow: PatrolShadows.glow(PatrolColors.amber, blur: 10),
+        borderRadius: BorderRadius.circular(size * 0.28),
+        border: Border.all(color: p.border),
+        boxShadow: PatrolShadows.subtle,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.22),
+        borderRadius: BorderRadius.circular(size * 0.28),
         child: Image.asset(
           'assets/branding/patroller-app-icon.jpg',
           width: size,
@@ -214,7 +225,7 @@ class PatrolBrandMark extends StatelessWidget {
             child: Icon(
               Icons.explore_rounded,
               size: size * 0.55,
-              color: PatrolColors.obsidian,
+              color: p.onAccent,
             ),
           ),
         ),
@@ -243,6 +254,8 @@ class PatrolPanelTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
+    final accent = color ?? PatrolColors.amber;
     return Expanded(
       child: Semantics(
         button: true,
@@ -252,34 +265,33 @@ class PatrolPanelTab extends StatelessWidget {
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: selected ? (color ?? PatrolColors.amber) : Colors.transparent,
+                  color: selected ? accent : Colors.transparent,
                   width: 2,
                 ),
               ),
-              color: selected
-                  ? (color ?? PatrolColors.amber).withValues(alpha: 0.08)
-                  : Colors.transparent,
+              color: selected ? accent.withValues(alpha: 0.08) : Colors.transparent,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   icon,
-                  size: 12,
-                  color: selected ? (color ?? PatrolColors.amberBright) : PatrolColors.steel,
+                  size: 13,
+                  color: selected ? accent : p.textMuted,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   badge ?? label.toUpperCase(),
-                  style: TextStyle(
+                  style: GoogleFonts.jetBrainsMono(
                     fontSize: 9,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                     letterSpacing: 0.6,
-                    color: selected ? (color ?? PatrolColors.amberBright) : PatrolColors.steel,
+                    color: selected ? accent : p.textMuted,
                   ),
                 ),
               ],

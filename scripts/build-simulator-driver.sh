@@ -12,4 +12,7 @@ rm -rf "$ROOT/resources/patrol-simulator-driver"
 mkdir -p "$ROOT/resources"
 cp -R "$TAURI_ROOT/resources/patrol-simulator-driver" "$ROOT/resources/patrol-simulator-driver"
 
+# Zips are the source of truth; extracted .app bundles are created at install/runtime.
+find "$ROOT/resources/patrol-simulator-driver" -depth -type d -name '*.app' -exec rm -rf {} +
+
 echo "Patroller resources updated at $ROOT/resources/patrol-simulator-driver"

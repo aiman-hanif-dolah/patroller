@@ -15,6 +15,7 @@ import '../../providers/simulator_driver_readiness_provider.dart';
 import '../../providers/runner_provider.dart';
 import '../../widgets/accessible_icon_button.dart';
 import '../devices/device_picker.dart';
+import 'flow_editor.dart';
 
 class RecordingsPanel extends ConsumerStatefulWidget {
   const RecordingsPanel({super.key});
@@ -35,8 +36,6 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
   bool _isImporting = false;
   String? _savedTestPath;
   String? _renameValue;
-  String? _codePreview;
-  bool _loadingCodePreview = false;
 
   @override
   void dispose() {
@@ -47,6 +46,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final project = ref.watch(appProvider).currentProject;
     final device = ref.watch(runnerProvider).selectedDevice;
     final recordingState = ref.watch(recordingProvider);
@@ -72,10 +72,11 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     }
 
     if (project == null) {
-      return const Center(
+      final p = PatrolPalette.of(context);
+      return Center(
         child: Text(
           'Open a project to record actions',
-          style: TextStyle(fontSize: 14, color: PatrolColors.steel),
+          style: TextStyle(fontSize: 14, color: p.textMuted),
         ),
       );
     }
@@ -90,7 +91,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildPrepareSection(project, device, recordingState, readiness),
-        const Divider(height: 1, color: PatrolColors.pebble),
+        Divider(height: 1, color: p.border),
         Expanded(child: _buildSavedList(recordingState)),
         if (_selectedRecording != null)
           _buildSelectedSection(project, device, recordingState, _selectedRecording!),
@@ -104,6 +105,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     RecordingState recordingState,
     SimulatorDriverReadiness readiness,
   ) {
+    final p = PatrolPalette.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -131,9 +133,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: PatrolColors.fog,
+                color: p.surfaceMuted,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: PatrolColors.pebble.withValues(alpha: 0.6)),
+                border: Border.all(color: p.border),
               ),
               child: Row(
                 children: [
@@ -144,13 +146,13 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                           : device.state == DeviceState.booted
                               ? device.name
                               : '${device.name} (boot required)',
-                      style: const TextStyle(fontSize: 14, color: PatrolColors.ink),
+                      style: TextStyle(fontSize: 14, color: p.text),
                     ),
                   ),
                   Icon(
                     _showDeviceList ? Icons.expand_less : Icons.expand_more,
                     size: 18,
-                    color: PatrolColors.steel,
+                    color: p.textMuted,
                   ),
                 ],
               ),
@@ -161,8 +163,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
             Container(
               constraints: const BoxConstraints(maxHeight: 180),
               decoration: BoxDecoration(
-                color: PatrolColors.obsidian,
+                color: p.surface,
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: p.border),
               ),
               child: DevicePickerList(
                 onSelected: () => setState(() => _showDeviceList = false),
@@ -173,22 +176,22 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
           TextField(
             controller: _recordingNameController,
             enabled: !_isSaving && !_isImporting,
-            style: const TextStyle(fontSize: 13, color: PatrolColors.ink),
+            style: TextStyle(fontSize: 13, color: p.text),
             decoration: InputDecoration(
               hintText: 'Recording name',
-              hintStyle: const TextStyle(fontSize: 13, color: PatrolColors.steel),
-              prefixIcon: const Icon(Icons.edit_outlined, size: 18, color: PatrolColors.steel),
+              hintStyle: TextStyle(fontSize: 13, color: p.textMuted),
+              prefixIcon: Icon(Icons.edit_outlined, size: 18, color: p.textMuted),
               isDense: true,
               filled: true,
-              fillColor: PatrolColors.obsidian.withValues(alpha: 0.45),
+              fillColor: p.surfaceMuted,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(PatrolRadius.chip),
-                borderSide: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+                borderSide: BorderSide(color: p.border),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(PatrolRadius.chip),
-                borderSide: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+                borderSide: BorderSide(color: p.border),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(PatrolRadius.chip),
@@ -199,6 +202,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
           const SizedBox(height: 8),
           Row(
             children: RecordingEnvironmentProfile.values.map((profile) {
+              final p = PatrolPalette.of(context);
               final selected = _environmentProfile == profile;
               final label = profile.toJson();
               return Expanded(
@@ -212,8 +216,11 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                       duration: const Duration(milliseconds: 120),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: selected ? PatrolColors.ink : PatrolColors.fog,
+                        color: selected ? p.text : p.surfaceMuted,
                         borderRadius: BorderRadius.circular(999),
+                        border: selected
+                            ? null
+                            : Border.all(color: p.border),
                       ),
                       alignment: Alignment.center,
                       child: Text(
@@ -222,8 +229,8 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: selected
-                              ? PatrolColors.obsidian
-                              : PatrolColors.steel,
+                              ? p.surface
+                              : p.textMuted,
                         ),
                       ),
                     ),
@@ -235,7 +242,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
           const SizedBox(height: 8),
           Text(
             recordingInstructionCopy(readiness),
-            style: const TextStyle(fontSize: 11, color: PatrolColors.steel),
+            style: TextStyle(fontSize: 11, color: p.textMuted),
           ),
           if (readiness.showRepairAction) ...[
             const SizedBox(height: 8),
@@ -283,17 +290,17 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                               ? Icons.save
                               : Icons.fiber_manual_record,
                           size: 16,
-                          color: PatrolColors.obsidian,
+                          color: p.onAccent,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           recordingState.isRecording
                               ? (_isSaving ? 'Saving...' : 'Save')
                               : 'Record',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: PatrolColors.obsidian,
+                            color: p.onAccent,
                           ),
                         ),
                       ],
@@ -310,10 +317,10 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      color: PatrolColors.fog,
+                      color: p.surfaceMuted,
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                        color: PatrolColors.pebble.withValues(alpha: 0.6),
+                        color: p.border,
                       ),
                     ),
                     alignment: Alignment.center,
@@ -323,15 +330,15 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                         Icon(
                           recordingState.isRecording ? Icons.close : Icons.stop,
                           size: 16,
-                          color: PatrolColors.steel,
+                          color: p.textMuted,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           recordingState.isRecording ? 'Cancel' : 'Stop',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: PatrolColors.steel,
+                            color: p.textMuted,
                           ),
                         ),
                       ],
@@ -348,7 +355,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                 readiness: readiness,
                 actionCount: recordingState.activeActions.length,
               ),
-              style: const TextStyle(fontSize: 11, color: PatrolColors.steel),
+              style: TextStyle(fontSize: 11, color: p.textMuted),
             ),
             if (recordingState.activeActions.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -356,8 +363,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                 constraints: const BoxConstraints(maxHeight: 112),
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: PatrolColors.obsidian,
+                  color: p.surfaceMuted,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: p.border),
                 ),
                 child: SingleChildScrollView(
                   child: _ActionTimeline(actions: recordingState.activeActions),
@@ -385,35 +393,47 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
             ),
           ],
           const SizedBox(height: 8),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text(
-              'Import JSON',
-              style: TextStyle(fontSize: 11, color: PatrolColors.steel),
-            ),
-            children: [
-              TextField(
-                controller: _importController,
-                enabled: !_isImporting,
-                maxLines: 4,
-                style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
-                decoration: InputDecoration(
-                  hintText: 'Paste exported recording JSON',
-                  errorText: _importError,
+          // Use Material with an explicit surface so ExpansionTile's ListTile
+          // has a Material ancestor below any colored panel DecoratedBox.
+          Material(
+            color: p.surface,
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              backgroundColor: Colors.transparent,
+              collapsedBackgroundColor: Colors.transparent,
+              shape: const Border(),
+              collapsedShape: const Border(),
+              title: Text(
+                'Import JSON',
+                style: TextStyle(fontSize: 11, color: p.textMuted),
+              ),
+              children: [
+                TextField(
+                  controller: _importController,
+                  enabled: !_isImporting,
+                  maxLines: 4,
+                  style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                  decoration: InputDecoration(
+                    hintText: 'Paste exported recording JSON',
+                    errorText: _importError,
+                  ),
+                  onChanged: (_) {
+                    if (_importError != null) {
+                      setState(() => _importError = null);
+                    }
+                  },
                 ),
-                onChanged: (_) {
-                  if (_importError != null) setState(() => _importError = null);
-                },
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: (!_importController.text.trim().isEmpty && !_isImporting)
-                    ? () => _importFromJson(project.projectPath)
-                    : null,
-                icon: const Icon(Icons.upload, size: 14),
-                label: Text(_isImporting ? 'Importing...' : 'Import'),
-              ),
-            ],
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed:
+                      (_importController.text.trim().isNotEmpty && !_isImporting)
+                          ? () => _importFromJson(project.projectPath)
+                          : null,
+                  icon: const Icon(Icons.upload, size: 14),
+                  label: Text(_isImporting ? 'Importing...' : 'Import'),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -421,6 +441,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
   }
 
   Widget _buildSavedList(RecordingState recordingState) {
+    final p = PatrolPalette.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -430,20 +451,21 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
         ),
         Expanded(
           child: recordingState.recordings.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'No recordings saved',
-                    style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+                    style: TextStyle(fontSize: 12, color: p.textMuted),
                   ),
                 )
               : ListView.builder(
                   itemCount: recordingState.recordings.length,
                   itemBuilder: (context, index) {
+                    final p = PatrolPalette.of(context);
                     final recording = recordingState.recordings[index];
                     final selected = _selectedRecording?.id == recording.id;
                     return Material(
                       color: selected
-                          ? PatrolColors.pebble.withValues(alpha: 0.6)
+                          ? p.surfaceMuted
                           : Colors.transparent,
                       child: InkWell(
                         onTap: () => setState(() {
@@ -451,7 +473,6 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                               selected ? null : recording;
                           _savedTestPath = null;
                           _renameValue = null;
-                          _codePreview = null;
                         }),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -465,17 +486,17 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                                 recording.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: PatrolColors.ink,
+                                  color: p.text,
                                 ),
                               ),
                               Text(
                                 '${recording.actionCount} actions · ${recording.environmentProfile.toJson()} · ${_formatDuration(recording.durationMs)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
-                                  color: PatrolColors.steel,
+                                  color: p.textMuted,
                                 ),
                               ),
                             ],
@@ -496,14 +517,15 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     RecordingState recordingState,
     Recording recording,
   ) {
+    final p = PatrolPalette.of(context);
     final latestReplay =
         recording.replayResults.isNotEmpty ? recording.replayResults.first : null;
     final warnings = _collectWarnings(recording.actions);
 
     return Container(
-      constraints: const BoxConstraints(maxHeight: 360),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: PatrolColors.pebble)),
+      constraints: const BoxConstraints(maxHeight: 560),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: p.border)),
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(12),
@@ -518,10 +540,10 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                   Expanded(
                     child: Text(
                       recording.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: PatrolColors.ink,
+                        color: p.text,
                       ),
                     ),
                   ),
@@ -530,7 +552,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                     label: 'Rename recording ${recording.name}',
                     onPressed: () => setState(() => _renameValue = recording.name),
                     size: 14,
-                    color: PatrolColors.steel,
+                    color: p.textMuted,
                   ),
                 ],
               )
@@ -552,12 +574,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                 ],
               ),
             Text(
-              'Device: ${recording.deviceName ?? 'Any selected simulator'}',
-              style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
-            ),
-            Text(
-              'Logs: ${recording.logs.length} · Snapshots: ${recording.stateSnapshots.length}',
-              style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
+              'Device: ${recording.deviceName ?? 'Any selected simulator'} · '
+              '${recording.actionCount} steps · ${recording.environmentProfile.toJson()}',
+              style: TextStyle(fontSize: 10, color: p.textMuted),
             ),
             if (warnings.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -590,47 +609,40 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                 ),
               ),
             ],
-            const SizedBox(height: 8),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 128),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: PatrolColors.obsidian,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: SingleChildScrollView(
-                child: _ActionTimeline(actions: recording.actions),
-              ),
-            ),
-            const SizedBox(height: 12),
-            const _SectionHeading('Actions'),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: (recordingState.isReplaying || device == null)
-                        ? null
-                        : () => ref
-                            .read(recordingProvider.notifier)
-                            .replayRecording(recording, device),
-                    icon: const Icon(Icons.play_arrow, size: 14),
-                    label: Text(
-                      recordingState.isReplaying ? 'Replaying' : 'Replay',
-                    ),
+            const SizedBox(height: 10),
+            FlowEditorView(
+              key: ValueKey('flow-${recording.id}'),
+              recording: recording,
+              isReplaying: recordingState.isReplaying,
+              canReplay: device != null && !recordingState.isReplaying,
+              onActionsChanged: (actions) async {
+                final updated = await ref
+                    .read(recordingProvider.notifier)
+                    .updateRecordingActions(
+                      recording.id,
+                      project.projectPath,
+                      actions,
+                    );
+                if (updated != null && mounted) {
+                  setState(() => _selectedRecording = updated);
+                }
+              },
+              onSaveTest: () => _saveTest(project.projectPath, recording.id),
+              onSaveAndDevelop: () => _saveTestAndRun(
+                    project.projectPath,
+                    recording.id,
+                    develop: true,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _saveTest(project.projectPath, recording.id),
-                    icon: const Icon(Icons.save, size: 14),
-                    label: const Text('Save Test'),
+              onSaveAndTest: () => _saveTestAndRun(
+                    project.projectPath,
+                    recording.id,
+                    develop: false,
                   ),
-                ),
-              ],
+              onReplay: () => ref
+                  .read(recordingProvider.notifier)
+                  .replayRecording(recording, device),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 4,
               runSpacing: 4,
@@ -648,18 +660,21 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
               label: const Text('Delete', style: TextStyle(color: PatrolColors.red400)),
             ),
             if (_savedTestPath != null)
-              Text(
-                'Saved: $_savedTestPath',
-                style: const TextStyle(fontSize: 10, color: PatrolColors.psPassed),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Saved: $_savedTestPath',
+                  style: const TextStyle(fontSize: 10, color: PatrolColors.psPassed),
+                ),
               ),
             if (latestReplay != null) ...[
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: PatrolColors.fog,
+                  color: p.fill,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: PatrolColors.pebble),
+                  border: Border.all(color: p.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -679,41 +694,6 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                         style: const TextStyle(fontSize: 10, color: PatrolColors.red400),
                       ),
                   ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _loadingCodePreview
-                  ? null
-                  : () => _toggleCodePreview(recording, project.projectPath),
-              icon: const Icon(Icons.code, size: 14),
-              label: Text(
-                _loadingCodePreview
-                    ? 'Loading preview...'
-                    : _codePreview != null
-                        ? 'Hide code preview'
-                        : 'Preview generated code',
-              ),
-            ),
-            if (_codePreview != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                constraints: const BoxConstraints(maxHeight: 192),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: PatrolColors.obsidian,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: SingleChildScrollView(
-                  child: Text(
-                    _codePreview!,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'monospace',
-                      color: PatrolColors.graphite,
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -809,20 +789,41 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
   }
 
   Future<void> _saveTest(String projectPath, String recordingId) async {
+    await _saveTestAndSelect(projectPath, recordingId);
+  }
+
+  Future<TestFile?> _saveTestAndSelect(
+    String projectPath,
+    String recordingId,
+  ) async {
     final testFile = await ref
         .read(recordingProvider.notifier)
         .saveTestFile(recordingId, projectPath);
-    if (testFile != null) {
-      setState(() => _savedTestPath = testFile.relativePath);
-      await ref.read(appProvider.notifier).scanTests();
-      final generated = ref
-          .read(appProvider)
-          .testFiles
-          .where((f) => f.relativePath == testFile.relativePath)
-          .firstOrNull;
-      if (generated != null) {
-        ref.read(appProvider.notifier).setSelectedFile(generated);
-      }
+    if (testFile == null) return null;
+    setState(() => _savedTestPath = testFile.relativePath);
+    await ref.read(appProvider.notifier).scanTests();
+    final generated = ref
+        .read(appProvider)
+        .testFiles
+        .where((f) => f.relativePath == testFile.relativePath)
+        .firstOrNull;
+    if (generated != null) {
+      ref.read(appProvider.notifier).setSelectedFile(generated);
+    }
+    return generated;
+  }
+
+  Future<void> _saveTestAndRun(
+    String projectPath,
+    String recordingId, {
+    required bool develop,
+  }) async {
+    final generated = await _saveTestAndSelect(projectPath, recordingId);
+    if (generated == null) return;
+    if (develop) {
+      await ref.read(runnerProvider.notifier).develop();
+    } else {
+      await ref.read(runnerProvider.notifier).runSelected();
     }
   }
 
@@ -869,24 +870,6 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     setState(() => _selectedRecording = null);
   }
 
-  Future<void> _toggleCodePreview(Recording recording, String projectPath) async {
-    if (_codePreview != null) {
-      setState(() => _codePreview = null);
-      return;
-    }
-    setState(() => _loadingCodePreview = true);
-    try {
-      final exported = await ref
-          .read(recordingProvider.notifier)
-          .exportRecording(recording.id, projectPath);
-      if (exported != null) {
-        setState(() => _codePreview = exported.patrolTest);
-      }
-    } finally {
-      if (mounted) setState(() => _loadingCodePreview = false);
-    }
-  }
-
   List<String> _collectWarnings(List<RecordingAction> actions) {
     final seen = <ActionWarningKind>{};
     final messages = <String>[];
@@ -913,13 +896,14 @@ class _SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return Text(
       text.toUpperCase(),
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 10,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.8,
-        color: PatrolColors.steel,
+        color: p.textMuted,
       ),
     );
   }
@@ -952,6 +936,7 @@ class _ActionLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final warnings = deriveActionWarnings(action);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -962,11 +947,11 @@ class _ActionLine extends StatelessWidget {
             children: [
               Text(
                 '$index. ${_actionTitle(action)}',
-                style: const TextStyle(fontSize: 10, color: PatrolColors.ink),
+                style: TextStyle(fontSize: 10, color: p.text),
               ),
               Text(
                 'Delay ${action.delayMs}ms',
-                style: const TextStyle(fontSize: 9, color: PatrolColors.steel),
+                style: TextStyle(fontSize: 9, color: p.textMuted),
               ),
             ],
           ),
@@ -998,6 +983,11 @@ class _ActionLine extends StatelessWidget {
         return 'Type "${action.text ?? ''}"';
       case RecordingActionType.key:
         return 'Key ${action.key ?? ''}';
+      case RecordingActionType.assertVisible:
+        final label = action.targetLabel ?? action.text;
+        return label != null && label.isNotEmpty
+            ? 'Assert "$label" visible'
+            : 'Assert visible';
     }
   }
 }

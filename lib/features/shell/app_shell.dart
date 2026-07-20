@@ -5,23 +5,24 @@ import '../../core/theme/patrol_colors.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../providers/health_provider.dart';
+import '../../providers/runner_provider.dart';
 import '../../providers/settings_provider.dart';
-import '../../widgets/accessible_icon_button.dart';
 import '../../widgets/collapsible_panel.dart';
 import '../../widgets/panel_resize_handle.dart';
 import '../../widgets/patrol_card.dart';
 import '../../widgets/patrol_components.dart';
 import '../../widgets/snackbar_overlay.dart';
+import '../agent/agent_workbench_panel.dart';
+import '../devtools/devtools_panel.dart';
 import '../health/environment_health.dart';
 import '../history/run_history.dart';
 import '../logs/logs_shell.dart';
 import '../recordings/recordings_panel.dart';
 import '../runner/run_toolbar.dart';
-import '../runner/workflow_status_strip.dart';
-import '../settings/settings_screen.dart';
+import '../settings/control_deck.dart';
 import '../tests/test_explorer.dart';
 
-enum WorkspacePanelTab { tests, recordings, history, health }
+enum WorkspacePanelTab { tests, recordings, agent, history, health, devtools }
 
 const double _shellPadding = 12;
 const double _panelGutter = 12;
@@ -35,137 +36,140 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   WorkspacePanelTab _workspaceTab = WorkspacePanelTab.tests;
-  bool _showSettings = false;
-  bool _settingsDirty = false;
-  bool _settingsSaving = false;
-  final _settingsSaveNotifier = SettingsSaveNotifier();
   final _logSearchFocus = FocusNode();
 
-  double _rightPanelWidth = rightPanelDefaultWidth;
-  double _logsPanelWidth = logsPanelDefaultWidth;
-  bool _logsCollapsed = false;
-  bool _rightCollapsed = false;
+  late final ValueNotifier<double> _rightPanelWidth;
+  late final ValueNotifier<double> _logsPanelWidth;
   bool _layoutInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _rightPanelWidth = ValueNotifier(rightPanelDefaultWidth);
+    _logsPanelWidth = ValueNotifier(logsPanelDefaultWidth);
+  }
 
   @override
   void dispose() {
     _logSearchFocus.dispose();
+    _rightPanelWidth.dispose();
+    _logsPanelWidth.dispose();
     super.dispose();
   }
 
   void _initLayoutFromSettings(AppSettings settings) {
-    _rightPanelWidth =
+    _rightPanelWidth.value =
         clampRightPanelWidth(settings.rightPanelWidth.toDouble());
-    _logsCollapsed = false;
-    _rightCollapsed = false;
-    _logsPanelWidth = clampLogsPanelWidth(
+    _logsPanelWidth.value = clampLogsPanelWidth(
       settings.logsPanelWidth.toDouble(),
       totalWidth: MediaQuery.sizeOf(context).width,
-      rightWidth: _rightPanelWidth,
-      logsCollapsed: _logsCollapsed,
-      rightCollapsed: _rightCollapsed,
+      rightWidth: _rightPanelWidth.value,
     );
     _layoutInitialized = true;
   }
 
   void _persistLayout() {
     ref.read(settingsProvider.notifier).updatePartial({
-      'rightPanelWidth': _rightPanelWidth.round(),
-      'logsPanelWidth': _logsPanelWidth.round(),
-      'logsCollapsed': _logsCollapsed,
-      'rightCollapsed': _rightCollapsed,
+      'rightPanelWidth': _rightPanelWidth.value.round(),
+      'logsPanelWidth': _logsPanelWidth.value.round(),
     });
-  }
-
-  void _clampLogsToViewport(double totalWidth) {
-    _logsPanelWidth = clampLogsPanelWidth(
-      _logsPanelWidth,
-      totalWidth: totalWidth,
-      rightWidth: _rightPanelWidth,
-      logsCollapsed: _logsCollapsed,
-      rightCollapsed: _rightCollapsed,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final app = ref.watch(appProvider);
-    final settings = ref.watch(settingsProvider).settings;
-    final totalWidth = MediaQuery.sizeOf(context).width;
+    final settingsLoaded = ref.watch(settingsProvider.select((s) => s.loaded));
+    final settings = ref.watch(settingsProvider.select((s) => s.settings));
 
-    if (ref.watch(settingsProvider).loaded && !_layoutInitialized) {
+    if (settingsLoaded && !_layoutInitialized) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() => _initLayoutFromSettings(settings));
+        if (app.currentProject != null &&
+            ref.read(runnerProvider).devices.isEmpty) {
+          ref.read(runnerProvider.notifier).loadDevices();
+        }
       });
     }
 
     ref.listen(settingsProvider.select((s) => s.settings.rightPanelWidth),
         (prev, next) {
       if (!_layoutInitialized) return;
-      setState(() => _rightPanelWidth = clampRightPanelWidth(next.toDouble()));
+      _rightPanelWidth.value = clampRightPanelWidth(next.toDouble());
     });
-    ref.listen(settingsProvider.select((s) => s.settings.logsCollapsed),
+    ref.listen(settingsProvider.select((s) => s.settings.logsPanelWidth),
         (prev, next) {
       if (!_layoutInitialized) return;
-      setState(() => _logsCollapsed = next);
-    });
-    ref.listen(settingsProvider.select((s) => s.settings.rightCollapsed),
-        (prev, next) {
-      if (!_layoutInitialized) return;
-      setState(() => _rightCollapsed = next);
+      final viewportWidth = MediaQuery.sizeOf(context).width;
+      _logsPanelWidth.value = clampLogsPanelWidth(
+        next.toDouble(),
+        totalWidth: viewportWidth,
+        rightWidth: _rightPanelWidth.value,
+      );
     });
 
     return SnackbarOverlay(
       child: Scaffold(
-        backgroundColor: PatrolColors.obsidian,
-        body: Stack(
+        backgroundColor: p.canvas,
+        body: Column(
           children: [
-            Column(
-              children: [
-                RunToolbar(
-                  onOpenProject: () => ref.read(appProvider.notifier).openProject(),
-                  onRefreshTests: () => ref.read(appProvider.notifier).scanTests(),
-                  onOpenSettings: () => setState(() => _showSettings = true),
-                ),
-                const WorkflowStatusStrip(),
-                Expanded(
-                  child: Semantics(
-                    container: true,
-                    label: 'Patroller workspace',
-                    child: Padding(
-                      padding: const EdgeInsets.all(_shellPadding),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final width = constraints.maxWidth;
-                          final viewportWidth = width + (_shellPadding * 2);
-                          final clampedLogs = clampLogsPanelWidth(
-                            _logsPanelWidth,
-                            totalWidth: viewportWidth,
-                            rightWidth: _rightPanelWidth,
-                            logsCollapsed: _logsCollapsed,
-                            rightCollapsed: _rightCollapsed,
-                          );
+            RunToolbar(
+              onOpenProject: () => ref.read(appProvider.notifier).openProject(),
+              onRefreshTests: () => ref.read(appProvider.notifier).scanTests(),
+            ),
+            // Selection / Test All status lives on RunToolbar (no second strip).
+            // Control Deck lives under the Logs column (not full-width), so
+            // Workspace keeps full height on the top-right.
+            Expanded(
+              child: Semantics(
+                container: true,
+                label: 'Patroller workspace',
+                child: Padding(
+                  padding: const EdgeInsets.all(_shellPadding),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth;
+                      final viewportWidth = width + (_shellPadding * 2);
 
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildLogsColumn(clampedLogs, viewportWidth),
-                              const SizedBox(width: _panelGutter),
-                              _buildWorkspaceColumn(
-                                healthState: ref.watch(healthProvider),
-                                app: app,
-                              ),
-                            ],
+                      return ValueListenableBuilder<double>(
+                        valueListenable: _logsPanelWidth,
+                        builder: (context, logsWidth, _) {
+                          return ValueListenableBuilder<double>(
+                            valueListenable: _rightPanelWidth,
+                            builder: (context, rightWidth, _) {
+                              final clampedLogs = clampLogsPanelWidth(
+                                logsWidth,
+                                totalWidth: viewportWidth,
+                                rightWidth: rightWidth,
+                              );
+
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildLogsColumn(
+                                    clampedLogs,
+                                    viewportWidth,
+                                  ),
+                                  const SizedBox(width: _panelGutter),
+                                  Expanded(
+                                    child: _buildWorkspaceColumn(
+                                      healthState: ref.watch(healthProvider),
+                                      app: app,
+                                      rightWidth: rightWidth,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           );
                         },
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
-              ],
+              ),
             ),
-            if (_showSettings) _settingsModal(settings),
           ],
         ),
       ),
@@ -173,56 +177,41 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Widget _buildLogsColumn(double clampedLogs, double viewportWidth) {
-    if (_logsCollapsed) {
-      return PatrolCard(
-        padding: EdgeInsets.zero,
-        child: CollapsiblePanelRail(
-          label: 'Logs',
-          icon: Icons.terminal,
-          onExpand: () {
-            setState(() => _logsCollapsed = false);
-            _persistLayout();
-          },
-        ),
-      );
-    }
-
     return SizedBox(
       width: clampedLogs,
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          PatrolCard(
-            padding: EdgeInsets.zero,
-            child: Column(
+          Expanded(
+            child: Stack(
               children: [
-                CollapsiblePanelHeader(
-                  title: 'Logs',
-                  onCollapse: () {
-                    setState(() => _logsCollapsed = true);
-                    _persistLayout();
-                  },
+                PatrolCard(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      const CollapsiblePanelHeader(title: 'Logs'),
+                      Expanded(
+                        child: LogsShell(searchFocusNode: _logSearchFocus),
+                      ),
+                    ],
+                  ),
                 ),
-                Expanded(
-                  child: LogsShell(searchFocusNode: _logSearchFocus),
+                PanelResizeHandle(
+                  edge: PanelResizeEdge.right,
+                  onDrag: (delta) {
+                    _logsPanelWidth.value = clampLogsPanelWidth(
+                      _logsPanelWidth.value + delta,
+                      totalWidth: viewportWidth,
+                      rightWidth: _rightPanelWidth.value,
+                    );
+                  },
+                  onDragEnd: (_) => _persistLayout(),
                 ),
               ],
             ),
           ),
-          PanelResizeHandle(
-            edge: PanelResizeEdge.right,
-            onDrag: (delta) {
-              setState(() {
-                _logsPanelWidth = clampLogsPanelWidth(
-                  _logsPanelWidth + delta,
-                  totalWidth: viewportWidth,
-                  rightWidth: _rightPanelWidth,
-                  logsCollapsed: _logsCollapsed,
-                  rightCollapsed: _rightCollapsed,
-                );
-              });
-            },
-            onDragEnd: (_) => _persistLayout(),
-          ),
+          const SizedBox(height: _panelGutter),
+          const ControlDeck(),
         ],
       ),
     );
@@ -231,180 +220,50 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget _buildWorkspaceColumn({
     required HealthState healthState,
     required AppState app,
+    required double rightWidth,
   }) {
     final healthWarnings =
         healthState.warningCount ?? app.healthWarningCount ?? 0;
-    if (_rightCollapsed) {
-      return PatrolCard(
-        padding: EdgeInsets.zero,
-        child: CollapsiblePanelRail(
-          label: 'Workspace',
-          icon: Icons.dashboard_outlined,
-          edge: PanelEdge.right,
-          onExpand: () {
-            setState(() => _rightCollapsed = false);
-            _persistLayout();
-          },
-        ),
-      );
-    }
 
-    return Expanded(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minWidth: _rightPanelWidth),
-        child: Stack(
-          children: [
-            PanelResizeHandle(
-              onDrag: (delta) {
-                setState(() {
-                  _rightPanelWidth = clampRightPanelWidth(
-                    _rightPanelWidth - delta,
-                  );
-                });
-              },
-              onDragEnd: (_) => _persistLayout(),
-            ),
-            PatrolCard(
-              child: Column(
-                children: [
-                  _WorkspacePanelTabs(
-                    selected: _workspaceTab,
-                    healthWarnings: healthWarnings,
-                    onSelected: (tab) => setState(() => _workspaceTab = tab),
-                    onCollapse: () {
-                      setState(() => _rightCollapsed = true);
-                      _persistLayout();
-                    },
-                  ),
-                  Expanded(
-                    child: switch (_workspaceTab) {
-                      WorkspacePanelTab.tests => TestExplorer(
-                          onRefresh: () =>
-                              ref.read(appProvider.notifier).scanTests(),
-                        ),
-                      WorkspacePanelTab.recordings => const RecordingsPanel(),
-                      WorkspacePanelTab.history => const RunHistory(),
-                      WorkspacePanelTab.health => const EnvironmentHealth(),
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _settingsModal(AppSettings settings) {
-    return Positioned.fill(
-      child: Material(
-        color: Colors.black.withValues(alpha: 0.6),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
-            child: PatrolCard(
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 28,
-                      vertical: 20,
-                    ),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: PatrolColors.pebble),
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: rightWidth),
+      child: Stack(
+        children: [
+          PanelResizeHandle(
+            onDrag: (delta) {
+              _rightPanelWidth.value = clampRightPanelWidth(
+                _rightPanelWidth.value - delta,
+              );
+            },
+            onDragEnd: (_) => _persistLayout(),
+          ),
+          PatrolCard(
+            child: Column(
+              children: [
+                _WorkspacePanelTabs(
+                  selected: _workspaceTab,
+                  healthWarnings: healthWarnings,
+                  onSelected: (tab) => setState(() => _workspaceTab = tab),
+                ),
+                Expanded(
+                  child: switch (_workspaceTab) {
+                    WorkspacePanelTab.tests => TestExplorer(
+                        onRefresh: () =>
+                            ref.read(appProvider.notifier).scanTests(),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Text(
-                          'Settings',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (_settingsDirty) ...[
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Unsaved changes',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: PatrolColors.ember,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                        const Spacer(),
-                        AccessibleIconButton(
-                          icon: Icons.close,
-                          label: 'Close settings',
-                          onPressed: _requestCloseSettings,
-                          size: 18,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: SettingsScreen(
-                      onDirtyChanged: (dirty) =>
-                          setState(() => _settingsDirty = dirty),
-                      onSavingChanged: (saving) =>
-                          setState(() => _settingsSaving = saving),
-                      saveNotifier: _settingsSaveNotifier,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 28,
-                      vertical: 16,
-                    ),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: PatrolColors.pebble),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: _requestCloseSettings,
-                          child: const Text('Close'),
-                        ),
-                        const SizedBox(width: 12),
-                        FilledButton(
-                          onPressed: (!_settingsDirty || _settingsSaving)
-                              ? null
-                              : () async {
-                                  final saved =
-                                      await _settingsSaveNotifier.save?.call();
-                                  if (saved == true && mounted) {
-                                    setState(() => _showSettings = false);
-                                  }
-                                },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: PatrolColors.snow,
-                            foregroundColor: PatrolColors.obsidian,
-                          ),
-                          child: Text(
-                            _settingsSaving ? 'Saving...' : 'Save Settings',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                    WorkspacePanelTab.recordings => const RecordingsPanel(),
+                    WorkspacePanelTab.agent => const AgentWorkbenchPanel(),
+                    WorkspacePanelTab.history => const RunHistory(),
+                    WorkspacePanelTab.health => const EnvironmentHealth(),
+                    WorkspacePanelTab.devtools => const DevToolsPanel(),
+                  },
+                ),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
-  }
-
-  void _requestCloseSettings() {
-    setState(() => _showSettings = false);
   }
 }
 
@@ -413,68 +272,69 @@ class _WorkspacePanelTabs extends StatelessWidget {
     required this.selected,
     required this.healthWarnings,
     required this.onSelected,
-    required this.onCollapse,
   });
 
   final WorkspacePanelTab selected;
   final int healthWarnings;
   final ValueChanged<WorkspacePanelTab> onSelected;
-  final VoidCallback onCollapse;
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: PatrolColors.obsidian.withValues(alpha: 0.35),
+        color: p.surfaceMuted,
         border: Border(
-          bottom: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+          bottom: BorderSide(color: p.border),
         ),
       ),
-      child: Row(
-        children: [
-          ...WorkspacePanelTab.values.map((tab) {
-            final isSelected = selected == tab;
-            final label = switch (tab) {
-              WorkspacePanelTab.tests => 'Tests',
-              WorkspacePanelTab.recordings => 'Record',
-              WorkspacePanelTab.history => 'History',
-              WorkspacePanelTab.health => 'Health',
-            };
-            final badge = tab == WorkspacePanelTab.health && healthWarnings > 0
-                ? 'HEALTH ($healthWarnings)'
-                : null;
-            final icon = switch (tab) {
-              WorkspacePanelTab.tests => Icons.science_outlined,
-              WorkspacePanelTab.recordings => Icons.fiber_manual_record_outlined,
-              WorkspacePanelTab.history => Icons.history_rounded,
-              WorkspacePanelTab.health => Icons.monitor_heart_outlined,
-            };
-            final tabColor = switch (tab) {
-              WorkspacePanelTab.tests => PatrolColors.sky400,
-              WorkspacePanelTab.recordings => PatrolColors.amber,
-              WorkspacePanelTab.history => PatrolColors.violet400,
-              WorkspacePanelTab.health => PatrolColors.orange400,
-            };
+      child: Padding(
+        // Keep first/last tabs clear of the ~4px panel resize hit strip.
+        padding: const EdgeInsets.only(left: 6),
+        child: Row(
+          children: [
+            ...WorkspacePanelTab.values.map((tab) {
+              final isSelected = selected == tab;
+              final label = switch (tab) {
+                WorkspacePanelTab.tests => 'Tests',
+                WorkspacePanelTab.recordings => 'Record',
+                WorkspacePanelTab.agent => 'Agent',
+                WorkspacePanelTab.history => 'History',
+                WorkspacePanelTab.health => 'Health',
+                WorkspacePanelTab.devtools => 'DevTools',
+              };
+              final badge = tab == WorkspacePanelTab.health && healthWarnings > 0
+                  ? 'HEALTH ($healthWarnings)'
+                  : null;
+              final icon = switch (tab) {
+                WorkspacePanelTab.tests => Icons.science_outlined,
+                WorkspacePanelTab.recordings =>
+                  Icons.fiber_manual_record_outlined,
+                WorkspacePanelTab.agent => Icons.smart_toy_outlined,
+                WorkspacePanelTab.history => Icons.history_rounded,
+                WorkspacePanelTab.health => Icons.monitor_heart_outlined,
+                WorkspacePanelTab.devtools => Icons.extension_outlined,
+              };
+              final tabColor = switch (tab) {
+                WorkspacePanelTab.tests => PatrolColors.sky400,
+                WorkspacePanelTab.recordings => PatrolColors.amber,
+                WorkspacePanelTab.agent => PatrolColors.violet400,
+                WorkspacePanelTab.history => PatrolColors.violet400,
+                WorkspacePanelTab.health => PatrolColors.orange400,
+                WorkspacePanelTab.devtools => PatrolColors.sky400,
+              };
 
-            return PatrolPanelTab(
-              label: label,
-              icon: icon,
-              selected: isSelected,
-              badge: badge,
-              color: tabColor,
-              onTap: () => onSelected(tab),
-            );
-          }),
-          const Spacer(),
-          AccessibleIconButton(
-            icon: Icons.chevron_right,
-            label: 'Collapse workspace panel',
-            onPressed: onCollapse,
-            size: 16,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          ),
-        ],
+              return PatrolPanelTab(
+                label: label,
+                icon: icon,
+                selected: isSelected,
+                badge: badge,
+                color: tabColor,
+                onTap: () => onSelected(tab),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }

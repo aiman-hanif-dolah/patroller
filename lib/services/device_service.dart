@@ -35,16 +35,26 @@ class DeviceService {
     await _settingsStore.getAsync();
     final errors = <String>[];
 
-    List<DeviceInfo> simulators = [];
-    if (Platform.isMacOS && enrichSimulators) {
-      final simResult = await _listIosSimulators();
-      simulators = simResult.devices;
-      if (simResult.error != null) errors.add(simResult.error!);
-    }
+    // Run simctl + flutter devices in parallel so a slow flutter scan
+    // never blocks discovering already-booted simulators.
+    final simFuture = (Platform.isMacOS && enrichSimulators)
+        ? _listIosSimulators()
+        : Future.value((devices: <DeviceInfo>[], error: null as String?));
+    final flutterFuture = _listFlutterDevices();
 
-    final flutterResult = await _listFlutterDevices();
+    final results = await Future.wait([simFuture, flutterFuture]);
+    final simResult = results[0];
+    final flutterResult = results[1];
+
+    final simulators = simResult.devices;
+    if (simResult.error != null) errors.add(simResult.error!);
+
     final flutterDevices = flutterResult.devices;
-    if (flutterResult.error != null) errors.add(flutterResult.error!);
+    // Flutter scan is enrichment only — don't fail the whole list on it
+    // when simctl already returned devices.
+    if (flutterResult.error != null && simulators.isEmpty) {
+      errors.add(flutterResult.error!);
+    }
 
     final merged = _mergeDeviceSources(
       simulators: simulators,
@@ -119,10 +129,21 @@ class DeviceService {
     );
     if (result.exitCode != 0) {
       final stderr = '${result.stderr}'.trim();
+      // simctl returns a non-zero exit (often 405) when the device is already
+      // Booted — treat that as an idempotent success.
+      if (_isAlreadyBootedError(stderr)) {
+        return 'Simulator already booted';
+      }
       throw Exception(stderr.isEmpty ? 'Failed to boot simulator' : stderr);
     }
     final stdout = '${result.stdout}'.trim();
     return stdout.isEmpty ? 'Simulator booted successfully' : stdout;
+  }
+
+  bool _isAlreadyBootedError(String stderr) {
+    final lower = stderr.toLowerCase();
+    return lower.contains('unable to boot device in current state: booted') ||
+        lower.contains('current state: booted');
   }
 
   Future<String> shutdownSimulator(String udid) async {
@@ -150,9 +171,17 @@ class DeviceService {
     try {
       final result = await Process.run(
         flutter,
-        ['devices', '--machine'],
+        // Skip wireless discovery — LAN probes hang and block device UX.
+        [
+          'devices',
+          '--machine',
+          '--device-timeout',
+          '3',
+          '--device-connection',
+          'attached',
+        ],
         environment: developerToolEnv(),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 12));
       if (result.exitCode != 0) {
         final stderr = '${result.stderr}'.trim();
         return (

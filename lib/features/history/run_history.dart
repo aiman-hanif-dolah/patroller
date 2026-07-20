@@ -80,6 +80,7 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     if (_loading && _records.isEmpty) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
@@ -93,8 +94,8 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
       children: [
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: PatrolColors.pebble)),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: p.border)),
           ),
           child: Row(
             children: [
@@ -116,7 +117,7 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                   label: 'Clear all history',
                   onPressed: _clearAll,
                   size: 12,
-                  color: PatrolColors.steel,
+                  color: p.textMuted,
                 ),
               ],
             ],
@@ -145,7 +146,7 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                   label: historyFilterLabel(chip),
                   selected: _filter == chip,
                   color: switch (chip) {
-                    'all' => PatrolColors.steel,
+                    'all' => p.textMuted,
                     'failed' => PatrolColors.psFailed,
                     'passed' => PatrolColors.psPassed,
                     'cancelled' => PatrolColors.orange400,
@@ -160,10 +161,10 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
         ),
         Expanded(
           child: filtered.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'No runs yet',
-                    style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+                    style: TextStyle(fontSize: 12, color: p.textMuted),
                   ),
                 )
               : ListView.builder(
@@ -176,7 +177,7 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                           setState(() => _selectedRunId = record.runId),
                       child: Container(
                         color: isSelected
-                            ? PatrolColors.fog
+                            ? p.surfaceMuted
                             : Colors.transparent,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -195,17 +196,17 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                                       _historyTitle(record),
                                       42,
                                     ),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 13,
-                                      color: PatrolColors.ink,
+                                      color: p.text,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
                                     '${record.status.name} · ${record.runMode.toJson()} · ${record.durationMs != null ? '${(record.durationMs! / 1000).toStringAsFixed(1)}s' : '—'}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 10,
-                                      color: PatrolColors.steel,
+                                      color: p.textMuted,
                                     ),
                                   ),
                                 ],
@@ -228,19 +229,19 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: PatrolColors.pebble)),
-              color: PatrolColors.fog,
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: p.border)),
+              color: p.surfaceMuted,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   selected.fullCommandForDisplay,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Menlo',
                     fontSize: 10,
-                    color: PatrolColors.graphite,
+                    color: p.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),

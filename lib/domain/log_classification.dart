@@ -24,7 +24,7 @@ const logCategoryStyles = <LogCategory, LogCategoryStyle>{
   LogCategory.error: LogCategoryStyle(
     text: PatrolColors.red400,
     tag: PatrolColors.psFailed,
-    background: Color(0x407F1D1D),
+    background: Color(0x14EF4444),
     label: 'Error',
   ),
   LogCategory.warning: LogCategoryStyle(

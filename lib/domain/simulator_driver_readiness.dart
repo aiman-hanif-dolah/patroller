@@ -92,7 +92,7 @@ SimulatorDriverReadiness resolveSimulatorDriverReadiness({
 
   return const SimulatorDriverReadiness(
     embeddedPreviewReady: false,
-    embeddedRecordingReady: false,
+    embeddedRecordingReady: true,
     canInspect: false,
     userMessage:
         'Interact in Simulator.app — taps and swipes are recorded automatically.',

@@ -216,22 +216,26 @@ class RecordingsStore {
     final recording = get(recordingId, projectPath);
     if (recording == null) return null;
     final generated = [testFile, ...recording.generatedTestFiles].take(20).toList();
-    final updated = Recording(
-      id: recording.id,
-      name: recording.name,
-      projectPath: recording.projectPath,
-      createdAt: recording.createdAt,
+    final updated = recording.copyWith(
       updatedAt: DateTime.now().toUtc().toIso8601String(),
-      deviceName: recording.deviceName,
-      deviceType: recording.deviceType,
-      environmentProfile: recording.environmentProfile,
-      actionCount: recording.actionCount,
-      durationMs: recording.durationMs,
-      actions: recording.actions,
-      logs: recording.logs,
-      stateSnapshots: recording.stateSnapshots,
-      replayResults: recording.replayResults,
       generatedTestFiles: generated,
+    );
+    _write(updated);
+    return updated;
+  }
+
+  /// Replace the action list for a saved recording (Flow Editor).
+  Recording? replaceActions(
+    String recordingId,
+    String projectPath,
+    List<RecordingAction> actions,
+  ) {
+    final recording = get(recordingId, projectPath);
+    if (recording == null) return null;
+    final updated = recording.copyWith(
+      updatedAt: DateTime.now().toUtc().toIso8601String(),
+      actions: List<RecordingAction>.from(actions),
+      actionCount: actions.length,
     );
     _write(updated);
     return updated;

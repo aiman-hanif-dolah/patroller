@@ -6,6 +6,10 @@ import 'patrol_components.dart';
 
 const double panelCollapseRailWidth = 36;
 
+/// Below this width, collapsible panels should render rail UI only so full
+/// headers/toolbars are not laid out into an animating narrow constraint.
+const double panelContentMinWidth = 160;
+
 class CollapsiblePanelRail extends StatelessWidget {
   const CollapsiblePanelRail({
     super.key,
@@ -24,6 +28,7 @@ class CollapsiblePanelRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(PatrolRadius.panel),
       child: Material(
@@ -33,18 +38,10 @@ class CollapsiblePanelRail extends StatelessWidget {
           child: Container(
             width: panelCollapseRailWidth,
             decoration: BoxDecoration(
-              color: PatrolColors.mist,
-              border: Border.all(color: PatrolColors.pebble.withValues(alpha: 0.7)),
-              gradient: active
-                  ? LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        PatrolColors.amber.withValues(alpha: 0.12),
-                        PatrolColors.mist,
-                      ],
-                    )
-                  : null,
+              color: active
+                  ? PatrolColors.brandViolet.withValues(alpha: 0.08)
+                  : p.surface,
+              border: Border.all(color: p.border),
             ),
             child: Column(
               children: [
@@ -52,7 +49,7 @@ class CollapsiblePanelRail extends StatelessWidget {
                 Icon(
                   icon,
                   size: 14,
-                  color: active ? PatrolColors.amberBright : PatrolColors.steel,
+                  color: active ? PatrolColors.brandViolet : p.textMuted,
                 ),
                 const SizedBox(height: 8),
                 RotatedBox(
@@ -63,7 +60,8 @@ class CollapsiblePanelRail extends StatelessWidget {
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,
-                      color: active ? PatrolColors.amberBright : PatrolColors.steel,
+                      color:
+                          active ? PatrolColors.brandViolet : p.textMuted,
                     ),
                   ),
                 ),
@@ -94,24 +92,25 @@ class CollapsiblePanelHeader extends StatelessWidget {
   const CollapsiblePanelHeader({
     super.key,
     required this.title,
-    required this.onCollapse,
+    this.onCollapse,
     this.trailing,
     this.edge = PanelEdge.left,
   });
 
   final String title;
-  final VoidCallback onCollapse;
+  final VoidCallback? onCollapse;
   final Widget? trailing;
   final PanelEdge edge;
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: PatrolColors.obsidian.withValues(alpha: 0.3),
+        color: p.surfaceMuted,
         border: Border(
-          bottom: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+          bottom: BorderSide(color: p.border),
         ),
       ),
       child: Row(
@@ -121,24 +120,30 @@ class CollapsiblePanelHeader extends StatelessWidget {
                 ? Icons.terminal_rounded
                 : Icons.dashboard_outlined,
             size: 24,
+            color: title.toLowerCase() == 'logs'
+                ? PatrolColors.signalBlue
+                : PatrolColors.brandViolet,
           ),
           const SizedBox(width: 8),
-          PatrolEyebrow(title),
+          Flexible(
+            child: PatrolEyebrow(title),
+          ),
           if (trailing != null) ...[
             const SizedBox(width: 12),
             Expanded(child: trailing!),
           ] else
             const Spacer(),
-          AccessibleIconButton(
-            icon: edge == PanelEdge.right
-                ? Icons.chevron_right
-                : Icons.chevron_left,
-            label: 'Collapse $title panel',
-            onPressed: onCollapse,
-            size: 16,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          ),
+          if (onCollapse != null)
+            AccessibleIconButton(
+              icon: edge == PanelEdge.right
+                  ? Icons.chevron_right
+                  : Icons.chevron_left,
+              label: 'Collapse $title panel',
+              onPressed: onCollapse,
+              size: 16,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
         ],
       ),
     );

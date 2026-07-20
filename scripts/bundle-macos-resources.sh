@@ -42,7 +42,7 @@ extract_simulator_driver_zips() {
     return 0
   fi
   for zip in "$build_dir"/*.zip; do
-    [ -f "$zip" ] || continue
+    [ -e "$zip" ] || continue
     /usr/bin/ditto -x -k "$zip" "$build_dir"
   done
 }
@@ -63,5 +63,16 @@ done
 
 # Keep dev resources in sync so flutter run finds extracted runner apps too.
 extract_simulator_driver_zips "$RESOURCES_DIR/patrol-simulator-driver"
+
+# Bundle the built DevTools web panel (served by the extension server at /panel).
+PANEL_SRC="$ROOT/extension/devtools/build"
+if [ -d "$PANEL_SRC" ] && [ -f "$PANEL_SRC/index.html" ]; then
+  rm -rf "$DEST/patroller-devtools-panel"
+  cp -R "$PANEL_SRC" "$DEST/patroller-devtools-panel"
+  echo "Bundled patroller-devtools-panel -> $DEST/patroller-devtools-panel"
+else
+  echo "warn: DevTools panel build not found at $PANEL_SRC"
+  echo "      (run: cd devtools_extension && flutter build web --release --base-href=/panel/)"
+fi
 
 echo "Resource bundling complete."

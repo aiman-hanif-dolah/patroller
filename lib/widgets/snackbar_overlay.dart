@@ -44,7 +44,7 @@ class _SnackbarOverlayState extends ConsumerState<SnackbarOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final snackbar = ref.watch(runnerProvider).snackbar;
+    final snackbar = ref.watch(runnerProvider.select((s) => s.snackbar));
 
     if (snackbar != null && snackbar.id != _lastSnackbarId) {
       _lastSnackbarId = snackbar.id;
@@ -106,37 +106,34 @@ class _SnackbarBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: PatrolColors.ink,
+          color: p.text,
           fontWeight: FontWeight.w500,
-          height: 1.56,
+          height: 1.5,
         );
 
     return Material(
       color: Colors.transparent,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: PatrolColors.mist,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: PatrolColors.pebble),
+          color: p.surface,
+          borderRadius: BorderRadius.circular(PatrolRadius.card),
+          border: Border.all(color: p.border),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x14FFFFFF),
-              offset: Offset(0, 1),
-            ),
-            BoxShadow(
-              color: Color(0x40000000),
+              color: Color(0x14000000),
               blurRadius: 12,
               offset: Offset(0, 4),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(PatrolRadius.card),
           child: InkWell(
             onTap: onDismiss,
-            hoverColor: PatrolColors.fog.withValues(alpha: 0.45),
-            splashColor: PatrolColors.fog.withValues(alpha: 0.6),
+            hoverColor: p.surfaceMuted,
+            splashColor: p.fill,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Padding(
@@ -151,14 +148,8 @@ class _SnackbarBanner extends StatelessWidget {
                         width: 6,
                         height: 6,
                         decoration: const BoxDecoration(
-                          color: PatrolColors.ink,
+                          color: PatrolColors.brandViolet,
                           shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color(0x66FAFAFA),
-                              blurRadius: 4,
-                            ),
-                          ],
                         ),
                       ),
                     ),
@@ -173,8 +164,8 @@ class _SnackbarBanner extends StatelessWidget {
                     IconButton(
                       onPressed: onDismiss,
                       icon: const Icon(Icons.close, size: 14),
-                      color: PatrolColors.steel,
-                      hoverColor: PatrolColors.fog,
+                      color: p.textMuted,
+                      hoverColor: p.surfaceMuted,
                       splashRadius: 16,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,

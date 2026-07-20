@@ -47,3 +47,19 @@ app.*.map.json
 # macOS / IDE
 **/macos/Pods/
 **/macos/Flutter/ephemeral/
+
+# Local agent / IDE config
+.grok/
+.cursor/
+.claude/
+
+# Internal / local-only notes (not for public tree)
+Internship_Project_Report.md
+Internship_Project_Report.txt
+
+# Simulator driver artifacts extracted from zips at bundle/runtime
+resources/patrol-simulator-driver/simulator/Debug-iphonesimulator/*.app/
+
+# macOS resource forks / junk
+**/__MACOSX/
+*.DS_Store

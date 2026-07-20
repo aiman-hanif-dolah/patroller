@@ -14,6 +14,45 @@ bool isSessionBusy(bool isRunning, RunRecord? currentRun) {
 
 RunLifecycle? resolveLifecycle(RunRecord? run) => run?.lifecycle;
 
+/// Empty-logs busy copy: Starting only while starting, Stopping while stopping.
+String emptyLogsBusyMessage(RunLifecycle? lifecycle) {
+  return switch (lifecycle) {
+    RunLifecycle.starting => 'Starting...',
+    RunLifecycle.stopping => 'Stopping...',
+    _ => 'Running...',
+  };
+}
+
+/// Whether Develop All should auto-start the next queued file after a run ends.
+bool shouldAdvanceDevelopSuite({
+  required bool userStopped,
+  required RunMode completedMode,
+  required bool queueNotEmpty,
+}) {
+  return !userStopped &&
+      completedMode == RunMode.developSuite &&
+      queueNotEmpty;
+}
+
+/// Sentinel for the Test Explorer "All flows" dropdown (null items are unreliable).
+const kAllFlowsFilter = '';
+
+bool isAllFlowsFilter(String flowFilter) => flowFilter == kAllFlowsFilter;
+
+/// File IDs selected when the flow dropdown changes.
+Set<String> selectedFileIdsForFlowFilter(
+  List<TestFile> testFiles,
+  String flowFilter,
+) {
+  if (isAllFlowsFilter(flowFilter)) {
+    return testFiles.map((f) => f.absolutePath).toSet();
+  }
+  return testFiles
+      .where((f) => f.folderPath.startsWith(flowFilter))
+      .map((f) => f.absolutePath)
+      .toSet();
+}
+
 bool isSelectableDevice(DeviceInfo device) {
   return device.type == DeviceType.iosSimulator;
 }
@@ -62,9 +101,7 @@ String? getRunDisabledReason({
   if (!isSelectableDevice(selectedDevice)) {
     return 'Only iOS Simulator is supported';
   }
-  if (selectedDevice.state != DeviceState.booted) {
-    return 'Boot the simulator before running tests';
-  }
+  // Not booted is OK — runtime auto-boots via _ensureDevice.
   return null;
 }
 
@@ -107,10 +144,21 @@ String? getQueueRunDisabledReason({
   if (!isSelectableDevice(selectedDevice)) {
     return 'Only iOS Simulator is supported';
   }
-  if (selectedDevice.state != DeviceState.booted) {
-    return 'Boot the simulator before running tests';
-  }
+  // Not booted is OK — runtime auto-boots via _ensureDevice.
   return null;
+}
+
+/// Files for Test All / Develop All: multi-select when set, else all runnable.
+List<TestFile> filesForRunAll(
+  List<TestFile> allFiles,
+  Set<String> selectedFileIds,
+) {
+  final runnable = runnableTestFiles(allFiles);
+  if (selectedFileIds.isEmpty) return runnable;
+  final selected = runnable
+      .where((f) => selectedFileIds.contains(f.absolutePath))
+      .toList();
+  return selected.isNotEmpty ? selected : runnable;
 }
 
 bool isRunnableTestFile(TestFile file) => file.detectedTestCount > 0;
@@ -124,7 +172,10 @@ List<TestFile> runnableTestFiles(List<TestFile> files) =>
   if (selectedCount == 0) {
     return (label: 'Test All', value: 'All runnable');
   }
-  return (label: 'Test All', value: '$selectedCount selected');
+  return (
+    label: 'Test All',
+    value: '$selectedCount file${selectedCount == 1 ? '' : 's'} selected',
+  );
 }
 
 String formatTestAllSelectionBanner(int selectedCount) {
@@ -191,4 +242,41 @@ String formatRunLogsForExport({
 
 bool isFailedRunStatus(RunRecordStatus status) {
   return status == RunRecordStatus.failed || status == RunRecordStatus.error;
+}
+
+/// Patrol develop prints this when the current test cycle finishes.
+bool isAllTestsExecutedMessage(String text) {
+  return text.toLowerCase().contains('all tests were executed');
+}
+
+/// Snackbar copy when a single-file run or develop cycle completes.
+String? sessionCompletionSnackbarMessage({
+  required RunMode runMode,
+  required RunRecordStatus status,
+  required bool allTestsExecutedSeen,
+  bool developSuiteHasMore = false,
+}) {
+  if (developSuiteHasMore) return null;
+
+  switch (runMode) {
+    case RunMode.test:
+      return switch (status) {
+        RunRecordStatus.passed => 'Test finished — all tests passed',
+        RunRecordStatus.failed || RunRecordStatus.error =>
+          'Test finished — failed',
+        _ => null,
+      };
+    case RunMode.develop:
+      if (allTestsExecutedSeen || status == RunRecordStatus.passed) {
+        return 'Develop session finished — all tests executed';
+      }
+      return null;
+    case RunMode.developSuite:
+      if (allTestsExecutedSeen || status == RunRecordStatus.passed) {
+        return 'Develop All finished — all tests executed';
+      }
+      return null;
+    case RunMode.fullSuite:
+      return null;
+  }
 }

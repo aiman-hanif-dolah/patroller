@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -26,11 +28,14 @@ class LogsPanel extends ConsumerStatefulWidget {
 
 class _LogsPanelState extends ConsumerState<LogsPanel> {
   static const _bottomThreshold = 56.0;
+  static const _autoScrollThrottle = Duration(milliseconds: 80);
 
   final _scrollController = ScrollController();
   bool _showJumpToBottom = false;
   bool _showFilterMenu = false;
   bool _programmaticScroll = false;
+  bool _scrollPending = false;
+  DateTime? _lastAutoScrollAt;
 
   @override
   void initState() {
@@ -59,7 +64,27 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
     }
   }
 
-  void _scrollToBottom({bool resumeAutoScroll = false}) {
+  void _scrollToBottom({bool resumeAutoScroll = false, bool force = false}) {
+    if (!force) {
+      final now = DateTime.now();
+      final last = _lastAutoScrollAt;
+      if (last != null && now.difference(last) < _autoScrollThrottle) {
+        if (!_scrollPending) {
+          _scrollPending = true;
+          final wait = _autoScrollThrottle - now.difference(last);
+          Future<void>.delayed(wait, () {
+            _scrollPending = false;
+            if (!mounted || !ref.read(logProvider).autoScroll) return;
+            _scrollToBottom(force: true);
+          });
+        }
+        return;
+      }
+      _lastAutoScrollAt = now;
+    } else {
+      _lastAutoScrollAt = DateTime.now();
+    }
+
     _programmaticScroll = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
@@ -67,15 +92,10 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
         return;
       }
       _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-        _programmaticScroll = false;
-        if (mounted) {
-          setState(() => _showJumpToBottom = false);
-        }
-      });
+      _programmaticScroll = false;
+      if (mounted) {
+        setState(() => _showJumpToBottom = false);
+      }
     });
     if (resumeAutoScroll && !ref.read(logProvider).autoScroll) {
       ref.read(logProvider.notifier).setAutoScroll(true);
@@ -94,10 +114,13 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final logState = ref.watch(logProvider);
+    final p = PatrolPalette.of(context);
     final filteredLogs = ref.watch(filteredLogsProvider);
-    final runner = ref.watch(runnerProvider);
-    final sessionBusy = isSessionBusy(runner.isRunning, runner.currentRun);
+    final sessionBusy = ref.watch(
+      runnerProvider.select(
+        (s) => isSessionBusy(s.isRunning, s.currentRun),
+      ),
+    );
 
     ref.listen(logProvider.select((s) => s.revision), (prev, next) {
       if (ref.read(logProvider).autoScroll) {
@@ -120,7 +143,7 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
           searchFocusNode: widget.searchFocusNode,
           showFilterMenu: _showFilterMenu,
           showJumpToBottom: _showJumpToBottom,
-          onJumpToBottom: () => _scrollToBottom(resumeAutoScroll: true),
+          onJumpToBottom: () => _scrollToBottom(resumeAutoScroll: true, force: true),
           onToggleFilterMenu: () =>
               setState(() => _showFilterMenu = !_showFilterMenu),
         ),
@@ -171,12 +194,13 @@ class _LogsPanelState extends ConsumerState<LogsPanel> {
                     button: true,
                     label: 'Jump to bottom of logs',
                     child: FilledButton.icon(
-                      onPressed: () => _scrollToBottom(resumeAutoScroll: true),
+                      onPressed: () =>
+                          _scrollToBottom(resumeAutoScroll: true, force: true),
                       icon: const Icon(Icons.arrow_downward, size: 12),
                       label: const Text('Jump to bottom'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: PatrolColors.ink,
-                        foregroundColor: PatrolColors.obsidian,
+                        backgroundColor: p.text,
+                        foregroundColor: p.surface,
                         textStyle: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -200,31 +224,9 @@ class _LogLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     if (isDependencyNoticeBlock(log)) {
-      final countLabel = log.text.replaceFirst(dependencyNoticeBlockPrefix, '');
-      return ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        title: Text(
-          'Dependency notices ($countLabel)',
-          style: const TextStyle(
-            fontFamily: 'Menlo',
-            fontSize: 11,
-            color: PatrolColors.steel,
-          ),
-        ),
-        children: [
-          SelectableText(
-            log.rawText ?? '',
-            style: const TextStyle(
-              fontFamily: 'Menlo',
-              fontSize: 10,
-              height: 1.4,
-              color: PatrolColors.graphite,
-            ),
-          ),
-        ],
-      );
+      return _DependencyNoticeLine(log: log);
     }
 
     final category = classifyLog(log);
@@ -242,7 +244,7 @@ class _LogLine extends StatelessWidget {
         color: style.background,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: PatrolColors.pebble.withValues(alpha: 0.35),
+          color: p.border,
         ),
       ),
       child: Row(
@@ -252,11 +254,11 @@ class _LogLine extends StatelessWidget {
             width: _LogLineLayout.timeWidth,
             child: Text(
               timestamp,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Menlo',
                 fontSize: 10,
                 height: 1.5,
-                color: PatrolColors.steel,
+                color: p.textMuted,
               ),
             ),
           ),
@@ -281,6 +283,86 @@ class _LogLine extends StatelessWidget {
   }
 }
 
+/// Collapsible dependency-notice summary.
+///
+/// Avoids [ExpansionTile]/[ListTile]: nested ListTiles under a colored
+/// panel [DecoratedBox] assert about invisible ink, and expanding under a
+/// parent [SelectionArea] can hit `RenderParagraph !debugNeedsLayout`.
+class _DependencyNoticeLine extends StatefulWidget {
+  const _DependencyNoticeLine({required this.log});
+
+  final LogEvent log;
+
+  @override
+  State<_DependencyNoticeLine> createState() => _DependencyNoticeLineState();
+}
+
+class _DependencyNoticeLineState extends State<_DependencyNoticeLine> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
+    final countLabel =
+        widget.log.text.replaceFirst(dependencyNoticeBlockPrefix, '');
+    final raw = widget.log.rawText ?? '';
+
+    // Opt out of the parent SelectionArea so expand/collapse does not
+    // re-register selectables mid-frame (framework selection assert).
+    return SelectionContainer.disabled(
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Dependency notices ($countLabel)',
+                        style: TextStyle(
+                          fontFamily: 'Menlo',
+                          fontSize: 11,
+                          color: p.textMuted,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 16,
+                      color: p.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_expanded && raw.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                // Nested SelectionArea owns selection for expanded text only.
+                child: SelectionArea(
+                  child: Text(
+                    raw,
+                    style: TextStyle(
+                      fontFamily: 'Menlo',
+                      fontSize: 10,
+                      height: 1.4,
+                      color: p.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LogLineLayout {
   static const double timeWidth = 52;
   static const double labelWidth = 56;
@@ -293,6 +375,7 @@ class _LogColumnHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(
         _LogLineLayout.horizontalPadding + 12,
@@ -300,9 +383,9 @@ class _LogColumnHeader extends StatelessWidget {
         12,
         4,
       ),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: PatrolColors.pebble)),
-        color: Color(0x3309090B),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: p.border)),
+        color: p.surfaceMuted,
       ),
       child: Row(
         children: [
@@ -314,7 +397,7 @@ class _LogColumnHeader extends StatelessWidget {
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.6,
-                color: PatrolColors.steel.withValues(alpha: 0.9),
+                color: p.textMuted.withValues(alpha: 0.9),
               ),
             ),
           ),
@@ -328,19 +411,19 @@ class _LogColumnHeader extends StatelessWidget {
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.6,
-                color: PatrolColors.steel.withValues(alpha: 0.9),
+                color: p.textMuted.withValues(alpha: 0.9),
               ),
             ),
           ),
           const SizedBox(width: _LogLineLayout.gutter),
-          const Expanded(
+          Expanded(
             child: Text(
               'MESSAGE',
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.6,
-                color: PatrolColors.steel,
+                color: p.textMuted,
               ),
             ),
           ),
@@ -400,6 +483,7 @@ class _LogsToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final p = PatrolPalette.of(context);
     final logState = ref.watch(logProvider);
     final showRaw = ref.watch(settingsProvider).settings.showRawStderr;
     final filtered = ref.watch(filteredLogsProvider);
@@ -413,159 +497,252 @@ class _LogsToolbar extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: PatrolColors.pebble)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: p.border)),
       ),
-      child: Row(
-        children: [
-          Text(
-            'LOGS',
-            style: Theme.of(context).textTheme.labelSmall,
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 180,
-            child: TextField(
-              focusNode: searchFocusNode,
-              onChanged: ref.read(logProvider.notifier).setLogSearch,
-              style: const TextStyle(fontSize: 10),
-              decoration: const InputDecoration(
-                hintText: 'Search logs...',
-                isDense: true,
-                prefixIcon: Icon(Icons.search, size: 12),
-                prefixIconConstraints: BoxConstraints(minWidth: 32),
-              ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 420;
+          final actions = <Widget>[
+            Text(
+              'LOGS',
+              style: Theme.of(context).textTheme.labelSmall,
             ),
-          ),
-          AccessibleIconButton(
-            icon: logState.autoScroll ? Icons.pause : Icons.play_arrow,
-            label: logState.autoScroll
-                ? 'Pause auto-scroll'
-                : 'Resume auto-scroll',
-            onPressed: () {
-              final next = !logState.autoScroll;
-              ref.read(logProvider.notifier).setAutoScroll(next);
-              if (next) onJumpToBottom();
-            },
-            size: 12,
-          ),
-          AccessibleIconButton(
-            icon: Icons.arrow_downward,
-            label: 'Jump to bottom of logs',
-            color: showJumpToBottom ? PatrolColors.ink : PatrolColors.steel,
-            onPressed: filtered.isEmpty ? null : onJumpToBottom,
-            size: 12,
-          ),
-          AccessibleIconButton(
-            icon: showFilterMenu ? Icons.filter_list_off : Icons.filter_list,
-            label: showFilterMenu ? 'Hide log filters' : 'Show log filters',
-            color: showFilterMenu || filtersActive
-                ? PatrolColors.ink
-                : PatrolColors.steel,
-            onPressed: onToggleFilterMenu,
-            size: 12,
-          ),
-          AccessibleIconButton(
-            icon: showRaw ? Icons.article_outlined : Icons.article,
-            label: showRaw ? 'Hide raw stderr' : 'Show raw stderr',
-            color: showRaw ? PatrolColors.ink : PatrolColors.steel,
-            onPressed: () => ref.read(settingsProvider.notifier).updatePartial({
-              'showRawStderr': !showRaw,
-            }),
-            size: 12,
-          ),
-          if (filtersActive) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: PatrolColors.ember.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: PatrolColors.ember.withValues(alpha: 0.3),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: narrow ? 120 : 180,
+              child: TextField(
+                focusNode: searchFocusNode,
+                onChanged: ref.read(logProvider.notifier).setLogSearch,
+                style: const TextStyle(fontSize: 10),
+                decoration: const InputDecoration(
+                  hintText: 'Search logs...',
+                  isDense: true,
+                  prefixIcon: Icon(Icons.search, size: 12),
+                  prefixIconConstraints: BoxConstraints(minWidth: 32),
                 ),
               ),
-              child: const Text(
-                'Filters active',
-                style: TextStyle(fontSize: 10, color: PatrolColors.ember),
+            ),
+            _LogsToolbarAction(
+              icon: logState.autoScroll ? Icons.pause : Icons.play_arrow,
+              text: logState.autoScroll ? 'Pause' : 'Resume',
+              tooltip: logState.autoScroll
+                  ? 'Pause auto-scroll'
+                  : 'Resume auto-scroll',
+              showLabel: !narrow,
+              onPressed: () {
+                final next = !logState.autoScroll;
+                ref.read(logProvider.notifier).setAutoScroll(next);
+                if (next) onJumpToBottom();
+              },
+            ),
+            _LogsToolbarAction(
+              icon: Icons.arrow_downward,
+              text: 'Bottom',
+              tooltip: 'Jump to bottom of logs',
+              color: showJumpToBottom ? p.text : p.textMuted,
+              showLabel: !narrow,
+              onPressed: filtered.isEmpty ? null : onJumpToBottom,
+            ),
+            _LogsToolbarAction(
+              icon: showFilterMenu ? Icons.filter_list_off : Icons.filter_list,
+              text: 'Filter',
+              tooltip: showFilterMenu ? 'Hide log filters' : 'Show log filters',
+              color: showFilterMenu || filtersActive
+                  ? p.text
+                  : p.textMuted,
+              showLabel: !narrow,
+              onPressed: onToggleFilterMenu,
+            ),
+            _LogsToolbarAction(
+              icon: showRaw ? Icons.article_outlined : Icons.article,
+              text: 'Raw',
+              tooltip: showRaw ? 'Hide raw stderr' : 'Show raw stderr',
+              color: showRaw ? p.text : p.textMuted,
+              showLabel: !narrow,
+              onPressed: () => ref.read(settingsProvider.notifier).updatePartial({
+                'showRawStderr': !showRaw,
+              }),
+            ),
+            if (filtersActive) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: PatrolColors.ember.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: PatrolColors.ember.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Text(
+                  'Filters active',
+                  style: TextStyle(fontSize: 10, color: PatrolColors.ember),
+                ),
               ),
+              TextButton(
+                onPressed: ref.read(logProvider.notifier).resetLogUiState,
+                child: const Text('Reset', style: TextStyle(fontSize: 10)),
+              ),
+            ],
+            Text(
+              lineLabel,
+              style: TextStyle(fontSize: 10, color: p.textMuted),
             ),
-            TextButton(
-              onPressed: ref.read(logProvider.notifier).resetLogUiState,
-              child: const Text('Reset', style: TextStyle(fontSize: 10)),
+            _LogsToolbarAction(
+              icon: Icons.copy,
+              text: 'Copy',
+              tooltip: 'Copy visible logs',
+              showLabel: !narrow,
+              onPressed: filtered.isEmpty
+                  ? null
+                  : () {
+                      final text = filtered
+                          .map(
+                            (l) => '[${l.streamType.name}] ${l.exportText}',
+                          )
+                          .join('\n');
+                      Clipboard.setData(ClipboardData(text: text));
+                      ref
+                          .read(runnerProvider.notifier)
+                          .showSnackbar('Logs copied');
+                    },
             ),
-          ],
-          Text(
-            lineLabel,
-            style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
-          ),
-          AccessibleIconButton(
-            icon: Icons.copy,
-            label: 'Copy visible logs',
-            onPressed: filtered.isEmpty
-                ? null
-                : () {
-                    final text = filtered
-                        .map(
-                          (l) => '[${l.streamType.name}] ${l.exportText}',
-                        )
-                        .join('\n');
-                    Clipboard.setData(ClipboardData(text: text));
-                    ref
-                        .read(runnerProvider.notifier)
-                        .showSnackbar('Logs copied');
-                  },
-            size: 12,
-          ),
-          AccessibleIconButton(
-            icon: Icons.delete_outline,
-            label: 'Clear all logs',
-            onPressed: logState.logs.isEmpty
-                ? null
-                : () => ref.read(logProvider.notifier).clearLogs(),
-            size: 12,
-          ),
-        ],
+            _LogsToolbarAction(
+              icon: Icons.delete_outline,
+              text: 'Clear',
+              tooltip: 'Clear all logs',
+              showLabel: !narrow,
+              onPressed: logState.logs.isEmpty
+                  ? null
+                  : () => ref.read(logProvider.notifier).clearLogs(),
+            ),
+          ];
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: actions),
+          );
+        },
       ),
     );
   }
 }
 
-class _FilterPanel extends ConsumerWidget {
+/// Compact icon + text control for the logs toolbar (macOS density).
+class _LogsToolbarAction extends StatelessWidget {
+  const _LogsToolbarAction({
+    required this.icon,
+    required this.text,
+    required this.tooltip,
+    this.onPressed,
+    this.color,
+    this.showLabel = true,
+  });
+
+  final IconData icon;
+  final String text;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Color? color;
+  final bool showLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
+    final fg = color ?? p.textMuted;
+    final enabled = onPressed != null;
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            foregroundColor: fg,
+            disabledForegroundColor: p.textMuted.withValues(alpha: 0.38),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: enabled ? fg : null),
+              if (showLabel) ...[
+                const SizedBox(width: 4),
+                Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: enabled ? fg : null,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterPanel extends ConsumerStatefulWidget {
   const _FilterPanel({required this.onClose});
 
   final VoidCallback onClose;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FilterPanel> createState() => _FilterPanelState();
+}
+
+class _FilterPanelState extends ConsumerState<_FilterPanel> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final filters = ref.watch(logProvider).logFilters;
     final notifier = ref.read(logProvider.notifier);
 
     return Material(
-      color: PatrolColors.fog,
+      color: p.surfaceMuted,
       child: Container(
         width: double.infinity,
         constraints: const BoxConstraints(maxHeight: 240),
-        decoration: const BoxDecoration(
-          color: PatrolColors.fog,
+        decoration: BoxDecoration(
+          color: p.surfaceMuted,
           border: Border(
-            bottom: BorderSide(color: PatrolColors.pebble),
+            bottom: BorderSide(color: p.border),
           ),
         ),
         child: Scrollbar(
+          controller: _scrollController,
           child: SingleChildScrollView(
+            controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Text(
+                    Text(
                       'LOG FILTERS',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.6,
-                        color: PatrolColors.steel,
+                        color: p.textMuted,
                       ),
                     ),
                     const Spacer(),
@@ -579,7 +756,7 @@ class _FilterPanel extends ConsumerWidget {
                     AccessibleIconButton(
                       icon: Icons.close,
                       label: 'Close log filters',
-                      onPressed: onClose,
+                      onPressed: widget.onClose,
                       size: 14,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
@@ -593,17 +770,18 @@ class _FilterPanel extends ConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 52,
                       child: Text(
                         'Mode',
-                        style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+                        style: TextStyle(fontSize: 10, color: p.textMuted),
                       ),
                     ),
                     Expanded(
                       child: Wrap(
                         spacing: 6,
                         children: LogFilterMode.values.map((mode) {
+                          final p = PatrolPalette.of(context);
                           final selected = filters.mode == mode;
                           return ChoiceChip(
                             label: Text(
@@ -611,16 +789,16 @@ class _FilterPanel extends ConsumerWidget {
                               style: TextStyle(
                                 fontSize: 10,
                                 color: selected
-                                    ? PatrolColors.ink
-                                    : PatrolColors.steel,
+                                    ? p.text
+                                    : p.textMuted,
                               ),
                             ),
                             selected: selected,
                             onSelected: (_) => notifier.setLogFilterMode(mode),
-                            selectedColor: PatrolColors.fog,
-                            backgroundColor: PatrolColors.fog,
+                            selectedColor: p.surface,
+                            backgroundColor: p.surfaceMuted,
                             side: BorderSide(
-                              color: selected ? PatrolColors.ink : PatrolColors.graphite,
+                              color: selected ? p.text : p.border,
                             ),
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -634,17 +812,18 @@ class _FilterPanel extends ConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 52,
                       child: Text(
                         'Stream',
-                        style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+                        style: TextStyle(fontSize: 10, color: p.textMuted),
                       ),
                     ),
                     Expanded(
                       child: Wrap(
                         spacing: 6,
                         children: LogStreamFilter.values.map((stream) {
+                          final p = PatrolPalette.of(context);
                           final selected = filters.stream == stream;
                           return ChoiceChip(
                             label: Text(
@@ -652,17 +831,17 @@ class _FilterPanel extends ConsumerWidget {
                               style: TextStyle(
                                 fontSize: 10,
                                 color: selected
-                                    ? PatrolColors.ink
-                                    : PatrolColors.steel,
+                                    ? p.text
+                                    : p.textMuted,
                               ),
                             ),
                             selected: selected,
                             onSelected: (_) =>
                                 notifier.setLogStreamFilter(stream),
-                            selectedColor: PatrolColors.fog,
-                            backgroundColor: PatrolColors.fog,
+                            selectedColor: p.surface,
+                            backgroundColor: p.surfaceMuted,
                             side: BorderSide(
-                              color: selected ? PatrolColors.ink : PatrolColors.graphite,
+                              color: selected ? p.text : p.border,
                             ),
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -676,11 +855,11 @@ class _FilterPanel extends ConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 52,
                       child: Text(
                         'Sources',
-                        style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+                        style: TextStyle(fontSize: 10, color: p.textMuted),
                       ),
                     ),
                     Expanded(
@@ -688,6 +867,7 @@ class _FilterPanel extends ConsumerWidget {
                         spacing: 6,
                         runSpacing: 4,
                         children: LogFilterKey.values.map((key) {
+                          final p = PatrolPalette.of(context);
                           final enabled = filters.sources[key] ?? true;
                           return FilterChip(
                             label: Text(
@@ -695,18 +875,18 @@ class _FilterPanel extends ConsumerWidget {
                               style: TextStyle(
                                 fontSize: 10,
                                 color: enabled
-                                    ? PatrolColors.ink
-                                    : PatrolColors.steel,
+                                    ? p.text
+                                    : p.textMuted,
                               ),
                             ),
                             selected: enabled,
                             onSelected: (_) =>
                                 notifier.toggleLogFilterSource(key),
                             showCheckmark: false,
-                            selectedColor: PatrolColors.fog,
-                            backgroundColor: PatrolColors.fog,
+                            selectedColor: p.surface,
+                            backgroundColor: p.surfaceMuted,
                             side: BorderSide(
-                              color: enabled ? PatrolColors.ink : PatrolColors.graphite,
+                              color: enabled ? p.text : p.border,
                             ),
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -725,22 +905,38 @@ class _FilterPanel extends ConsumerWidget {
   }
 }
 
-class _ScrollableCenteredBody extends StatelessWidget {
+class _ScrollableCenteredBody extends StatefulWidget {
   const _ScrollableCenteredBody({required this.child});
 
   final Widget child;
+
+  @override
+  State<_ScrollableCenteredBody> createState() =>
+      _ScrollableCenteredBodyState();
+}
+
+class _ScrollableCenteredBodyState extends State<_ScrollableCenteredBody> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Scrollbar(
+          controller: _scrollController,
           child: SingleChildScrollView(
+            controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Center(child: child),
+              child: Center(child: widget.child),
             ),
           ),
         );
@@ -758,13 +954,14 @@ class _EmptyLogsState extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final logState = ref.watch(logProvider);
     if (logState.logs.isNotEmpty) {
+      final p = PatrolPalette.of(context);
       return _ScrollableCenteredBody(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Logs exist, but filters hide them.',
-              style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+              style: TextStyle(fontSize: 10, color: p.textMuted),
             ),
             TextButton(
               onPressed: ref.read(logProvider.notifier).resetLogUiState,
@@ -776,19 +973,24 @@ class _EmptyLogsState extends ConsumerWidget {
     }
 
     if (sessionBusy) {
-      return const _ScrollableCenteredBody(
+      final p = PatrolPalette.of(context);
+      final lifecycle = resolveLifecycle(
+        ref.watch(runnerProvider.select((s) => s.currentRun)),
+      );
+      final message = emptyLogsBusyMessage(lifecycle);
+      return _ScrollableCenteredBody(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'Starting...',
-              style: TextStyle(fontSize: 10, color: PatrolColors.steel),
+              message,
+              style: TextStyle(fontSize: 10, color: p.textMuted),
             ),
           ],
         ),
@@ -804,43 +1006,42 @@ class _SessionDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final app = ref.watch(appProvider);
-    final runner = ref.watch(runnerProvider);
+    final p = PatrolPalette.of(context);
+    final selectedFile =
+        ref.watch(appProvider.select((s) => s.selectedFile));
+    final testFilesLen =
+        ref.watch(appProvider.select((s) => s.testFiles.length));
+    final selectedFileIdsLen =
+        ref.watch(appProvider.select((s) => s.selectedFileIds.length));
+    final health = ref.watch(appProvider.select((s) => s.healthWarningCount));
 
-    final runDisabled = getRunDisabledReason(
-      hasProject: app.currentProject != null,
-      hasSelectedFile: app.selectedFile != null,
-      isRunning: runner.isRunning,
-      selectedDevice: runner.selectedDevice,
-      currentRun: runner.currentRun,
-    );
-    final queueDisabled = getQueueRunDisabledReason(
-      hasProject: app.currentProject != null,
-      hasTestFiles: app.testFiles.isNotEmpty,
-      isRunning: runner.isRunning,
-      selectedDevice: runner.selectedDevice,
-      currentRun: runner.currentRun,
-    );
+    final selectedDevice =
+        ref.watch(runnerProvider.select((s) => s.selectedDevice));
+    final currentRun = ref.watch(runnerProvider.select((s) => s.currentRun));
 
-    final queueCount = app.selectedFileIds.isNotEmpty
-        ? app.selectedFileIds.length
-        : app.testFiles.length;
-    final health = app.healthWarningCount;
+    final queueCount =
+        selectedFileIdsLen > 0 ? selectedFileIdsLen : testFilesLen;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _dashboardRow(
           'Simulator',
-          runner.selectedDevice?.name ?? 'None selected',
+          selectedDevice?.name ?? 'None selected',
+          p,
         ),
         _dashboardRow(
           'Active file',
-          app.selectedFile != null
-              ? middleTruncate(app.selectedFile!.fileName, 36)
+          selectedFile != null
+              ? middleTruncate(selectedFile.fileName, 36)
               : 'None',
+          p,
         ),
-        _dashboardRow('Selected', '$queueCount file${queueCount == 1 ? '' : 's'}'),
+        _dashboardRow(
+          'Selected',
+          '$queueCount file${queueCount == 1 ? '' : 's'}',
+          p,
+        ),
         _dashboardRow(
           'Health',
           health == null
@@ -848,45 +1049,20 @@ class _SessionDashboard extends ConsumerWidget {
               : health == 0
                   ? 'All checks passed'
                   : '$health warning${health == 1 ? '' : 's'}',
+          p,
         ),
-          _dashboardRow(
+        _dashboardRow(
           'Last run',
-          runner.currentRun != null
-              ? '${runner.currentRun!.status.name} · ${runner.currentRun!.targetFile?.split('/').last ?? 'suite'}'
+          currentRun != null
+              ? '${currentRun.status.name} · ${currentRun.targetFile?.split('/').last ?? 'suite'}'
               : 'None yet',
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _dashboardButton(
-              label: 'Test',
-              color: PatrolColors.psPassed,
-              enabled: runDisabled == null,
-              onPressed: () => ref.read(runnerProvider.notifier).runSelected(),
-            ),
-            _dashboardButton(
-              label: 'Test All',
-              color: PatrolColors.sky400,
-              enabled: queueDisabled == null,
-              onPressed: () => ref.read(runnerProvider.notifier).runAll(),
-            ),
-            _dashboardButton(
-              label: 'Develop All',
-              color: PatrolColors.violet400,
-              enabled: queueDisabled == null,
-              onPressed: () =>
-                  ref.read(runnerProvider.notifier).developSuite(),
-            ),
-          ],
+          p,
         ),
       ],
     );
   }
 
-  Widget _dashboardRow(String label, String value) {
+  Widget _dashboardRow(String label, String value, PatrolPalette p) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -897,40 +1073,26 @@ class _SessionDashboard extends ConsumerWidget {
             child: Text(
               label,
               textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 10, color: p.textMuted),
             ),
           ),
           const SizedBox(width: 16),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: PatrolColors.ink,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 280),
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: p.text,
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _dashboardButton({
-    required String label,
-    required Color color,
-    required bool enabled,
-    required VoidCallback onPressed,
-  }) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.4,
-      child: OutlinedButton(
-        onPressed: enabled ? onPressed : null,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: color,
-          side: BorderSide(color: color.withValues(alpha: 0.4)),
-          backgroundColor: color.withValues(alpha: 0.15),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        ),
-        child: Text(label, style: const TextStyle(fontSize: 10)),
       ),
     );
   }

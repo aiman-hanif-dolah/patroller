@@ -20,6 +20,7 @@ import 'run_queue.dart';
 import 'settings_store.dart';
 import 'simulator_driver_service.dart';
 import 'test_scanner.dart';
+import '../devtools/extension_manager.dart' show PatrollerExtensionManager;
 
 /// Single entry point mirroring the Patrol Studio `patrolStudio` API.
 class PatrolStudioFacade {
@@ -49,7 +50,7 @@ class PatrolStudioFacade {
       historyStore: historyStore,
     );
     final simulatorDriver = SimulatorDriverService(settingsStore: settingsStore);
-    return PatrolStudioFacade._(
+    final facade = PatrolStudioFacade._(
       settingsStore: settingsStore,
       historyStore: historyStore,
       recentProjectsStore: RecentProjectsStore.instance,
@@ -66,6 +67,7 @@ class PatrolStudioFacade {
         settingsStore: settingsStore,
       ),
     );
+    return facade;
   }();
 
   final SettingsStore _settingsStore;
@@ -76,6 +78,9 @@ class PatrolStudioFacade {
   final DeviceService _deviceService;
   final SimulatorDriverService _simulatorDriver;
   final ExternalRecordingService _externalRecording;
+  /// Single owner of the extension HTTP server. Never replace this with a new
+  /// manager without stopping the previous one — that orphans the HttpServer.
+  PatrollerExtensionManager? extension;
 
   SimulatorDriverService get simulatorDriver => _simulatorDriver;
   ExternalRecordingService get externalRecordingService => _externalRecording;
@@ -92,6 +97,20 @@ class PatrolStudioFacade {
   final PatrolStudioExternalRecordingApi externalRecording =
       PatrolStudioExternalRecordingApi._();
   final PatrolStudioRecordingsApi recordings = PatrolStudioRecordingsApi._();
+
+  /// Starts the local DevTools extension server (idempotent).
+  ///
+  /// Owned exclusively by [extension]. Callers (settings, DevTools panel)
+  /// must use this method — do not construct [PatrollerExtensionManager]
+  /// elsewhere.
+  Future<void> startExtensionServer({int port = 8771}) async {
+    extension ??= PatrollerExtensionManager(this, port: port);
+    await extension!.start(port: port);
+  }
+
+  Future<void> stopExtensionServer() async {
+    await extension?.stop();
+  }
 }
 
 class PatrolStudioProjectApi {
@@ -404,6 +423,17 @@ class PatrolStudioRecordingsApi {
     final recording = _store.get(recordingId, projectPath);
     if (recording == null) throw Exception('Recording not found');
     return exportRecording(recording);
+  }
+
+  /// Persist Flow Editor action list edits for a saved recording.
+  Future<Recording> replaceActions(
+    String recordingId,
+    String projectPath,
+    List<RecordingAction> actions,
+  ) async {
+    final updated = _store.replaceActions(recordingId, projectPath, actions);
+    if (updated == null) throw Exception('Recording not found');
+    return updated;
   }
 
   Future<RecordingTestFile> saveTest(

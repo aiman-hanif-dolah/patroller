@@ -24,11 +24,12 @@ class TestExplorer extends ConsumerStatefulWidget {
 class _TestExplorerState extends ConsumerState<TestExplorer> {
   String _search = '';
   String _filterChip = 'all';
-  String? _flowFilter;
+  String _flowFilter = kAllFlowsFilter;
   final _expandedFiles = <String>{};
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final app = ref.watch(appProvider);
     final runner = ref.watch(runnerProvider);
     final activeRunFile = ref.watch(activeRunFileProvider);
@@ -80,7 +81,9 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
           runnableTests: runnableTests,
           totalFiles: testFiles.length,
           filteredCount: filtered.length,
-          isFiltered: _search.isNotEmpty || _filterChip != 'all' || _flowFilter != null,
+          isFiltered: _search.isNotEmpty ||
+              _filterChip != 'all' ||
+              !isAllFlowsFilter(_flowFilter),
           isScanning: app.isScanning,
           onRefresh: widget.onRefresh,
         ),
@@ -93,22 +96,22 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: TextField(
             onChanged: (v) => setState(() => _search = v),
-            style: const TextStyle(fontSize: 12, color: PatrolColors.ink),
+            style: TextStyle(fontSize: 12, color: p.text),
             decoration: InputDecoration(
               hintText: 'Search tests...',
-              hintStyle: const TextStyle(fontSize: 12, color: PatrolColors.steel),
-              prefixIcon: const Icon(Icons.search_rounded, size: 16, color: PatrolColors.steel),
+              hintStyle: TextStyle(fontSize: 12, color: p.textMuted),
+              prefixIcon: Icon(Icons.search_rounded, size: 16, color: p.textMuted),
               isDense: true,
               filled: true,
-              fillColor: PatrolColors.obsidian.withValues(alpha: 0.45),
+              fillColor: p.surfaceMuted,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(PatrolRadius.chip),
-                borderSide: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+                borderSide: BorderSide(color: p.border),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(PatrolRadius.chip),
-                borderSide: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+                borderSide: BorderSide(color: p.border),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(PatrolRadius.chip),
@@ -130,7 +133,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                     label: testsFilterLabel(chip),
                     selected: _filterChip == chip,
                     color: switch (chip) {
-                      'all' => PatrolColors.steel,
+                      'all' => PatrolPalette.of(context).textMuted,
                       'runnable' => PatrolColors.sky400,
                       'passed' => PatrolColors.psPassed,
                       'failed' => PatrolColors.psFailed,
@@ -145,7 +148,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
             ),
           ),
         ),
-        _buildFlowFilterChips(testFiles),
+        _buildFlowDropdown(testFiles),
         Expanded(
           child: filtered.isEmpty
               ? Center(
@@ -153,10 +156,11 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                     _filterChip == 'selected'
                         ? 'No files selected for Test All'
                         : 'No matching tests',
-                    style: const TextStyle(fontSize: 12, color: PatrolColors.steel),
+                    style: TextStyle(fontSize: 12, color: p.textMuted),
                   ),
                 )
               : ListView.separated(
+                  primary: true,
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 6),
@@ -241,8 +245,8 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
           )
           .toList();
     }
-    if (_flowFilter != null) {
-      result = result.where((f) => f.folderPath.startsWith(_flowFilter!)).toList();
+    if (!isAllFlowsFilter(_flowFilter)) {
+      result = result.where((f) => f.folderPath.startsWith(_flowFilter)).toList();
     }
     switch (_filterChip) {
       case 'runnable':
@@ -261,7 +265,8 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
     return result;
   }
 
-  Widget _buildFlowFilterChips(List<TestFile> files) {
+  Widget _buildFlowDropdown(List<TestFile> files) {
+    final p = PatrolPalette.of(context);
     final flows = <String>{};
     for (final f in files) {
       if (f.folderPath.isNotEmpty) {
@@ -274,31 +279,97 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
     final sortedFlows = flows.toList()..sort();
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: PatrolFilterPill(
-                label: 'All flows',
-                selected: _flowFilter == null,
-                color: PatrolColors.amber,
-                onTap: () => setState(() => _flowFilter = null),
-              ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Container(
+          decoration: BoxDecoration(
+            color: p.surfaceMuted,
+            borderRadius: BorderRadius.circular(PatrolRadius.chip),
+            border: Border.all(
+              color: !isAllFlowsFilter(_flowFilter)
+                  ? PatrolColors.amber.withValues(alpha: 0.5)
+                  : p.border,
             ),
-            ...sortedFlows.map(
-              (flow) => Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: PatrolFilterPill(
-                  label: flow,
-                  selected: _flowFilter == flow,
-                  color: PatrolColors.sky400,
-                  onTap: () => setState(() => _flowFilter = flow),
+            boxShadow: !isAllFlowsFilter(_flowFilter)
+                ? PatrolShadows.glow(PatrolColors.amber, blur: 6)
+                : null,
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _flowFilter,
+              isDense: true,
+              isExpanded: true,
+              dropdownColor: p.fill,
+              menuMaxHeight: 260,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: !isAllFlowsFilter(_flowFilter)
+                    ? PatrolColors.amber
+                    : p.textMuted,
+              ),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: !isAllFlowsFilter(_flowFilter)
+                    ? PatrolColors.amber
+                    : p.textMuted,
+              ),
+              selectedItemBuilder: (context) {
+                return [
+                  const Text('All flows'),
+                  ...sortedFlows.map((flow) => Text(
+                        flow,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: PatrolColors.amber,
+                        ),
+                      )),
+                ];
+              },
+              items: [
+                DropdownMenuItem<String>(
+                  value: kAllFlowsFilter,
+                  child: Row(
+                    children: [
+                      Icon(Icons.select_all_rounded, size: 14, color: p.textMuted),
+                      const SizedBox(width: 8),
+                      const Text('All flows'),
+                    ],
+                  ),
                 ),
-              ),
+                ...sortedFlows.map(
+                  (flow) => DropdownMenuItem<String>(
+                    value: flow,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.play_circle_outline_rounded, size: 14, color: PatrolColors.sky400),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            flow,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _flowFilter = value);
+                final notifier = ref.read(appProvider.notifier);
+                if (isAllFlowsFilter(value)) {
+                  notifier.selectAllFiles(true);
+                } else {
+                  notifier.selectFlow(value);
+                }
+              },
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -309,6 +380,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
     String? subtitle,
     Widget? action,
   }) {
+    final p = PatrolPalette.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -324,7 +396,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
               const SizedBox(height: 8),
               Text(
                 subtitle,
-                style: const TextStyle(fontSize: 10, color: PatrolColors.steel),
+                style: TextStyle(fontSize: 10, color: p.textMuted),
               ),
             ],
             if (action != null) ...[
@@ -359,6 +431,7 @@ class _ExplorerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final summary = isFiltered
         ? '$filteredCount shown · $runnableFiles runnable · $runnableTests tests'
         : '$runnableFiles runnable / $totalFiles files · $runnableTests tests';
@@ -366,9 +439,9 @@ class _ExplorerHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: PatrolColors.obsidian.withValues(alpha: 0.3),
+        color: p.surfaceMuted,
         border: Border(
-          bottom: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+          bottom: BorderSide(color: p.border),
         ),
       ),
       child: Row(
@@ -383,10 +456,10 @@ class _ExplorerHeader extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   summary,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
-                    color: PatrolColors.graphite,
+                    color: p.textSecondary,
                   ),
                 ),
               ],
@@ -398,7 +471,7 @@ class _ExplorerHeader extends StatelessWidget {
               label: 'Refresh test list',
               onPressed: onRefresh,
               size: 14,
-              color: isScanning ? PatrolColors.amber : PatrolColors.steel,
+              color: isScanning ? PatrolColors.amber : p.textMuted,
             ),
         ],
       ),
@@ -420,12 +493,7 @@ class _SelectionBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            PatrolColors.amber.withValues(alpha: 0.1),
-            PatrolColors.fog.withValues(alpha: 0.3),
-          ],
-        ),
+        color: PatrolColors.amber.withValues(alpha: 0.08),
         border: Border(
           bottom: BorderSide(color: PatrolColors.amber.withValues(alpha: 0.25)),
         ),
@@ -440,7 +508,7 @@ class _SelectionBanner extends StatelessWidget {
           const Spacer(),
           TextButton(
             onPressed: onClear,
-            style: TextButton.styleFrom(foregroundColor: PatrolColors.amberBright),
+            style: TextButton.styleFrom(foregroundColor: PatrolColors.signalBlue),
             child: const Text('Clear', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
           ),
         ],
@@ -474,6 +542,7 @@ class _TestFileRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final accent = _accentColor(
       isRunning: isRunning,
       isSelected: isSelected,
@@ -482,13 +551,13 @@ class _TestFileRow extends StatelessWidget {
     final background = isRunning
         ? PatrolColors.sky400.withValues(alpha: 0.12)
         : isSelected
-            ? PatrolColors.fog.withValues(alpha: 0.85)
-            : PatrolColors.mist.withValues(alpha: 0.55);
+            ? p.surfaceMuted
+            : p.surface;
     final borderColor = isRunning
         ? PatrolColors.sky400.withValues(alpha: 0.35)
         : isSelected
-            ? PatrolColors.graphite.withValues(alpha: 0.45)
-            : PatrolColors.pebble.withValues(alpha: 0.55);
+            ? p.textSecondary.withValues(alpha: 0.45)
+            : p.border;
 
     return Material(
       color: Colors.transparent,
@@ -533,8 +602,8 @@ class _TestFileRow extends StatelessWidget {
                   onPressed: onToggleExpand,
                   size: 14,
                   color: onToggleExpand == null
-                      ? PatrolColors.ash
-                      : PatrolColors.steel,
+                      ? p.textFaint
+                      : p.textMuted,
                 ),
               ),
               Padding(
@@ -542,7 +611,7 @@ class _TestFileRow extends StatelessWidget {
                 child: Icon(
                   isHelper ? Icons.extension_outlined : Icons.description_outlined,
                   size: 14,
-                  color: isHelper ? PatrolColors.ash : PatrolColors.graphite,
+                  color: isHelper ? p.textFaint : p.textSecondary,
                 ),
               ),
               Expanded(
@@ -560,14 +629,14 @@ class _TestFileRow extends StatelessWidget {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: isHelper
-                                    ? PatrolColors.steel
-                                    : PatrolColors.ink,
+                                    ? p.textMuted
+                                    : p.text,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          ..._trailingBadges(file, isRunning, isHelper),
+                          ..._trailingBadges(context, file, isRunning, isHelper),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -589,23 +658,25 @@ class _TestFileRow extends StatelessWidget {
   }
 
   List<Widget> _trailingBadges(
+    BuildContext context,
     TestFile file,
     bool isRunning,
     bool isHelper,
   ) {
     final badges = <Widget>[];
     if (isRunning) {
-      badges.add(const _InlineBadge(
+      badges.add(_InlineBadge(
         label: 'running',
         foreground: PatrolColors.sky400,
-        background: Color(0x331E3A5F),
+        background: PatrolColors.sky400.withValues(alpha: 0.12),
       ));
     }
     if (isHelper) {
-      badges.add(const _InlineBadge(
+      final p = PatrolPalette.of(context);
+      badges.add(_InlineBadge(
         label: 'helper',
-        foreground: PatrolColors.graphite,
-        background: PatrolColors.fog,
+        foreground: p.textSecondary,
+        background: p.surfaceMuted,
       ));
     }
     if (file.lastRunStatus != TestStatus.idle && !isRunning) {
@@ -668,6 +739,7 @@ class _TestCaseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return Padding(
       padding: const EdgeInsets.only(left: 28, top: 4),
       child: Material(
@@ -679,21 +751,21 @@ class _TestCaseRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: isSelected
-                  ? PatrolColors.fog.withValues(alpha: 0.7)
+                  ? p.surfaceMuted
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected
-                    ? PatrolColors.pebble
+                    ? p.border
                     : Colors.transparent,
               ),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.subdirectory_arrow_right,
                   size: 12,
-                  color: PatrolColors.ash,
+                  color: p.textFaint,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -704,8 +776,8 @@ class _TestCaseRow extends StatelessWidget {
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected
-                          ? PatrolColors.ink
-                          : PatrolColors.graphite,
+                          ? p.text
+                          : p.textSecondary,
                     ),
                   ),
                 ),

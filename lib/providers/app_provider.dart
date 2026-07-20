@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
@@ -96,6 +98,7 @@ class AppNotifier extends StateNotifier<AppState> {
   AppNotifier(this._ref) : super(const AppState());
 
   final Ref _ref;
+  StreamSubscription<FileSystemEvent>? _testWatcher;
 
   PatrolStudioFacade get _facade => _ref.read(patrolStudioFacadeProvider);
 
@@ -201,8 +204,11 @@ class AppNotifier extends StateNotifier<AppState> {
       await _ref.read(settingsProvider.notifier).updatePartial({
         'lastProjectPath': project.projectPath,
       });
+      // Load devices ASAP so Test buttons enable while tests are scanning.
+      final devicesFuture =
+          _ref.read(runnerProvider.notifier).loadDevices();
       await scanTests();
-      await _ref.read(runnerProvider.notifier).loadDevices();
+      await devicesFuture;
       await _ref
           .read(healthProvider.notifier)
           .runChecks(project.projectPath);
@@ -228,6 +234,7 @@ class AppNotifier extends StateNotifier<AppState> {
     try {
       final files = await _facade.project.scan(project.projectPath);
       state = state.copyWith(testFiles: files, clearError: true);
+      _startWatchingTests(project.projectPath);
     } catch (e) {
       state = state.copyWith(
         testFiles: [],
@@ -236,6 +243,17 @@ class AppNotifier extends StateNotifier<AppState> {
     } finally {
       state = state.copyWith(isScanning: false);
     }
+  }
+
+  void _startWatchingTests(String projectPath) {
+    _testWatcher?.cancel();
+    final testDir = Directory(p.join(projectPath, 'patrol_test'));
+    if (!testDir.existsSync()) return;
+    _testWatcher = testDir.watch(recursive: true).listen((event) {
+      if (event.path.endsWith('_test.dart')) {
+        unawaited(scanTests());
+      }
+    });
   }
 
   void setSelectedFile(TestFile? file) {
@@ -251,23 +269,51 @@ class AppNotifier extends StateNotifier<AppState> {
 
   void toggleFileSelection(String fileId) {
     final next = Set<String>.from(state.selectedFileIds);
+    TestFile? selectedFile = state.selectedFile;
     if (next.contains(fileId)) {
       next.remove(fileId);
     } else {
       next.add(fileId);
+      // Checkbox selection also sets the active file for single-file Test/Develop.
+      selectedFile = state.testFiles
+              .where((f) => f.absolutePath == fileId)
+              .firstOrNull ??
+          selectedFile;
     }
-    state = state.copyWith(selectedFileIds: next);
+    state = state.copyWith(
+      selectedFileIds: next,
+      selectedFile: selectedFile,
+    );
   }
 
   void selectAllFiles(bool select) {
     state = state.copyWith(
       selectedFileIds: select
-          ? state.testFiles
-              .where((f) => f.detectedTestCount > 0)
-              .map((f) => f.absolutePath)
-              .toSet()
+          ? state.testFiles.map((f) => f.absolutePath).toSet()
           : {},
     );
+  }
+
+  void selectFlow(String flow) {
+    final ids = state.testFiles
+        .where((f) => f.folderPath.startsWith(flow))
+        .map((f) => f.absolutePath)
+        .toSet();
+    state = state.copyWith(selectedFileIds: ids);
+  }
+
+  void toggleFlowSelection(String flow) {
+    final flowIds = state.testFiles
+        .where((f) => f.detectedTestCount > 0 && f.folderPath.startsWith(flow))
+        .map((f) => f.absolutePath)
+        .toSet();
+    final current = state.selectedFileIds;
+    final hasAnyFlow = current.any(flowIds.contains);
+    if (hasAnyFlow && current.difference(flowIds).isEmpty && flowIds.difference(current).isEmpty) {
+      state = state.copyWith(selectedFileIds: {});
+    } else {
+      state = state.copyWith(selectedFileIds: flowIds);
+    }
   }
 
   void setHealthWarningCount(int? count) {

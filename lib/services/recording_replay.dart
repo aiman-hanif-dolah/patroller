@@ -114,6 +114,10 @@ Future<void> _replayAction({
         key: action.key ?? '',
         deviceType: deviceType,
       );
+    case RecordingActionType.assertVisible:
+      // Studio driver has no semantic assert — skip so Flow Editor asserts
+      // don't fail native replay. Patrol codegen still emits waitUntilVisible.
+      return;
   }
 }
 
@@ -129,6 +133,11 @@ String _describeAction(RecordingAction action) {
       return 'text ${jsonEncode(action.text ?? '')}';
     case RecordingActionType.key:
       return 'key ${action.key ?? ''}';
+    case RecordingActionType.assertVisible:
+      final label = (action.targetLabel ?? action.text ?? '').trim();
+      return label.isEmpty
+          ? 'assert visible'
+          : 'assert visible ${jsonEncode(label)}';
   }
 }
 

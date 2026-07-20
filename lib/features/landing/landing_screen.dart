@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/patrol_colors.dart';
 import '../../providers/app_provider.dart';
@@ -25,6 +26,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final app = ref.watch(appProvider);
     final isLoading = app.isLoadingProject;
 
@@ -40,20 +42,37 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
         return KeyEventResult.ignored;
       },
       child: Scaffold(
-        backgroundColor: PatrolColors.obsidian,
+        backgroundColor: p.surface,
         body: Stack(
           children: [
             Positioned(
-              top: -120,
-              right: -80,
+              top: -140,
+              right: -100,
               child: Container(
-                width: 320,
-                height: 320,
+                width: 360,
+                height: 360,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      PatrolColors.amber.withValues(alpha: 0.12),
+                      PatrolColors.brandViolet.withValues(alpha: 0.08),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -80,
+              left: -60,
+              child: Container(
+                width: 280,
+                height: 280,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      PatrolColors.signalBlue.withValues(alpha: 0.06),
                       Colors.transparent,
                     ],
                   ),
@@ -73,16 +92,16 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                       Text(
                         'Patroller',
                         style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                              color: PatrolColors.ink,
+                              color: p.textDisplay,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: -1,
+                              letterSpacing: -1.6,
                             ),
                       ),
                       const SizedBox(height: 10),
                       Text(
                         'A local visual runner for Flutter Patrol tests',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: PatrolColors.steel,
+                              color: p.textSecondary,
                             ),
                         textAlign: TextAlign.center,
                       ),
@@ -92,10 +111,11 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: PatrolColors.psFailed.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(PatrolRadius.card),
+                            color: PatrolColors.psFailed.withValues(alpha: 0.08),
+                            borderRadius:
+                                BorderRadius.circular(PatrolRadius.card),
                             border: Border.all(
-                              color: PatrolColors.psFailed.withValues(alpha: 0.35),
+                              color: PatrolColors.psFailed.withValues(alpha: 0.3),
                             ),
                           ),
                           child: Row(
@@ -103,14 +123,14 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                               const Icon(
                                 Icons.warning_amber_rounded,
                                 size: 18,
-                                color: PatrolColors.red400,
+                                color: PatrolColors.psFailed,
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   app.projectError ?? app.error ?? '',
                                   style: const TextStyle(
-                                    color: PatrolColors.rose300,
+                                    color: PatrolColors.psFailed,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -122,41 +142,36 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                       ],
                       SizedBox(
                         width: double.infinity,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: PatrolGradients.brandGlow,
-                            borderRadius: BorderRadius.circular(PatrolRadius.pill),
-                            boxShadow: PatrolShadows.glow(PatrolColors.amber, blur: 20),
-                          ),
-                          child: FilledButton.icon(
-                            onPressed: isLoading
-                                ? null
-                                : () => ref.read(appProvider.notifier).openProject(),
-                            icon: const Icon(Icons.folder_open_rounded, size: 20),
-                            label: Text(
-                              isLoading ? 'Opening...' : 'Open Flutter Project',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
+                        child: FilledButton.icon(
+                          onPressed: isLoading
+                              ? null
+                              : () =>
+                                  ref.read(appProvider.notifier).openProject(),
+                          icon: const Icon(Icons.folder_open_rounded, size: 20),
+                          label: Text(
+                            isLoading ? 'Opening...' : 'Open Flutter Project',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
                             ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              foregroundColor: PatrolColors.obsidian,
-                              shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(PatrolRadius.pill),
-                              ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: p.text,
+                            foregroundColor: p.surface,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(PatrolRadius.pill),
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 14),
-                      PatrolMetaChip(
+                      const PatrolMetaChip(
                         label: '⌘O to open',
                         icon: Icons.keyboard_command_key,
                         accent: true,
+                        color: PatrolColors.signalBlue,
                       ),
                       if (app.recentProjects.isNotEmpty) ...[
                         const SizedBox(height: 56),
@@ -176,7 +191,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                                         .read(appProvider.notifier)
                                         .openRecent(project)
                                     : null,
-                                borderRadius: BorderRadius.circular(PatrolRadius.panel),
+                                borderRadius:
+                                    BorderRadius.circular(PatrolRadius.panel),
                                 child: Padding(
                                   padding: const EdgeInsets.all(14),
                                   child: Row(
@@ -184,42 +200,48 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                                       PatrolAvatar(
                                         icon: Icons.folder_rounded,
                                         color: project.exists
-                                            ? PatrolColors.amber
-                                            : PatrolColors.steel,
+                                            ? PatrolColors.brandViolet
+                                            : p.textMuted,
                                         size: 40,
                                       ),
                                       const SizedBox(width: 14),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Row(
                                               children: [
                                                 Expanded(
                                                   child: Text(
                                                     project.name,
-                                                    style: const TextStyle(
-                                                      color: PatrolColors.ink,
-                                                      fontWeight: FontWeight.w600,
+                                                    style: GoogleFonts
+                                                        .plusJakartaSans(
+                                                      color: p.text,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       fontSize: 14,
                                                     ),
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 if (!project.exists)
                                                   const PatrolMetaChip(
                                                     label: 'Missing',
-                                                    icon: Icons.warning_amber_rounded,
-                                                    color: PatrolColors.orange400,
+                                                    icon: Icons
+                                                        .warning_amber_rounded,
+                                                    color:
+                                                        PatrolColors.orange400,
                                                   ),
                                               ],
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
                                               project.path,
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                color: PatrolColors.steel,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: p.textMuted,
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -230,8 +252,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                                         Icons.arrow_forward_rounded,
                                         size: 14,
                                         color: project.exists
-                                            ? PatrolColors.amber
-                                            : PatrolColors.ash,
+                                            ? PatrolColors.signalBlue
+                                            : p.textFaint,
                                       ),
                                     ],
                                   ),
@@ -242,9 +264,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                         }),
                       ],
                       const SizedBox(height: 56),
-                      const Text(
+                      Text(
                         'Unofficial local developer tool for Flutter Patrol tests',
-                        style: TextStyle(fontSize: 10, color: PatrolColors.pebble),
+                        style: TextStyle(fontSize: 11, color: p.textFaint),
                       ),
                     ],
                   ),

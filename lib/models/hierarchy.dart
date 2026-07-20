@@ -28,6 +28,22 @@ class DriverStatus {
   final String? logTail;
 
   factory DriverStatus.idle() => const DriverStatus(state: DriverState.idle);
+
+  Map<String, dynamic> toJson() => {
+        'state': state.toJson(),
+        if (port != null) 'port': port,
+        if (udid != null) 'udid': udid,
+        if (error != null) 'error': error,
+        if (logTail != null) 'logTail': logTail,
+      };
+
+  factory DriverStatus.fromJson(Map<String, dynamic> json) => DriverStatus(
+        state: DriverState.fromJson(json['state'] as String? ?? 'idle'),
+        port: json['port'] as int?,
+        udid: json['udid'] as String?,
+        error: json['error'] as String?,
+        logTail: json['logTail'] as String?,
+      );
 }
 
 class XCTestDeviceInfo {

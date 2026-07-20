@@ -40,6 +40,28 @@ fi
 echo "→ flutter pub get"
 flutter pub get
 
+echo "→ build DevTools panel (web)"
+if [ -d "$ROOT/devtools_extension" ]; then
+  (
+    cd "$ROOT/devtools_extension"
+    flutter pub get
+    # Build with --base-href=/panel/ so a direct copy works under Patroller's
+    # /panel route. Then normalize <base href> to "/" for Flutter DevTools
+    # package discovery (DDS only rewrites the exact "/" value). Patroller's
+    # extension server re-applies /panel/ when serving HTML.
+    flutter build web --release \
+      --base-href=/panel/ \
+      --no-tree-shake-icons
+    perl -i -pe 's|<base href="/panel/"\s*/?>|<base href="/">|' build/web/index.html
+    rm -rf "$ROOT/extension/devtools/build"
+    mkdir -p "$ROOT/extension/devtools"
+    cp -R build/web "$ROOT/extension/devtools/build"
+  )
+  echo "  DevTools panel → extension/devtools/build"
+else
+  echo "  warn: devtools_extension/ missing — skipping panel build"
+fi
+
 echo "→ flutter build macos --release"
 flutter build macos --release
 

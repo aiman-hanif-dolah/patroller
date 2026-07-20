@@ -36,6 +36,9 @@ class AppSettings {
     required this.previewCollapsed,
     required this.logsCollapsed,
     required this.rightCollapsed,
+    this.controlDeckCollapsed = false,
+    this.enableDevtoolsExtension = false,
+    this.devtoolsExtensionPort = 8771,
   });
 
   final String patrolPath;
@@ -72,6 +75,9 @@ class AppSettings {
   final bool previewCollapsed;
   final bool logsCollapsed;
   final bool rightCollapsed;
+  final bool controlDeckCollapsed;
+  final bool enableDevtoolsExtension;
+  final int devtoolsExtensionPort;
 
   static AppSettings defaults() => const AppSettings(
         patrolPath: 'patrol',
@@ -108,6 +114,9 @@ class AppSettings {
         previewCollapsed: false,
         logsCollapsed: false,
         rightCollapsed: false,
+        controlDeckCollapsed: false,
+        enableDevtoolsExtension: true,
+        devtoolsExtensionPort: 8771,
       );
 
   AppSettings copyWith({
@@ -145,6 +154,9 @@ class AppSettings {
     bool? previewCollapsed,
     bool? logsCollapsed,
     bool? rightCollapsed,
+    bool? controlDeckCollapsed,
+    bool? enableDevtoolsExtension,
+    int? devtoolsExtensionPort,
   }) =>
       AppSettings(
         patrolPath: patrolPath ?? this.patrolPath,
@@ -188,6 +200,9 @@ class AppSettings {
         previewCollapsed: previewCollapsed ?? this.previewCollapsed,
         logsCollapsed: logsCollapsed ?? this.logsCollapsed,
         rightCollapsed: rightCollapsed ?? this.rightCollapsed,
+        controlDeckCollapsed: controlDeckCollapsed ?? this.controlDeckCollapsed,
+        enableDevtoolsExtension: enableDevtoolsExtension ?? false,
+        devtoolsExtensionPort: devtoolsExtensionPort ?? 8771,
       );
 
   Map<String, dynamic> toJson() => {
@@ -225,6 +240,9 @@ class AppSettings {
         'previewCollapsed': previewCollapsed,
         'logsCollapsed': logsCollapsed,
         'rightCollapsed': rightCollapsed,
+        'controlDeckCollapsed': controlDeckCollapsed,
+        'enableDevtoolsExtension': enableDevtoolsExtension,
+        'devtoolsExtensionPort': devtoolsExtensionPort,
       };
 
   static AppSettings resetLayoutDefaults(AppSettings current) => current.copyWith(
@@ -234,6 +252,7 @@ class AppSettings {
         previewCollapsed: false,
         logsCollapsed: false,
         rightCollapsed: false,
+        controlDeckCollapsed: false,
       );
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -288,6 +307,12 @@ class AppSettings {
           json['previewCollapsed'] as bool? ?? defaults.previewCollapsed,
       logsCollapsed: json['logsCollapsed'] as bool? ?? defaults.logsCollapsed,
       rightCollapsed: json['rightCollapsed'] as bool? ?? defaults.rightCollapsed,
+      controlDeckCollapsed: json['controlDeckCollapsed'] as bool? ??
+          defaults.controlDeckCollapsed,
+      enableDevtoolsExtension:
+          json['enableDevtoolsExtension'] as bool? ?? defaults.enableDevtoolsExtension,
+      devtoolsExtensionPort:
+          json['devtoolsExtensionPort'] as int? ?? defaults.devtoolsExtensionPort,
     );
   }
 }

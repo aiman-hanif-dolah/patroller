@@ -26,6 +26,7 @@ void main() {
         previewCollapsed: true,
         logsCollapsed: true,
         rightCollapsed: true,
+        controlDeckCollapsed: true,
         previewPanelWidth: 300,
         logsPanelWidth: 900,
         rightPanelWidth: 500,
@@ -34,6 +35,7 @@ void main() {
       expect(reset.previewCollapsed, false);
       expect(reset.logsCollapsed, false);
       expect(reset.rightCollapsed, false);
+      expect(reset.controlDeckCollapsed, false);
       expect(reset.previewPanelWidth, 390);
       expect(reset.logsPanelWidth, 640);
       expect(reset.rightPanelWidth, 380);

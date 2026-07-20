@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/log_sanitizer.dart';
 import '../domain/runner_helpers.dart';
 import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
@@ -8,6 +11,7 @@ import 'facade_provider.dart';
 import 'failed_logs_provider.dart';
 import 'health_stale.dart';
 import 'log_provider.dart';
+import 'settings_provider.dart';
 
 
 class SnackbarMessage {
@@ -85,20 +89,64 @@ class RunnerState {
           clearQueueStatus ? null : (queueStatus ?? this.queueStatus),
     );
   }
+
+  /// Like [copyWith] but always applies [selectedDevice] (including null).
+  RunnerState withDevices({
+    required List<DeviceInfo> devices,
+    required DeviceInfo? selectedDevice,
+  }) {
+    return RunnerState(
+      currentRun: currentRun,
+      isRunning: isRunning,
+      snackbar: snackbar,
+      stopFailure: stopFailure,
+      devices: devices,
+      selectedDevice: selectedDevice,
+      runAllContext: runAllContext,
+      queueStatus: queueStatus,
+    );
+  }
 }
 
 class RunnerNotifier extends StateNotifier<RunnerState> {
   RunnerNotifier(this._ref) : super(const RunnerState()) {
     _subscribe();
     syncActiveSession();
+    startDevicePolling();
   }
 
   final Ref _ref;
+  Timer? _devicePollTimer;
+  bool _deviceRefreshInFlight = false;
+  bool _userStopped = false;
+  final Set<String> _allTestsExecutedRunIds = {};
+  final Set<String> _completionSnackbarShownRunIds = {};
+
+  static const _devicePollInterval = Duration(seconds: 6);
 
   PatrolStudioFacade get _facade => _ref.read(patrolStudioFacadeProvider);
 
+  void startDevicePolling() {
+    _devicePollTimer?.cancel();
+    _devicePollTimer = Timer.periodic(_devicePollInterval, (_) {
+      unawaited(refreshDevices(silent: true));
+    });
+  }
+
+  void stopDevicePolling() {
+    _devicePollTimer?.cancel();
+    _devicePollTimer = null;
+  }
+
+  @override
+  void dispose() {
+    stopDevicePolling();
+    super.dispose();
+  }
+
   void _subscribe() {
     _facade.runner.onStatus().listen(_handleStatusUpdate);
+    _facade.runner.onLog().listen(_handleLogEvent);
     _facade.runner.onQueueStatus().listen(_handleQueueStatus);
     _facade.runner.onQueueRunStarted().listen((record) {
       final file = record.targetFile?.split('/').last ?? 'test';
@@ -139,13 +187,17 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     }
   }
 
-  Future<void> refreshDevices() async {
+  Future<void> refreshDevices({bool silent = false}) async {
+    if (_deviceRefreshInFlight) return;
+    _deviceRefreshInFlight = true;
     try {
       final devices = await _facade.devices.refresh();
       setDevices(devices);
-      _notifyIfNoDevices(devices);
+      if (!silent) _notifyIfNoDevices(devices);
     } catch (e) {
-      showSnackbar(e.toString());
+      if (!silent) showSnackbar(e.toString());
+    } finally {
+      _deviceRefreshInFlight = false;
     }
   }
 
@@ -164,16 +216,59 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     if (autoSelect && selected == null) {
       selected = pickDefaultSelectableDevice(devices);
     } else if (selected != null) {
-      selected = devices.where((d) => d.id == selected!.id).firstOrNull ??
-          selected;
+      final match = devices.where((d) => d.id == selected!.id).firstOrNull;
+      if (match != null) {
+        selected = match;
+      } else if (autoSelect) {
+        // Previously selected device vanished — pick a sensible default.
+        selected = pickDefaultSelectableDevice(devices);
+      }
     }
-    state = state.copyWith(devices: devices, selectedDevice: selected);
+    // Prefer a booted simulator when current selection is still shutdown.
+    if (autoSelect &&
+        selected != null &&
+        selected.state != DeviceState.booted) {
+      final booted = pickDefaultSelectableDevice(devices);
+      if (booted != null && booted.state == DeviceState.booted) {
+        selected = booted;
+      }
+    }
+    // Skip no-op polls so device refresh does not rebuild the whole tree.
+    if (_devicesUnchanged(devices, selected)) return;
+    // Use withDevices so a null selection is applied (copyWith can't clear it).
+    state = state.withDevices(devices: devices, selectedDevice: selected);
+  }
+
+  bool _devicesUnchanged(List<DeviceInfo> devices, DeviceInfo? selected) {
+    final current = state.devices;
+    if (current.length != devices.length) return false;
+    for (var i = 0; i < devices.length; i++) {
+      if (current[i] != devices[i]) return false;
+    }
+    return state.selectedDevice == selected;
   }
 
   void setSelectedDevice(DeviceInfo? device) {
     if (device != null && !isSelectableDevice(device)) return;
     state = state.copyWith(selectedDevice: device);
     markHealthStale(_ref);
+    unawaited(_maybeAutoStartDriver(device));
+  }
+
+  Future<void> _maybeAutoStartDriver(DeviceInfo? device) async {
+    if (device == null || device.state != DeviceState.booted) return;
+    final settings = _ref.read(settingsProvider).settings;
+    if (!settings.autoStartDriver) return;
+
+    try {
+      await _facade.simulator.ensureDriver(
+        udid: device.id,
+        deviceType: device.type,
+      );
+      markHealthStale(_ref);
+    } catch (_) {
+      // Health panel surfaces driver errors on next refresh.
+    }
   }
 
   void showSnackbar(String message) {
@@ -189,7 +284,44 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     state = state.copyWith(clearSnackbar: true);
   }
 
+  void _handleLogEvent(LogEvent event) {
+    if (_userStopped) return;
+    final run = state.currentRun;
+    if (run == null || run.runId != event.runId) return;
+    if (!isAllTestsExecutedMessage(sanitizeLogText(event.text))) return;
+
+    _allTestsExecutedRunIds.add(event.runId);
+
+    if (run.runMode == RunMode.developSuite && _developSuiteQueue.isNotEmpty) {
+      return;
+    }
+
+    if (isDevelopSession(run)) {
+      _maybeShowSessionCompletionSnackbar(run);
+    }
+  }
+
+  void _maybeShowSessionCompletionSnackbar(RunRecord run) {
+    if (_userStopped) return;
+    if (_completionSnackbarShownRunIds.contains(run.runId)) return;
+    if (run.queueId != null) return;
+
+    final developSuiteHasMore =
+        run.runMode == RunMode.developSuite && _developSuiteQueue.isNotEmpty;
+    final message = sessionCompletionSnackbarMessage(
+      runMode: run.runMode,
+      status: run.status,
+      allTestsExecutedSeen: _allTestsExecutedRunIds.contains(run.runId),
+      developSuiteHasMore: developSuiteHasMore,
+    );
+    if (message == null) return;
+
+    _completionSnackbarShownRunIds.add(run.runId);
+    showSnackbar(message);
+  }
+
   void _handleStatusUpdate(RunStatusUpdate status) {
+    if (_userStopped) return;
     final run = state.currentRun;
     if (run == null || run.runId != status.runId) return;
 
@@ -229,9 +361,23 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
             liveLogs: _ref.read(logProvider).logs,
           );
     }
+    if (terminal && !isSessionBusy(state.isRunning, run)) {
+      _onRunTerminalCompletion(run);
+    }
+  }
+
+  void _onRunTerminalCompletion(RunRecord run) {
+    if (run.runMode == RunMode.test) {
+      _maybeShowSessionCompletionSnackbar(run);
+      return;
+    }
+    if (isDevelopSession(run)) {
+      _maybeShowSessionCompletionSnackbar(run);
+    }
   }
 
   void _handleQueueStatus(QueueStatusUpdate status) {
+    if (_userStopped) return;
     final running = status.status == QueueStatus.running;
     state = state.copyWith(
       queueStatus: status,
@@ -257,7 +403,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
 
   List<TestFile> _filesForRunAll() {
     final app = _ref.read(appProvider);
-    return runnableTestFiles(app.testFiles);
+    return filesForRunAll(app.testFiles, app.selectedFileIds);
   }
 
   Future<DeviceInfo?> _ensureDevice() async {
@@ -382,6 +528,11 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
   }
 
   Future<void> _startNextDevelopSuiteFileInternal() async {
+    if (_userStopped) {
+      _developSuiteQueue = [];
+      state = state.copyWith(isRunning: false, clearCurrentRun: true);
+      return;
+    }
     if (_developSuiteQueue.isEmpty) {
       state = state.copyWith(isRunning: false, clearCurrentRun: true);
       return;
@@ -405,6 +556,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
   }
 
   Future<void> _startRun(RunConfig config, String message) async {
+    _userStopped = false;
     if (!_canStart()) {
       showSnackbar('Stop the active Develop session first');
       return;
@@ -432,11 +584,14 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
           queueLabel: config.queueLabel,
         ),
         onComplete: (completed) {
-          if (completed.runMode == RunMode.developSuite &&
-              _developSuiteQueue.isNotEmpty) {
+          if (shouldAdvanceDevelopSuite(
+            userStopped: _userStopped,
+            completedMode: completed.runMode,
+            queueNotEmpty: _developSuiteQueue.isNotEmpty,
+          )) {
             Future.microtask(_startNextDevelopSuiteFileInternal);
-          } else if (completed.runMode == RunMode.developSuite &&
-              _developSuiteQueue.isEmpty) {
+          } else if (completed.runMode == RunMode.developSuite) {
+            _developSuiteQueue = [];
             state = state.copyWith(isRunning: false, clearCurrentRun: true);
           }
         },
@@ -451,45 +606,62 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
 
   Future<void> stop() async {
     final queue = state.queueStatus;
-    if (queue != null && queue.status == QueueStatus.running) {
-      try {
-        await _facade.runner.stopQueue(queue.queueId);
-      } catch (e) {
-        showSnackbar(e.toString());
-      }
-    }
-
     final run = state.currentRun;
-    if (run != null && isSessionBusy(state.isRunning, run)) {
-      _ref.read(logProvider.notifier).appendSystemLog(run.runId, 'Stop requested');
-      try {
-        final result = await _facade.runner.stop(run.runId);
-        if (result.outcome == StopOutcome.failed) {
-          state = state.copyWith(
-            stopFailure: StopFailure(
-              runId: run.runId,
-              message: result.error ?? 'Stop failed',
-            ),
-          );
-        } else {
-          state = state.copyWith(
-            isRunning: false,
-            clearStopFailure: true,
-            clearRunAllContext: true,
-          );
-        }
-      } catch (e) {
-        state = state.copyWith(
-          stopFailure: StopFailure(runId: run.runId, message: e.toString()),
-        );
-      }
-    } else {
-      await _facade.runner.stopAll();
-      state = state.copyWith(
-        isRunning: false,
-        clearRunAllContext: true,
-      );
+    final wasBusy = run != null && isSessionBusy(state.isRunning, run);
+    final targetFile = run?.targetFile;
+
+    // Prevent background status updates from overriding the cleared state.
+    _userStopped = true;
+    // Abort Develop All so onComplete cannot auto-start the next file.
+    _developSuiteQueue = [];
+
+    // Immediately clear UI so the user can start a new flow right away.
+    final log = _ref.read(logProvider.notifier);
+    log.resetLogUiState();
+    unawaited(log.clearLogs());
+    log.setActiveLogRunId(null);
+    state = state.copyWith(
+      isRunning: false,
+      clearCurrentRun: true,
+      clearStopFailure: true,
+      clearRunAllContext: true,
+      clearQueueStatus: true,
+    );
+
+    // Kill the actual process(es) in the background — don't block the UI.
+    if (queue != null && queue.status == QueueStatus.running) {
+      unawaited(_stopQueueSafe(queue.queueId));
     }
+    if (wasBusy) {
+      unawaited(_killRunProcess(run, targetFile));
+    } else {
+      unawaited(_stopAllSafe());
+    }
+  }
+
+  Future<void> _stopQueueSafe(String queueId) async {
+    try {
+      await _facade.runner.stopQueue(queueId);
+    } catch (_) {}
+  }
+
+  Future<void> _killRunProcess(RunRecord run, String? targetFile) async {
+    try {
+      await _facade.runner.stop(run.runId);
+    } catch (_) {}
+    if (targetFile != null) {
+      _ref.read(appProvider.notifier).updateTestFileRunResult(
+            targetFile,
+            TestStatus.cancelled,
+            null,
+          );
+    }
+  }
+
+  Future<void> _stopAllSafe() async {
+    try {
+      await _facade.runner.stopAll();
+    } catch (_) {}
   }
 
   Future<void> hotRestart() async {
@@ -505,6 +677,8 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
 
     try {
       await _facade.runner.hotRestart(run!.runId);
+      _completionSnackbarShownRunIds.remove(run.runId);
+      _allTestsExecutedRunIds.remove(run.runId);
       _ref.read(logProvider.notifier).appendSystemLog(
         run.runId,
         'Hot restart requested',
@@ -517,15 +691,35 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
   Future<void> forceStop() async {
     final run = state.currentRun;
     if (run == null) return;
+    final targetFile = run.targetFile;
+
+    _userStopped = true;
+    _developSuiteQueue = [];
+
+    final log = _ref.read(logProvider.notifier);
+    log.resetLogUiState();
+    unawaited(log.clearLogs());
+    log.setActiveLogRunId(null);
+    state = state.copyWith(
+      isRunning: false,
+      clearCurrentRun: true,
+      clearStopFailure: true,
+      clearRunAllContext: true,
+    );
+
+    unawaited(_forceKillRunProcess(run, targetFile));
+  }
+
+  Future<void> _forceKillRunProcess(RunRecord run, String? targetFile) async {
     try {
       await _facade.runner.forceStop(run.runId);
-      state = state.copyWith(
-        isRunning: false,
-        clearStopFailure: true,
-        clearRunAllContext: true,
-      );
-    } catch (e) {
-      showSnackbar(e.toString());
+    } catch (_) {}
+    if (targetFile != null) {
+      _ref.read(appProvider.notifier).updateTestFileRunResult(
+            targetFile,
+            TestStatus.cancelled,
+            null,
+          );
     }
   }
 

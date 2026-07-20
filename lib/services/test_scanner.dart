@@ -103,8 +103,13 @@ Future<TestFile?> _buildTestFile(_ScanCandidate candidate) async {
     final stats = await file.stat();
     final parsedTests = parseTestFile(candidate.fullPath);
     final lastModified = stats.modified.toUtc().toIso8601String();
-    final folderPath = p.dirname(candidate.relativePath).replaceAll('\\', '/');
-    final normalizedFolder = folderPath == '.' ? '' : folderPath;
+    var folderPath = p.dirname(candidate.relativePath).replaceAll('\\', '/');
+    if (folderPath.startsWith('patrol_test/')) {
+      folderPath = folderPath.substring('patrol_test/'.length);
+    } else if (folderPath == 'patrol_test') {
+      folderPath = '';
+    }
+    final normalizedFolder = folderPath.isEmpty ? '' : folderPath;
 
     return TestFile(
       absolutePath: candidate.fullPath,

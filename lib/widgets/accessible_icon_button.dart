@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/patrol_colors.dart';
+
 /// Icon button with explicit macOS accessibility labels.
 class AccessibleIconButton extends StatelessWidget {
   const AccessibleIconButton({
@@ -25,16 +27,20 @@ class AccessibleIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     return Semantics(
       button: true,
       enabled: onPressed != null,
       label: label,
       child: IconButton(
         onPressed: onPressed,
-        icon: Icon(icon, size: size, color: color),
+        icon: Icon(icon, size: size, color: color ?? p.textMuted),
         tooltip: tooltip ?? label,
         padding: padding,
         constraints: constraints,
+        hoverColor: p.surfaceMuted,
+        highlightColor: p.fill,
+        splashColor: p.fill,
       ),
     );
   }

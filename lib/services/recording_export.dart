@@ -48,6 +48,13 @@ List<String> _actionToFlow(RecordingAction action) {
         '  key: ${jsonEncode(action.key ?? '')}',
         ...delay,
       ];
+    case RecordingActionType.assertVisible:
+      final label = (action.targetLabel ?? action.text ?? '').trim();
+      return [
+        '- assertVisible:',
+        '  text: ${jsonEncode(label)}',
+        ...delay,
+      ];
   }
 }
 
@@ -187,6 +194,17 @@ List<String> _actionToPatrol(
         '    await \$.tester.sendKeyEvent(LogicalKeyboardKey.${_dartKey(action.key)});',
       );
       lines.add(_settleLine());
+    case RecordingActionType.assertVisible:
+      final label = (action.targetLabel ?? action.text ?? '').trim();
+      if (label.isEmpty) {
+        lines.add(
+          "    // assertVisible skipped — empty finder label",
+        );
+      } else {
+        lines.add(
+          '    await \$(${_dartString(label)}).waitUntilVisible();',
+        );
+      }
   }
   return lines;
 }

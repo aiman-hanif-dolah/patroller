@@ -23,33 +23,40 @@ class _LogsShellState extends ConsumerState<LogsShell> {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final failedCount = ref.watch(failedLogsProvider).entries.length;
 
     return Column(
       children: [
         Container(
           decoration: BoxDecoration(
-            color: PatrolColors.obsidian.withValues(alpha: 0.35),
+            color: p.surfaceMuted,
             border: Border(
-              bottom: BorderSide(color: PatrolColors.pebble.withValues(alpha: 0.7)),
+              bottom: BorderSide(color: p.border),
             ),
           ),
-          child: Row(
-            children: [
-              PatrolPanelTab(
-                label: 'Live',
-                icon: Icons.terminal_rounded,
-                selected: _tab == LogsShellTab.live,
-                onTap: () => setState(() => _tab = LogsShellTab.live),
-              ),
-              PatrolPanelTab(
-                label: 'Failed',
-                icon: Icons.error_outline_rounded,
-                badge: failedCount > 0 ? 'FAILED ($failedCount)' : 'FAILED',
-                selected: _tab == LogsShellTab.failed,
-                onTap: () => setState(() => _tab = LogsShellTab.failed),
-              ),
-            ],
+          child: Padding(
+            // Keep first/last tabs clear of the ~4px panel resize hit strip.
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              children: [
+                PatrolPanelTab(
+                  label: 'Live',
+                  icon: Icons.terminal_rounded,
+                  selected: _tab == LogsShellTab.live,
+                  color: PatrolColors.amber,
+                  onTap: () => setState(() => _tab = LogsShellTab.live),
+                ),
+                PatrolPanelTab(
+                  label: 'Failed',
+                  icon: Icons.error_outline_rounded,
+                  badge: failedCount > 0 ? 'FAILED ($failedCount)' : 'FAILED',
+                  selected: _tab == LogsShellTab.failed,
+                  color: PatrolColors.psFailed,
+                  onTap: () => setState(() => _tab = LogsShellTab.failed),
+                ),
+              ],
+            ),
           ),
         ),
         Expanded(

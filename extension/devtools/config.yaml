@@ -1,0 +1,5 @@
+name: patroller
+issueTracker: https://github.com/aiman-hanif-dolah/patroller/issues
+version: 1.0.0
+materialIconCodePoint: '0xe87b'
+requiresConnection: false

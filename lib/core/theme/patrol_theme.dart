@@ -5,135 +5,233 @@ import 'package:google_fonts/google_fonts.dart';
 import 'patrol_colors.dart';
 
 abstract final class PatrolTheme {
-  static ThemeData dark() {
+  /// ClickUp-inspired light theme for Patroller.
+  static ThemeData light() => _build(
+        brightness: Brightness.light,
+        palette: PatrolPalette.light,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+      );
+
+  /// Zinc dark companion — polished macOS-style dark app chrome.
+  static ThemeData dark() => _build(
+        brightness: Brightness.dark,
+        palette: PatrolPalette.dark,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+      );
+
+  static ThemeData _build({
+    required Brightness brightness,
+    required PatrolPalette palette,
+    required SystemUiOverlayStyle systemOverlayStyle,
+  }) {
+    final isDark = brightness == Brightness.dark;
     final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: PatrolColors.obsidian,
-      colorScheme: const ColorScheme.dark(
-        surface: PatrolColors.obsidian,
-        onSurface: PatrolColors.ink,
-        primary: PatrolColors.ink,
-        onPrimary: PatrolColors.obsidian,
-        secondary: PatrolColors.fog,
-        onSecondary: PatrolColors.ink,
-        outline: PatrolColors.pebble,
+      brightness: brightness,
+      scaffoldBackgroundColor: palette.canvas,
+      extensions: [palette],
+      colorScheme: ColorScheme(
+        brightness: brightness,
+        primary: palette.cta,
+        onPrimary: palette.onCta,
+        secondary: palette.surfaceMuted,
+        onSecondary: palette.text,
+        surface: palette.surface,
+        onSurface: palette.text,
         error: PatrolColors.psFailed,
+        onError: palette.inverse,
+        outline: palette.border,
       ),
-      dividerColor: PatrolColors.pebble,
-      splashColor: PatrolColors.fog.withValues(alpha: 0.4),
-      highlightColor: PatrolColors.fog.withValues(alpha: 0.2),
-      hoverColor: PatrolColors.fog.withValues(alpha: 0.35),
+      dividerColor: palette.border,
+      splashColor: palette.fill.withValues(alpha: isDark ? 0.4 : 0.6),
+      highlightColor: palette.surfaceMuted.withValues(alpha: isDark ? 0.2 : 1),
+      hoverColor: isDark
+          ? palette.surfaceMuted.withValues(alpha: 0.35)
+          : const Color(0x0A000000),
     );
 
-    final textTheme = GoogleFonts.dmSansTextTheme(base.textTheme).apply(
-      bodyColor: PatrolColors.ink,
-      displayColor: PatrolColors.ink,
-    );
+    final jakarta = GoogleFonts.plusJakartaSansTextTheme(base.textTheme);
+    final inter = GoogleFonts.interTextTheme(base.textTheme);
+
+    final textTheme = jakarta
+        .copyWith(
+          displayLarge: jakarta.displayLarge?.copyWith(
+            fontSize: 48,
+            fontWeight: FontWeight.w700,
+            height: 1.15,
+            letterSpacing: -1.6,
+            color: palette.textDisplay,
+          ),
+          headlineSmall: jakarta.headlineSmall?.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+            color: palette.text,
+          ),
+          titleMedium: jakarta.titleMedium?.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: palette.text,
+          ),
+          bodyLarge: inter.bodyLarge?.copyWith(
+            fontSize: 16,
+            height: 1.5,
+            letterSpacing: -0.01,
+            color: palette.text,
+          ),
+          bodyMedium: inter.bodyMedium?.copyWith(
+            fontSize: 14,
+            height: 1.5,
+            letterSpacing: -0.01,
+            color: palette.text,
+          ),
+          bodySmall: inter.bodySmall?.copyWith(
+            fontSize: 12,
+            height: 1.4,
+            color: palette.textMuted,
+          ),
+          labelSmall: GoogleFonts.jetBrainsMono(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.8,
+            color: palette.textMuted,
+          ),
+        )
+        .apply(
+          bodyColor: palette.text,
+          displayColor: palette.textDisplay,
+        );
 
     return base.copyWith(
-      textTheme: textTheme.copyWith(
-        displayLarge: textTheme.displayLarge?.copyWith(
-          fontSize: 48,
-          fontWeight: FontWeight.w700,
-          height: 1.0,
-        ),
-        headlineSmall: textTheme.headlineSmall?.copyWith(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-        ),
-        titleMedium: textTheme.titleMedium?.copyWith(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-        bodyLarge: textTheme.bodyLarge?.copyWith(
-          fontSize: 16,
-          height: 1.5,
-        ),
-        bodyMedium: textTheme.bodyMedium?.copyWith(
-          fontSize: 14,
-          height: 1.56,
-        ),
-        bodySmall: textTheme.bodySmall?.copyWith(
-          fontSize: 10,
-          height: 1.8,
-          color: PatrolColors.steel,
-        ),
-        labelSmall: textTheme.labelSmall?.copyWith(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-          color: PatrolColors.steel,
-        ),
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: PatrolColors.mist,
-        foregroundColor: PatrolColors.ink,
+      textTheme: textTheme,
+      appBarTheme: AppBarTheme(
+        backgroundColor: palette.surface,
+        foregroundColor: palette.text,
         elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+        systemOverlayStyle: systemOverlayStyle,
       ),
       cardTheme: CardThemeData(
-        color: PatrolColors.mist,
+        color: palette.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(PatrolRadius.card),
+          side: BorderSide(color: palette.border),
         ),
         margin: EdgeInsets.zero,
       ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: palette.cta,
+          foregroundColor: palette.onCta,
+          textStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(PatrolRadius.pill),
+          ),
+          elevation: 0,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: palette.text,
+          textStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          side: BorderSide(color: palette.border),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(PatrolRadius.pill),
+          ),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: PatrolColors.fog,
-        hintStyle: const TextStyle(color: PatrolColors.steel, fontSize: 10),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        fillColor: isDark ? palette.fill : palette.surface,
+        hintStyle: TextStyle(color: palette.textFaint, fontSize: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10000),
-          borderSide: const BorderSide(color: PatrolColors.pebble),
+          borderRadius: BorderRadius.circular(PatrolRadius.input),
+          borderSide: BorderSide(color: palette.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10000),
-          borderSide: const BorderSide(color: PatrolColors.pebble),
+          borderRadius: BorderRadius.circular(PatrolRadius.input),
+          borderSide: BorderSide(color: palette.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10000),
-          borderSide: const BorderSide(color: PatrolColors.graphite, width: 1.5),
+          borderRadius: BorderRadius.circular(PatrolRadius.input),
+          borderSide: BorderSide(
+            color: isDark ? palette.textSecondary : PatrolColors.signalBlue,
+            width: 1.5,
+          ),
         ),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return PatrolColors.ink;
+          if (states.contains(WidgetState.selected)) return palette.cta;
           return Colors.transparent;
         }),
-        checkColor: const WidgetStatePropertyAll(PatrolColors.obsidian),
-        side: const BorderSide(color: PatrolColors.pebble, width: 1),
+        checkColor: WidgetStatePropertyAll(palette.onCta),
+        side: BorderSide(color: palette.borderStrong, width: 1),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
       ),
-      iconTheme: const IconThemeData(color: PatrolColors.steel, size: 14),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: palette.surfaceMuted,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(PatrolRadius.input),
+            borderSide: BorderSide(color: palette.border),
+          ),
+        ),
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(palette.surface),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        ),
+      ),
+      iconTheme: IconThemeData(color: palette.textMuted, size: 14),
       scrollbarTheme: ScrollbarThemeData(
-        thumbColor: WidgetStateProperty.all(PatrolColors.pebble),
-        radius: const Radius.circular(10000),
+        thumbColor: WidgetStateProperty.all(palette.borderStrong),
+        radius: const Radius.circular(9999),
         thickness: WidgetStateProperty.all(5),
         crossAxisMargin: 0,
         mainAxisMargin: 0,
       ),
-      tooltipTheme: const TooltipThemeData(
+      tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: PatrolColors.obsidian,
-          border: Border.fromBorderSide(BorderSide(color: PatrolColors.pebble)),
-          borderRadius: BorderRadius.all(Radius.circular(14)),
+          color: isDark ? palette.canvas : palette.cta,
+          borderRadius: BorderRadius.circular(8),
+          border: isDark ? Border.all(color: palette.border) : null,
         ),
-        textStyle: TextStyle(color: PatrolColors.ink, fontSize: 12),
+        textStyle: TextStyle(color: isDark ? palette.text : palette.onCta, fontSize: 12),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: PatrolColors.mist,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: palette.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(PatrolRadius.largeCard),
+        ),
       ),
-      snackBarTheme: const SnackBarThemeData(
-        backgroundColor: PatrolColors.mist,
-        contentTextStyle: TextStyle(color: PatrolColors.ink),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: palette.surface,
+        contentTextStyle: TextStyle(color: palette.text),
         behavior: SnackBarBehavior.floating,
       ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: palette.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(PatrolRadius.card),
+          side: BorderSide(color: palette.border),
+        ),
+        textStyle: TextStyle(color: palette.text, fontSize: 13),
+      ),
+      dividerTheme: DividerThemeData(color: palette.border, space: 1, thickness: 1),
     );
   }
 }

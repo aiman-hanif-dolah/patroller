@@ -6,12 +6,17 @@ enum RecordingActionType {
   longpress,
   swipe,
   text,
-  key;
+  key,
+  /// Semantic assert: wait until a label/text is visible (Flow Editor).
+  assertVisible;
 
   String toJson() => name;
 
   static RecordingActionType fromJson(String value) =>
-      RecordingActionType.values.firstWhere((e) => e.name == value, orElse: () => RecordingActionType.tap);
+      RecordingActionType.values.firstWhere(
+        (e) => e.name == value,
+        orElse: () => RecordingActionType.tap,
+      );
 }
 
 enum RecordingEnvironmentProfile {
@@ -362,6 +367,42 @@ class Recording {
   final List<RecordingReplayResult> replayResults;
   final List<RecordingTestFile> generatedTestFiles;
 
+  Recording copyWith({
+    String? id,
+    String? name,
+    String? projectPath,
+    String? createdAt,
+    String? updatedAt,
+    String? deviceName,
+    DeviceType? deviceType,
+    RecordingEnvironmentProfile? environmentProfile,
+    int? actionCount,
+    int? durationMs,
+    List<RecordingAction>? actions,
+    List<RecordingLogSnapshot>? logs,
+    List<RecordingStateSnapshot>? stateSnapshots,
+    List<RecordingReplayResult>? replayResults,
+    List<RecordingTestFile>? generatedTestFiles,
+  }) {
+    return Recording(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      projectPath: projectPath ?? this.projectPath,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deviceName: deviceName ?? this.deviceName,
+      deviceType: deviceType ?? this.deviceType,
+      environmentProfile: environmentProfile ?? this.environmentProfile,
+      actionCount: actionCount ?? this.actionCount,
+      durationMs: durationMs ?? this.durationMs,
+      actions: actions ?? this.actions,
+      logs: logs ?? this.logs,
+      stateSnapshots: stateSnapshots ?? this.stateSnapshots,
+      replayResults: replayResults ?? this.replayResults,
+      generatedTestFiles: generatedTestFiles ?? this.generatedTestFiles,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -440,6 +481,17 @@ class ExternalRecordingActionPayload {
   final double? durationSec;
   final String? text;
   final String? key;
+
+  Map<String, dynamic> toJson() => {
+        'type': type.name,
+        if (x != null) 'x': x,
+        if (y != null) 'y': y,
+        if (toX != null) 'toX': toX,
+        if (toY != null) 'toY': toY,
+        if (durationSec != null) 'durationSec': durationSec,
+        if (text != null) 'text': text,
+        if (key != null) 'key': key,
+      };
 }
 
 class RecordingDraft {
@@ -464,6 +516,43 @@ class RecordingDraft {
   final List<RecordingAction> actions;
   final List<RecordingLogSnapshot> logs;
   final List<RecordingStateSnapshot>? stateSnapshots;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'projectPath': projectPath,
+        if (deviceName != null) 'deviceName': deviceName,
+        if (deviceType != null) 'deviceType': deviceType!.toJson(),
+        'environmentProfile': environmentProfile.toJson(),
+        'durationMs': durationMs,
+        'actions': actions.map((a) => a.toJson()).toList(),
+        'logs': logs.map((l) => l.toJson()).toList(),
+        if (stateSnapshots != null)
+          'stateSnapshots': stateSnapshots!.map((s) => s.toJson()).toList(),
+      };
+
+  factory RecordingDraft.fromJson(Map<String, dynamic> json) {
+    return RecordingDraft(
+      name: json['name'] as String? ?? 'Recording',
+      projectPath: json['projectPath'] as String? ?? '',
+      deviceName: json['deviceName'] as String?,
+      deviceType: json['deviceType'] != null
+          ? DeviceType.fromJson(json['deviceType'] as String)
+          : null,
+      environmentProfile: RecordingEnvironmentProfile.fromJson(
+        json['environmentProfile'] as String? ?? 'live',
+      ),
+      durationMs: json['durationMs'] as int? ?? 0,
+      actions: (json['actions'] as List<dynamic>? ?? const [])
+          .map((e) => RecordingAction.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      logs: (json['logs'] as List<dynamic>? ?? const [])
+          .map((e) => RecordingLogSnapshot.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      stateSnapshots: (json['stateSnapshots'] as List<dynamic>?)
+          ?.map((e) => RecordingStateSnapshot.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 }
 
 class RecordingExport {

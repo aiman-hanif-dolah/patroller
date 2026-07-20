@@ -383,6 +383,14 @@ class StopResult {
   final RunLifecycle lifecycle;
   final String? statusReason;
   final String? error;
+
+  Map<String, dynamic> toJson() => {
+        'runId': runId,
+        'outcome': outcome.toJson(),
+        'lifecycle': lifecycle.toJson(),
+        if (statusReason != null) 'statusReason': statusReason,
+        if (error != null) 'error': error,
+      };
 }
 
 class StopAllFailure {
@@ -404,6 +412,11 @@ class ActiveSessionState {
 
   final List<String> runIds;
   final List<RunRecord> records;
+
+  Map<String, dynamic> toJson() => {
+        'runIds': runIds,
+        'records': records.map((r) => r.toJson()).toList(),
+      };
 }
 
 class QueueStatusUpdate {

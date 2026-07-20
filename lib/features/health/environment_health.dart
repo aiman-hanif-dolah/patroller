@@ -51,11 +51,13 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
   }
 
   Future<void> _runChecks({bool forceRefresh = false}) async {
+    if (!mounted) return;
     final project = ref.read(appProvider).currentProject;
     if (project == null) return;
     await ref
         .read(healthProvider.notifier)
         .runChecks(project.projectPath, forceRefresh: forceRefresh);
+    if (!mounted) return;
     final health = ref.read(healthProvider);
     ref.read(appProvider.notifier).setHealthWarningCount(health.warningCount);
     ref.read(appProvider.notifier).setHealthStale(
@@ -65,6 +67,7 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
     final health = ref.watch(healthProvider);
     final checks = health.checks;
     final passed =
@@ -91,8 +94,8 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
       children: [
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: PatrolColors.pebble)),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: p.border)),
           ),
           child: Row(
             children: [
@@ -184,6 +187,7 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
   }
 
   Widget _buildBody(HealthState health) {
+    final p = PatrolPalette.of(context);
     if (health.state == HealthCheckState.unchecked) {
       return Center(
         child: Padding(
@@ -191,9 +195,9 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'Health has not been checked yet.',
-                style: TextStyle(fontSize: 12, color: PatrolColors.steel),
+                style: TextStyle(fontSize: 12, color: p.textMuted),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
@@ -221,7 +225,9 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
       );
     }
 
-    final driverFailed = health.checks.any(
+    // Surface Repair when driver artifacts/session actually need it (failed),
+    // not when the session is merely idle awaiting recording/replay.
+    final showRepairDriver = health.checks.any(
       (check) =>
           check.name.startsWith('Simulator driver') &&
           check.status == HealthStatus.failed,
@@ -229,9 +235,10 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: health.checks.length + (driverFailed ? 1 : 0),
+      itemCount: health.checks.length + (showRepairDriver ? 1 : 0),
       itemBuilder: (context, index) {
-        if (driverFailed && index == health.checks.length) {
+        final p = PatrolPalette.of(context);
+        if (showRepairDriver && index == health.checks.length) {
           return Padding(
             padding: const EdgeInsets.only(top: 4, bottom: 12),
             child: OutlinedButton.icon(
@@ -254,9 +261,9 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: PatrolColors.fog,
+            color: p.surfaceMuted,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: PatrolColors.pebble),
+            border: Border.all(color: p.border),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,27 +288,27 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
                   children: [
                     Text(
                       check.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: PatrolColors.ink,
+                        color: p.text,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       check.explanation,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: PatrolColors.graphite,
+                        color: p.textSecondary,
                       ),
                     ),
                     if (check.fixInstruction.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         check.fixInstruction,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
-                          color: PatrolColors.steel,
+                          color: p.textMuted,
                         ),
                       ),
                     ],
@@ -326,12 +333,13 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
   }
 
   Color _stateColor(HealthCheckState state) {
+    final p = PatrolPalette.of(context);
     return switch (state) {
       HealthCheckState.current => PatrolColors.psPassed,
       HealthCheckState.checking => PatrolColors.sky400,
       HealthCheckState.stale => PatrolColors.ember,
       HealthCheckState.failed => PatrolColors.red400,
-      HealthCheckState.unchecked => PatrolColors.steel,
+      HealthCheckState.unchecked => p.textMuted,
     };
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/landing/landing_screen.dart';
 import 'features/shell/app_shell.dart';
+import 'models/enums.dart';
 import 'providers/app_provider.dart';
 import 'providers/log_provider.dart';
 import 'providers/runner_provider.dart';
@@ -16,12 +17,22 @@ class PatrollerApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsLoaded = ref.watch(settingsProvider).loaded;
+    final theme = ref.watch(settingsProvider.select((s) => s.settings.theme));
     final activeView = ref.watch(appProvider).activeView;
+
+    // Extension server lifecycle is owned by settingsProvider
+    // (_applyExtensionServer). Do not start it here — that orphans servers.
 
     return MaterialApp(
       title: 'Patroller',
       debugShowCheckedModeBanner: false,
-      theme: PatrolTheme.dark(),
+      theme: PatrolTheme.light(),
+      darkTheme: PatrolTheme.dark(),
+      themeMode: switch (theme) {
+        AppTheme.light => ThemeMode.light,
+        AppTheme.dark => ThemeMode.dark,
+        AppTheme.system => ThemeMode.system,
+      },
       home: settingsLoaded
           ? Shortcuts(
               shortcuts: _shortcuts,

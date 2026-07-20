@@ -18,27 +18,25 @@ class PatrolCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = PatrolPalette.of(context);
+    final radius = BorderRadius.circular(PatrolRadius.panel);
+    // Shadow/border chrome may live outside Material. Fill must be on Material
+    // (or not on an intermediate DecoratedBox): ListTile paints ink on the
+    // nearest Material, and a colored DecoratedBox between them asserts.
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: PatrolColors.mist,
-        borderRadius: BorderRadius.circular(PatrolRadius.panel),
-        border: Border.all(
-          color: PatrolColors.pebble.withValues(alpha: 0.7),
-        ),
-        boxShadow: PatrolShadows.panel,
+        borderRadius: radius,
+        boxShadow: p.panelShadows,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(PatrolRadius.panel),
+      child: Material(
+        color: p.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(color: p.border),
+        ),
         clipBehavior: clipBehavior,
         child: Stack(
           children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: PatrolGradients.panelSheen,
-                ),
-              ),
-            ),
             if (accentStrip)
               Positioned(
                 left: 0,

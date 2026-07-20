@@ -22,7 +22,7 @@ void main() {
         inputMonitorBundled: true,
       );
       expect(readiness.allowExternalFallback, true);
-      expect(readiness.embeddedRecordingReady, false);
+      expect(readiness.embeddedRecordingReady, true);
       expect(readiness.canInspect, false);
       expect(
         recordingInstructionCopy(readiness),
