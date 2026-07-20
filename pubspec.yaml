@@ -6,6 +6,11 @@ version: 1.0.0+2
 environment:
   sdk: '>=3.3.0 <4.0.0'
 
+# CLI (any Flutter + Patrol project):
+#   dart run bin/patroller_report.dart --project /path/to/app --logs /path/*.log
+executables:
+  patroller_report: patroller_report
+
 dependencies:
   flutter:
     sdk: flutter

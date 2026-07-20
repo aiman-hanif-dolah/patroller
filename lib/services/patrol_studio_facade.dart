@@ -16,6 +16,7 @@ import 'recent_projects_store.dart';
 import 'recording_export.dart';
 import 'recording_replay.dart';
 import 'recordings_store.dart';
+import 'report_export.dart';
 import 'run_queue.dart';
 import 'settings_store.dart';
 import 'simulator_driver_service.dart';
@@ -198,6 +199,8 @@ class PatrolStudioRunnerApi {
 
   Stream<RunRecord> onQueueRunStarted() => _f._runQueue.queueRunStarted;
 
+  Stream<QueueReportEvent> onQueueReport() => _f._runQueue.queueReportGenerated;
+
   Future<void> hotRestart(String runId) async {
     _f._patrolRunner.hotRestart(runId);
   }
@@ -233,6 +236,7 @@ class PatrolStudioHistoryApi {
   PatrolStudioHistoryApi._();
 
   PatrolStudioFacade get _f => PatrolStudioFacade.instance;
+  final ReportExportService _reportExport = ReportExportService();
 
   Future<List<RunRecord>> getAll(String projectPath) =>
       _f._historyStore.getAll(projectPath);
@@ -245,6 +249,56 @@ class PatrolStudioHistoryApi {
 
   Future<void> clear(String projectPath) =>
       _f._historyStore.clear(projectPath);
+
+  /// Export HTML report for a single run or a queue batch (summary + children).
+  ///
+  /// Never mixes other history: only [record], or children with the **same**
+  /// [RunRecord.queueId] when exporting a queue summary.
+  Future<ReportExportResult> exportHtmlReport({
+    required String projectPath,
+    required String projectName,
+    required RunRecord record,
+    List<RunRecord>? allProjectRecords,
+  }) async {
+    var records = <RunRecord>[record];
+    String? queueLabel = record.queueLabel;
+    String? queueId = record.queueId;
+
+    if (record.isQueueSummary == true &&
+        record.queueId != null &&
+        allProjectRecords != null) {
+      final qid = record.queueId!;
+      final children = allProjectRecords
+          .where(
+            (r) =>
+                r.queueId == qid &&
+                r.isQueueSummary != true &&
+                r.runId != record.runId,
+          )
+          .toList()
+        ..sort((a, b) => (a.queueIndex ?? 0).compareTo(b.queueIndex ?? 0));
+      if (children.isNotEmpty) {
+        records = children;
+      }
+      queueLabel = record.queueLabel;
+      queueId = qid;
+    } else {
+      // Single run export: never pull siblings or older history.
+      records = [record];
+      queueLabel = record.queueLabel;
+      queueId = record.queueId;
+    }
+
+    return _reportExport.exportFromRecords(
+      projectPath: projectPath,
+      projectName: projectName,
+      records: records,
+      queueLabel: queueLabel,
+      queueId: queueId,
+      device: record.selectedDevice,
+      runMode: record.runMode.toJson(),
+    );
+  }
 }
 
 class PatrolStudioHealthApi {

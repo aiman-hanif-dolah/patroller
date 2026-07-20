@@ -212,6 +212,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               v,
             ),
           ),
+          _checkboxRow(
+            'After Test All, generate HTML report and prompt to open it',
+            _local.autoExportHtmlReport,
+            (v) => _set(
+              (s) => s.autoExportHtmlReport,
+              (s, v) => s.copyWith(autoExportHtmlReport: v),
+              v,
+            ),
+          ),
           _section('Logs'),
           _numericRow(
             field: 'logRetentionCount',

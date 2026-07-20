@@ -56,6 +56,31 @@ Built with **pure Dart process control** - no Electron shell, no WebView tax for
 
 ---
 
+## 📊 HTML reports (any Flutter + Patrol project)
+
+Patroller can generate a **self-contained HTML + CSS report** for **any** project you open — not just one app.
+
+| How | What happens |
+|-----|----------------|
+| **Test All / queue finishes** | Generates the report, then shows a dialog: *“This is the generated report for the Patrol tests you ran.”* → **Open report** opens it in your browser. Toggle in Settings (default **on**). |
+| **Run History** | Select a run or batch → **Export HTML report** → same open dialog |
+| **CLI** | Parse existing Patrol logs offline (`--out` optional) |
+
+Reports are stored under the Patrol Studio data folder (`…/Patrol Studio/reports/`), not Downloads, so the app can prompt you to open them immediately.
+
+```bash
+cd /path/to/patroller
+dart run bin/patroller_report.dart \
+  --project /path/to/your-flutter-app \
+  --logs ~/Library/Logs/your-app/*.log \
+  --mode mock \
+  --out ./my-report.html
+```
+
+The report lists targets/suites, leaf `*_test.dart` files, scenario Pass/Fail, filters, and pass rate. Logs are parsed generically (`test result: PASSED|FAILED`, suite Successful/Failed counts).
+
+---
+
 ## ✨ Features
 
 - **Landing & projects** - open Flutter projects, recent list, validation
@@ -64,6 +89,7 @@ Built with **pure Dart process control** - no Electron shell, no WebView tax for
 - **Devices** - list, boot, shutdown; simulator-first workflows on macOS
 - **Live logs** - batching, filters, search, failed-log focus, export
 - **Run history** - retained per project
+- **HTML batch reports** - after **Test All**, prompt to open the report in your browser; History export; CLI for any project’s logs
 - **Environment health** - Flutter, Patrol CLI, simctl, paths (FVM-aware)
 - **Recordings** - capture Simulator interactions, replay, export Patrol code
 - **Visual flow editor** - edit steps → generate / run Patrol-oriented flows

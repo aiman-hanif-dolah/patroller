@@ -16,6 +16,7 @@ export 'recent_projects_store.dart';
 export 'recording_export.dart';
 export 'recording_replay.dart';
 export 'recordings_store.dart';
+export 'report_export.dart';
 export 'run_lifecycle.dart';
 export 'run_queue.dart';
 export 'settings_store.dart';

@@ -245,7 +245,9 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     TextButton.icon(
                       onPressed: () {
@@ -259,8 +261,12 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                       icon: const Icon(Icons.copy, size: 12),
                       label: const Text('Copy command'),
                     ),
-                    if (isFailedRunStatus(selected.status)) ...[
-                      const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => _exportHtmlReport(selected),
+                      icon: const Icon(Icons.assessment_outlined, size: 12),
+                      label: const Text('Generate report'),
+                    ),
+                    if (isFailedRunStatus(selected.status))
                       TextButton.icon(
                         onPressed: () {
                           final text = formatRunLogsForExport(
@@ -282,7 +288,6 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                         icon: const Icon(Icons.content_paste, size: 12),
                         label: const Text('Copy failed logs'),
                       ),
-                    ],
                   ],
                 ),
               ],
@@ -300,6 +305,37 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
       return label.replaceFirst(RegExp(r'^Queue\b'), 'Batch');
     }
     return 'Run';
+  }
+
+  Future<void> _exportHtmlReport(RunRecord record) async {
+    final project = ref.read(appProvider).currentProject;
+    if (project == null) return;
+    try {
+      final result =
+          await ref.read(patrolStudioFacadeProvider).history.exportHtmlReport(
+                projectPath: project.projectPath,
+                projectName: project.projectName,
+                record: record,
+                allProjectRecords: _records,
+              );
+      final passed = result.report.scenarioPassed > 0
+          ? result.report.scenarioPassed
+          : result.report.targetPassedSum;
+      final failed = result.report.scenarioFailed > 0
+          ? result.report.scenarioFailed
+          : result.report.targetFailedSum;
+      ref.read(runnerProvider.notifier).showReportPrompt(
+            path: result.path,
+            projectName: project.projectName,
+            queueLabel: record.queueLabel ?? _historyTitle(record),
+            passed: passed,
+            failed: failed,
+          );
+    } catch (e) {
+      ref.read(runnerProvider.notifier).showSnackbar(
+            'HTML report failed: $e',
+          );
+    }
   }
 
   Future<void> _deleteRun(RunRecord record) async {

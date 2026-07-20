@@ -6,6 +6,7 @@ import '../domain/log_sanitizer.dart';
 import '../domain/runner_helpers.dart';
 import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
+import '../services/run_queue.dart' show QueueReportEvent;
 import 'app_provider.dart';
 import 'facade_provider.dart';
 import 'failed_logs_provider.dart';
@@ -19,6 +20,25 @@ class SnackbarMessage {
 
   final String message;
   final int id;
+}
+
+/// Prompt the user to open a generated Patrol HTML report.
+class ReportPrompt {
+  const ReportPrompt({
+    required this.id,
+    required this.path,
+    required this.projectName,
+    this.queueLabel,
+    this.passed = 0,
+    this.failed = 0,
+  });
+
+  final int id;
+  final String path;
+  final String projectName;
+  final String? queueLabel;
+  final int passed;
+  final int failed;
 }
 
 class StopFailure {
@@ -40,6 +60,7 @@ class RunnerState {
     this.currentRun,
     this.isRunning = false,
     this.snackbar,
+    this.reportPrompt,
     this.stopFailure,
     this.devices = const [],
     this.selectedDevice,
@@ -50,6 +71,7 @@ class RunnerState {
   final RunRecord? currentRun;
   final bool isRunning;
   final SnackbarMessage? snackbar;
+  final ReportPrompt? reportPrompt;
   final StopFailure? stopFailure;
   final List<DeviceInfo> devices;
   final DeviceInfo? selectedDevice;
@@ -60,12 +82,14 @@ class RunnerState {
     RunRecord? currentRun,
     bool? isRunning,
     SnackbarMessage? snackbar,
+    ReportPrompt? reportPrompt,
     StopFailure? stopFailure,
     List<DeviceInfo>? devices,
     DeviceInfo? selectedDevice,
     RunAllContext? runAllContext,
     QueueStatusUpdate? queueStatus,
     bool clearSnackbar = false,
+    bool clearReportPrompt = false,
     bool clearStopFailure = false,
     bool clearRunAllContext = false,
     bool clearQueueStatus = false,
@@ -76,6 +100,8 @@ class RunnerState {
       currentRun: clearCurrentRun ? null : (currentRun ?? this.currentRun),
       isRunning: isRunning ?? this.isRunning,
       snackbar: clearSnackbar ? null : (snackbar ?? this.snackbar),
+      reportPrompt:
+          clearReportPrompt ? null : (reportPrompt ?? this.reportPrompt),
       stopFailure:
           clearStopFailure ? null : (stopFailure ?? this.stopFailure),
       devices: devices ?? this.devices,
@@ -99,6 +125,7 @@ class RunnerState {
       currentRun: currentRun,
       isRunning: isRunning,
       snackbar: snackbar,
+      reportPrompt: reportPrompt,
       stopFailure: stopFailure,
       devices: devices,
       selectedDevice: selectedDevice,
@@ -148,6 +175,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     _facade.runner.onStatus().listen(_handleStatusUpdate);
     _facade.runner.onLog().listen(_handleLogEvent);
     _facade.runner.onQueueStatus().listen(_handleQueueStatus);
+    _facade.runner.onQueueReport().listen(_handleQueueReport);
     _facade.runner.onQueueRunStarted().listen((record) {
       final file = record.targetFile?.split('/').last ?? 'test';
       final index = record.queueIndex ?? 0;
@@ -269,6 +297,29 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     } catch (_) {
       // Health panel surfaces driver errors on next refresh.
     }
+  }
+
+  void showReportPrompt({
+    required String path,
+    required String projectName,
+    String? queueLabel,
+    int passed = 0,
+    int failed = 0,
+  }) {
+    state = state.copyWith(
+      reportPrompt: ReportPrompt(
+        id: DateTime.now().millisecondsSinceEpoch,
+        path: path,
+        projectName: projectName,
+        queueLabel: queueLabel,
+        passed: passed,
+        failed: failed,
+      ),
+    );
+  }
+
+  void dismissReportPrompt() {
+    state = state.copyWith(clearReportPrompt: true);
   }
 
   void showSnackbar(String message) {
@@ -401,6 +452,26 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     }
   }
 
+  void _handleQueueReport(QueueReportEvent event) {
+    if (event.ok && event.path != null) {
+      final project = event.projectName ??
+          _ref.read(appProvider).currentProject?.projectName ??
+          'project';
+      showReportPrompt(
+        path: event.path!,
+        projectName: project,
+        queueLabel: event.queueLabel ??
+            'Test All · ${event.passed} passed · ${event.failed} failed',
+        passed: event.passed,
+        failed: event.failed,
+      );
+      return;
+    }
+    if (event.error != null) {
+      showSnackbar('HTML report failed: ${event.error}');
+    }
+  }
+
   List<TestFile> _filesForRunAll() {
     final app = _ref.read(appProvider);
     return filesForRunAll(app.testFiles, app.selectedFileIds);
@@ -465,7 +536,9 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     showSnackbar(
       'Test All started (${files.length} file${files.length == 1 ? '' : 's'})',
     );
-    // Test All keeps logs across every file in the batch - only Test/Develop clear.
+    // Drop previous session logs so this batch (and its report) only reflect
+    // the current Test All. Within the batch, later files keep accumulating.
+    await log.clearLogs();
     log.setActiveLogRunId(null);
     state = state.copyWith(
       isRunning: true,

@@ -11,6 +11,7 @@ import '../../widgets/collapsible_panel.dart';
 import '../../widgets/panel_resize_handle.dart';
 import '../../widgets/patrol_card.dart';
 import '../../widgets/patrol_components.dart';
+import '../../widgets/report_ready_dialog.dart';
 import '../../widgets/snackbar_overlay.dart';
 import '../agent/agent_workbench_panel.dart';
 import '../devtools/devtools_panel.dart';
@@ -107,6 +108,21 @@ class _AppShellState extends ConsumerState<AppShell> {
         totalWidth: viewportWidth,
         rightWidth: _rightPanelWidth.value,
       );
+    });
+
+    // Prompt user to open the HTML report when Test All / export finishes.
+    ref.listen(runnerProvider.select((s) => s.reportPrompt), (prev, next) {
+      if (next == null || next.id == prev?.id) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ReportReadyDialog.show(
+          context,
+          prompt: next,
+          onDismiss: () {
+            ref.read(runnerProvider.notifier).dismissReportPrompt();
+          },
+        );
+      });
     });
 
     return SnackbarOverlay(

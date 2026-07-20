@@ -232,6 +232,16 @@ class _ControlDeckState extends ConsumerState<ControlDeck> {
                                         ),
                                       ),
                                       _CompactCheck(
+                                        label:
+                                            'Prompt HTML report after Test All',
+                                        value: s.autoExportHtmlReport,
+                                        onChanged: (v) => _patch(
+                                          (x) => x.copyWith(
+                                            autoExportHtmlReport: v,
+                                          ),
+                                        ),
+                                      ),
+                                      _CompactCheck(
                                         label: 'Auto-scroll',
                                         value: s.autoScrollLogs,
                                         onChanged: (v) => _patch(

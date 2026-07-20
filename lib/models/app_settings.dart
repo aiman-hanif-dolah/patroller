@@ -22,6 +22,7 @@ class AppSettings {
     required this.enableExperimentalParser,
     required this.enableSimulatorEnrichment,
     required this.stopQueueOnFirstFailure,
+    this.autoExportHtmlReport = true,
     this.lastProjectPath,
     required this.xctestRunnerPort,
     required this.previewPollIntervalMs,
@@ -61,6 +62,8 @@ class AppSettings {
   final bool enableExperimentalParser;
   final bool enableSimulatorEnrichment;
   final bool stopQueueOnFirstFailure;
+  /// After Test All / queue completes, generate an HTML report and prompt to open it.
+  final bool autoExportHtmlReport;
   final String? lastProjectPath;
   final int xctestRunnerPort;
   final int previewPollIntervalMs;
@@ -100,6 +103,7 @@ class AppSettings {
         enableExperimentalParser: false,
         enableSimulatorEnrichment: true,
         stopQueueOnFirstFailure: false,
+        autoExportHtmlReport: true,
         lastProjectPath: null,
         xctestRunnerPort: 22087,
         previewPollIntervalMs: 33,
@@ -140,6 +144,7 @@ class AppSettings {
     bool? enableExperimentalParser,
     bool? enableSimulatorEnrichment,
     bool? stopQueueOnFirstFailure,
+    bool? autoExportHtmlReport,
     String? lastProjectPath,
     int? xctestRunnerPort,
     int? previewPollIntervalMs,
@@ -183,6 +188,8 @@ class AppSettings {
             enableSimulatorEnrichment ?? this.enableSimulatorEnrichment,
         stopQueueOnFirstFailure:
             stopQueueOnFirstFailure ?? this.stopQueueOnFirstFailure,
+        autoExportHtmlReport:
+            autoExportHtmlReport ?? this.autoExportHtmlReport,
         lastProjectPath: lastProjectPath ?? this.lastProjectPath,
         xctestRunnerPort: xctestRunnerPort ?? this.xctestRunnerPort,
         previewPollIntervalMs: previewPollIntervalMs ?? this.previewPollIntervalMs,
@@ -226,6 +233,7 @@ class AppSettings {
         'enableExperimentalParser': enableExperimentalParser,
         'enableSimulatorEnrichment': enableSimulatorEnrichment,
         'stopQueueOnFirstFailure': stopQueueOnFirstFailure,
+        'autoExportHtmlReport': autoExportHtmlReport,
         'lastProjectPath': lastProjectPath,
         'xctestRunnerPort': xctestRunnerPort,
         'previewPollIntervalMs': previewPollIntervalMs,
@@ -285,6 +293,8 @@ class AppSettings {
           defaults.enableSimulatorEnrichment,
       stopQueueOnFirstFailure: json['stopQueueOnFirstFailure'] as bool? ??
           defaults.stopQueueOnFirstFailure,
+      autoExportHtmlReport: json['autoExportHtmlReport'] as bool? ??
+          defaults.autoExportHtmlReport,
       lastProjectPath: json['lastProjectPath'] as String?,
       xctestRunnerPort: json['xctestRunnerPort'] as int? ?? defaults.xctestRunnerPort,
       previewPollIntervalMs:

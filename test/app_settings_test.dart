@@ -52,5 +52,14 @@ void main() {
       expect(restored.previewCollapsed, true);
       expect(restored.logsPanelWidth, 500);
     });
+
+    test('autoExportHtmlReport defaults true and round-trips', () {
+      expect(AppSettings.defaults().autoExportHtmlReport, isTrue);
+      final off = AppSettings.defaults().copyWith(autoExportHtmlReport: false);
+      final restored = AppSettings.fromJson(off.toJson());
+      expect(restored.autoExportHtmlReport, isFalse);
+      final legacy = AppSettings.fromJson({'patrolPath': 'patrol'});
+      expect(legacy.autoExportHtmlReport, isTrue);
+    });
   });
 }
