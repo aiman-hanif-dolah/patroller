@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/failure_diagnosis.dart';
 import '../domain/log_sanitizer.dart';
 import '../domain/runner_helpers.dart';
 import '../models/models.dart';
@@ -66,6 +67,7 @@ class RunnerState {
     this.selectedDevice,
     this.runAllContext,
     this.queueStatus,
+    this.failureDiagnosis,
   });
 
   final RunRecord? currentRun;
@@ -78,6 +80,9 @@ class RunnerState {
   final RunAllContext? runAllContext;
   final QueueStatusUpdate? queueStatus;
 
+  /// Last actionable diagnosis from Patrol/tool logs (cleared on next run).
+  final FailureDiagnosis? failureDiagnosis;
+
   RunnerState copyWith({
     RunRecord? currentRun,
     bool? isRunning,
@@ -88,6 +93,7 @@ class RunnerState {
     DeviceInfo? selectedDevice,
     RunAllContext? runAllContext,
     QueueStatusUpdate? queueStatus,
+    FailureDiagnosis? failureDiagnosis,
     bool clearSnackbar = false,
     bool clearReportPrompt = false,
     bool clearStopFailure = false,
@@ -95,6 +101,7 @@ class RunnerState {
     bool clearQueueStatus = false,
     bool clearCurrentRun = false,
     bool clearSelectedDevice = false,
+    bool clearFailureDiagnosis = false,
   }) {
     return RunnerState(
       currentRun: clearCurrentRun ? null : (currentRun ?? this.currentRun),
@@ -113,6 +120,9 @@ class RunnerState {
           : (runAllContext ?? this.runAllContext),
       queueStatus:
           clearQueueStatus ? null : (queueStatus ?? this.queueStatus),
+      failureDiagnosis: clearFailureDiagnosis
+          ? null
+          : (failureDiagnosis ?? this.failureDiagnosis),
     );
   }
 
@@ -131,6 +141,7 @@ class RunnerState {
       selectedDevice: selectedDevice,
       runAllContext: runAllContext,
       queueStatus: queueStatus,
+      failureDiagnosis: failureDiagnosis,
     );
   }
 }
@@ -407,14 +418,29 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
           );
     }
     if (terminal && isFailedRunStatus(status.status)) {
+      final liveLogs = _ref.read(logProvider).logs;
       _ref.read(failedLogsProvider.notifier).captureFailure(
             record: run,
-            liveLogs: _ref.read(logProvider).logs,
+            liveLogs: liveLogs,
           );
+      _updateFailureDiagnosisFromLogs(liveLogs);
     }
     if (terminal && !isSessionBusy(state.isRunning, run)) {
       _onRunTerminalCompletion(run);
     }
+  }
+
+  void _updateFailureDiagnosisFromLogs(List<LogEvent> logs) {
+    final combined = logs.map((e) => sanitizeLogText(e.text)).join('\n');
+    final diagnosis = diagnosePatrolFailure(combined);
+    if (diagnosis == null) return;
+    state = state.copyWith(failureDiagnosis: diagnosis);
+    // Short snackbar so users notice without reading the full log pane.
+    showSnackbar('${diagnosis.title} - ${diagnosis.summary}');
+  }
+
+  void dismissFailureDiagnosis() {
+    state = state.copyWith(clearFailureDiagnosis: true);
   }
 
   void _onRunTerminalCompletion(RunRecord run) {
@@ -543,6 +569,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     state = state.copyWith(
       isRunning: true,
       runAllContext: RunAllContext(total: files.length, current: 0),
+      clearFailureDiagnosis: true,
     );
 
     try {
@@ -643,7 +670,11 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     log.resetLogUiState();
     await log.clearLogs();
     log.setActiveLogRunId(null);
-    state = state.copyWith(isRunning: true, clearStopFailure: true);
+    state = state.copyWith(
+      isRunning: true,
+      clearStopFailure: true,
+      clearFailureDiagnosis: true,
+    );
 
     try {
       final record = await _facade.runner.start(

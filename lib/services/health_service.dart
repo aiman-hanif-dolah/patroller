@@ -74,12 +74,14 @@ Future<List<HealthCheck>> runHealthChecks(
       status: flutterCheck.success ? HealthStatus.passed : HealthStatus.failed,
       explanation: flutterCheck.success
           ? 'Flutter is installed and available.'
-          : 'Flutter command was not found.',
-      fixInstruction:
-          'Install Flutter and ensure the flutter command is available in PATH.',
+          : 'Flutter command was not found on PATH (or Settings path is wrong).',
+      fixInstruction: flutterCheck.success
+          ? 'No action needed.'
+          : 'Install Flutter or set the Flutter path in Patroller Settings (FVM: use the FVM flutter binary).',
       rawOutput: flutterCheck.success
           ? _truncate(flutterCheck.stdout, 200)
           : flutterCheck.stderr,
+      copyCommand: flutterCheck.success ? null : 'flutter --version',
     ),
   );
 
@@ -112,12 +114,16 @@ Future<List<HealthCheck>> runHealthChecks(
       name: 'Patrol CLI',
       status: patrolCheck.success ? HealthStatus.passed : HealthStatus.failed,
       explanation: patrolCheck.success
-          ? 'Patrol CLI is installed.'
+          ? 'Patrol CLI is installed (required for Test / Develop).'
           : 'Patrol command was not found.',
-      fixInstruction: 'Install Patrol CLI with: dart pub global activate patrol_cli',
+      fixInstruction: patrolCheck.success
+          ? 'No action needed. Keep patrol_cli compatible with your project patrol package.'
+          : 'Install Patrol CLI, then restart Patroller.',
       rawOutput: patrolCheck.success
           ? _truncate(patrolCheck.stdout, 200)
           : patrolCheck.stderr,
+      copyCommand:
+          patrolCheck.success ? null : 'dart pub global activate patrol_cli',
     ),
   );
 
@@ -161,12 +167,17 @@ Future<List<HealthCheck>> runHealthChecks(
         name: 'iOS Simulator',
         status: simctlCheck.success ? HealthStatus.passed : HealthStatus.failed,
         explanation: simctlCheck.success
-            ? 'iOS Simulator runtime is available (primary run target).'
+            ? 'iOS Simulator is available. Patroller runs currently target iOS Simulator only.'
             : 'Unable to list iOS Simulators.',
-        fixInstruction: 'Install Xcode which includes iOS Simulator.',
+        fixInstruction: simctlCheck.success
+            ? 'Boot a simulator from the device picker before Test / Develop.'
+            : 'Install Xcode which includes iOS Simulator.',
         rawOutput: simctlCheck.success
             ? 'Found iOS Simulator devices.'
             : _truncate(simctlCheck.stderr, 300),
+        copyCommand: simctlCheck.success
+            ? 'xcrun simctl list devices booted'
+            : 'xcode-select --install',
       ),
     );
   }
@@ -193,10 +204,13 @@ Future<List<HealthCheck>> runHealthChecks(
         name: 'Patrol dependency',
         status: hasPatrol ? HealthStatus.passed : HealthStatus.warning,
         explanation: hasPatrol
-            ? 'Patrol is listed as a dependency.'
+            ? 'Patrol is listed in pubspec - if CLI patrol test already works, you need no extra project setup for Patroller.'
             : 'Patrol is not found in pubspec.yaml dependencies.',
-        fixInstruction: 'Add patrol to your pubspec.yaml dev_dependencies.',
+        fixInstruction: hasPatrol
+            ? 'Open this project, pick an iOS Simulator, and run Test / Develop.'
+            : 'Add patrol to dev_dependencies, or open a project where Patrol already works.',
         rawOutput: hasPatrol ? 'patrol dependency found' : 'patrol dependency not found',
+        copyCommand: hasPatrol ? null : 'flutter pub add patrol --dev',
       ),
     );
   }

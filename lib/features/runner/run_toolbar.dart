@@ -180,6 +180,18 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
                   ),
                   const SizedBox(width: 8),
                   const DeviceSelectorButton(),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: kIosSimulatorRunTargetHint,
+                    child: Text(
+                      'iOS Simulator',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: p.textMuted,
+                      ),
+                    ),
+                  ),
                   _divider(),
                   _ActionButton(
                     label: 'Test',

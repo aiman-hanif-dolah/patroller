@@ -59,10 +59,14 @@ bool isSelectableDevice(DeviceInfo device) {
 
 String? getDeviceUnavailableReason(DeviceInfo device) {
   if (device.type != DeviceType.iosSimulator) {
-    return 'Only iOS Simulator is supported';
+    return 'Patroller runs currently support iOS Simulator only';
   }
   return null;
 }
+
+/// Short banner under the device picker / toolbar.
+const kIosSimulatorRunTargetHint =
+    'Runs: iOS Simulator only. Boot a simulator, then Test / Develop.';
 
 DeviceInfo? pickDefaultSelectableDevice(List<DeviceInfo> devices) {
   final booted = devices.where(
@@ -97,9 +101,11 @@ String? getRunDisabledReason({
   final sessionBlock = runnerControlsDisabledReason(isRunning, currentRun);
   if (sessionBlock != null) return sessionBlock;
   if (!hasSelectedFile) return 'Choose a test file first';
-  if (selectedDevice == null) return 'Select an iOS Simulator to run tests';
+  if (selectedDevice == null) {
+    return 'Select an iOS Simulator to run tests';
+  }
   if (!isSelectableDevice(selectedDevice)) {
-    return 'Only iOS Simulator is supported';
+    return 'Patroller runs currently support iOS Simulator only';
   }
   // Not booted is OK - runtime auto-boots via _ensureDevice.
   return null;
@@ -140,9 +146,11 @@ String? getQueueRunDisabledReason({
   final sessionBlock = runnerControlsDisabledReason(isRunning, currentRun);
   if (sessionBlock != null) return sessionBlock;
   if (!hasTestFiles) return 'No test files discovered yet';
-  if (selectedDevice == null) return 'Select an iOS Simulator to run tests';
+  if (selectedDevice == null) {
+    return 'Select an iOS Simulator to run tests';
+  }
   if (!isSelectableDevice(selectedDevice)) {
-    return 'Only iOS Simulator is supported';
+    return 'Patroller runs currently support iOS Simulator only';
   }
   // Not booted is OK - runtime auto-boots via _ensureDevice.
   return null;

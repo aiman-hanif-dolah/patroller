@@ -133,8 +133,13 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
                     : () {
                         final text = checks
                             .map(
-                              (c) =>
-                                  '${c.name}: ${c.status.name}\n${c.explanation}\n${c.fixInstruction}',
+                              (c) {
+                                final cmd = c.copyCommand;
+                                return '${c.name}: ${c.status.name}\n'
+                                    '${c.explanation}\n'
+                                    '${c.fixInstruction}'
+                                    '${cmd != null ? '\n$cmd' : ''}';
+                              },
                             )
                             .join('\n\n');
                         Clipboard.setData(ClipboardData(text: text));
@@ -145,6 +150,31 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
                 size: 14,
               ),
             ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: PatrolColors.sky400.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: PatrolColors.sky400.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Text(
+              'If patrol test already works in the terminal for this project, '
+              'you do not need extra app setup for Patroller. Green checks + '
+              'a booted iOS Simulator are enough to Test / Develop.\n'
+              'Runs currently target iOS Simulator only.',
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.35,
+                color: p.textSecondary,
+              ),
+            ),
           ),
         ),
         if (checks.isNotEmpty)
@@ -309,6 +339,38 @@ class _EnvironmentHealthState extends ConsumerState<EnvironmentHealth> {
                         style: TextStyle(
                           fontSize: 10,
                           color: p.textMuted,
+                        ),
+                      ),
+                    ],
+                    if (check.copyCommand != null &&
+                        check.copyCommand!.isNotEmpty &&
+                        check.status != HealthStatus.passed) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            foregroundColor: PatrolColors.sky400,
+                          ),
+                          onPressed: () {
+                            Clipboard.setData(
+                              ClipboardData(text: check.copyCommand!),
+                            );
+                            ref
+                                .read(runnerProvider.notifier)
+                                .showSnackbar('Command copied');
+                          },
+                          icon: const Icon(Icons.copy, size: 12),
+                          label: Text(
+                            check.copyCommand!,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
                         ),
                       ),
                     ],

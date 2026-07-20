@@ -86,15 +86,16 @@ The report lists targets/suites, leaf `*_test.dart` files, scenario Pass/Fail, f
 - **Landing & projects** - open Flutter projects, recent list, validation
 - **Test explorer** - search, multi-select, status badges
 - **Runner** - Test / Test All / Develop / Develop All / Stop
-- **Devices** - list, boot, shutdown; simulator-first workflows on macOS
+- **Devices** - list, boot, shutdown; **iOS Simulator runs** (primary target today)
 - **Live logs** - batching, filters, search, failed-log focus, export
+- **Failure diagnosis** - maps common Patrol/tool errors to likely fixes + copyable commands
 - **Run history** - retained per project
 - **HTML batch reports** - after **Test All**, prompt to open the report in your browser; History export; CLI for any project’s logs
-- **Environment health** - Flutter, Patrol CLI, simctl, paths (FVM-aware)
-- **Recordings** - capture Simulator interactions, replay, export Patrol code
+- **Environment health** - Flutter, Patrol CLI, simctl, copyable fixes, “CLI Patrol works → no extra setup” guidance
+- **Recordings** - capture Simulator interactions, replay, export Patrol code *(optional)*
 - **Visual flow editor** - edit steps → generate / run Patrol-oriented flows
-- **Agent workbench** - install Patrol MCP + Marionette MCP on the machine, bind Cursor config, fill agent prompts
-- **DevTools extension** - local HTTP + WebSocket API + panel (`/panel`)
+- **Agent workbench** - install Patrol MCP + Marionette MCP on the machine, bind Cursor config, fill agent prompts *(optional)*
+- **DevTools extension** - local HTTP + WebSocket API + panel (`/panel`) *(optional)*
 - **Keyboard shortcuts** - ⌘O open, ⌘R test, ⇧⌘R test all, ⌘D develop, and more
 
 > Settings and history live under the shared **Patrol Studio** data folder so Electron / Tauri / Flutter editions can coexist:
