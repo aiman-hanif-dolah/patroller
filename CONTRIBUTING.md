@@ -1,6 +1,6 @@
 # Contributing to Patroller
 
-Thanks for helping improve Patroller. Forks, issues, and pull requests are welcome.
+Thanks for helping improve Patroller. **Forks, issues, and pull requests are welcome** - this project is MIT-licensed and intended for public reuse.
 
 ## Ground rules
 
@@ -8,6 +8,7 @@ Thanks for helping improve Patroller. Forks, issues, and pull requests are welco
 - Prefer small, focused PRs over large mixed changes.
 - Keep secrets and real credentials out of commits (use placeholders in tests and defaults).
 - Match existing Dart / Flutter style and folder layout under `lib/`.
+- No CLA: contributions are accepted under the [MIT License](LICENSE).
 
 ## Testing Flutter apps with Patroller
 
@@ -21,7 +22,8 @@ See **[Prepare your Flutter app for Patrol](README.md#-prepare-your-flutter-app-
 ## Development setup
 
 ```bash
-git clone https://github.com/aiman-hanif-dolah/patroller.git
+# Prefer your fork URL after forking on GitHub
+git clone https://github.com/<your-username>/patroller.git
 cd patroller
 flutter pub get
 flutter run -d macos   # or: flutter run -d windows
@@ -32,6 +34,18 @@ Run unit tests:
 ```bash
 flutter test
 ```
+
+### Package installers (local, no CI)
+
+```bash
+# macOS
+./scripts/package-release.sh --macos-only
+
+# Windows (PowerShell on a Windows machine)
+.\scripts\package-windows.ps1
+```
+
+See [docs/WINDOWS_RELEASE.md](docs/WINDOWS_RELEASE.md) for the Windows portable zip workflow.
 
 Optional: rebuild the DevTools panel after UI changes:
 
@@ -46,19 +60,28 @@ cp -R build/web ../extension/devtools/build
 
 ## How to contribute
 
-1. **Fork** the repository on GitHub.
+1. **[Fork](https://github.com/aiman-hanif-dolah/patroller/fork)** the repository on GitHub.
 2. Create a branch: `git checkout -b feature/your-idea`.
 3. Make your changes and add or update tests when behavior changes.
 4. Run `flutter test` (and a quick manual smoke on macOS/Windows if you touch UI).
 5. Commit with a clear message.
 6. Push to your fork and open a **Pull Request** against `main`.
 
+### Sync your fork
+
+```bash
+git remote add upstream https://github.com/aiman-hanif-dolah/patroller.git
+git fetch upstream
+git checkout main
+git merge upstream/main
+```
+
 ## Good first issues
 
 - UI polish and accessibility
-- Windows parity improvements
+- Windows portable packaging / release docs
 - Docs and examples for Patrol project layout
-- Health-check coverage for more toolchains (FVM, pure, asdf)
+- Health-check coverage for more toolchains (FVM, puro, asdf)
 - Recording export / flow-editor edge cases
 
 ## Reporting bugs
@@ -70,6 +93,8 @@ Open an issue with:
 - Steps to reproduce
 - Expected vs actual behavior
 - Logs or screenshots when possible
+
+Use the templates under **[New issue](https://github.com/aiman-hanif-dolah/patroller/issues/new/choose)**.
 
 ## Code of conduct
 

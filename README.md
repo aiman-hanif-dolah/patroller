@@ -23,9 +23,16 @@
   <a href="#installation">Installation</a> ·
   <a href="#-quick-start">Build from source</a> ·
   <a href="#-prepare-your-flutter-app-for-patrol">Patrol project setup</a> ·
-  <a href="#-fork--contribute">Fork</a> ·
+  <a href="#-fork--contribute">Fork &amp; contribute</a> ·
   <a href="#-architecture">Architecture</a> ·
   <a href="#-license">License</a>
+</p>
+
+<p align="center">
+  <strong>MIT licensed. Forks, issues, and pull requests are welcome.</strong><br/>
+  <a href="https://github.com/aiman-hanif-dolah/patroller/fork">Fork</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="https://github.com/aiman-hanif-dolah/patroller/issues/new/choose">Open an issue</a>
 </p>
 
 ---
@@ -93,7 +100,15 @@ No Flutter SDK is required to **run** Patroller. Download the installer we publi
   <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.zip">
     <img src="https://img.shields.io/badge/Download-macOS%20ZIP-555555?style=for-the-badge&logo=apple" alt="Download macOS ZIP" />
   </a>
+  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/latest">
+    <img src="https://img.shields.io/badge/Download-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows" />
+  </a>
 </p>
+
+| Platform | Installer | Status |
+|----------|-----------|--------|
+| **macOS (Apple Silicon)** | [DMG](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.dmg) · [ZIP](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.zip) | Published on [v1.0.0](https://github.com/aiman-hanif-dolah/patroller/releases/tag/v1.0.0) |
+| **Windows x64** | Portable `Patroller-*-windows-x64.zip` on [Releases](https://github.com/aiman-hanif-dolah/patroller/releases) | Build on a Windows PC and upload (see below) |
 
 ### macOS installer (current: v1.0.0)
 
@@ -116,9 +131,35 @@ No Flutter SDK is required to **run** Patroller. Download the installer we publi
    open -a Patroller
    ```
 
-### Windows
+### Windows installer (portable zip)
 
-A Windows portable zip can be attached to a release the same way (build locally with `./scripts/package-release.sh --windows-only`, then upload the zip on the [Releases](https://github.com/aiman-hanif-dolah/patroller/releases) page). Until one is uploaded, use [build from source](#-quick-start-build-from-source) on Windows.
+Flutter cannot build Windows apps from a Mac. Produce the zip on **Windows**, then upload it to the same [Releases](https://github.com/aiman-hanif-dolah/patroller/releases) page (manual - no CI).
+
+**If a Windows zip is already on the release**
+
+1. Download **`Patroller-*-windows-x64.zip`** from [Releases](https://github.com/aiman-hanif-dolah/patroller/releases/latest).
+2. Unzip anywhere (e.g. `%LOCALAPPDATA%\Patroller`).
+3. Run **`patroller.exe`** (pin to taskbar if you like). No admin install required.
+
+**If you need to create the Windows zip** (one-time on a Windows PC)
+
+```powershell
+git clone https://github.com/aiman-hanif-dolah/patroller.git
+cd patroller
+flutter config --enable-windows-desktop
+.\scripts\package-windows.ps1
+# Upload dist\Patroller-*-windows-x64.zip on GitHub → Releases
+```
+
+Full notes: [docs/WINDOWS_RELEASE.md](docs/WINDOWS_RELEASE.md).
+
+**Until a zip is published**, Windows users can [build from source](#-quick-start-build-from-source):
+
+```powershell
+flutter pub get
+flutter run -d windows
+# or: flutter build windows --release
+```
 
 ### After install: Flutter app under test
 
@@ -131,16 +172,17 @@ dart pub global activate patrol_cli
 patrol doctor
 ```
 
-### Maintainers: rebuild and upload (local only)
+### Maintainers: rebuild and upload (local only, no CI)
 
 ```bash
-# On a Mac - produces dist/Patroller-*.dmg and dist/Patroller-*.zip
+# macOS → dist/Patroller-*.dmg and dist/Patroller-*.zip
 ./scripts/package-release.sh --macos-only
 
-# Create/edit a release on GitHub and attach the files from dist/
-# (GitHub → Releases → Draft a new release → upload assets)
-# No GitHub Actions required.
+# Windows (PowerShell) → dist/Patroller-*-windows-x64.zip
+.\scripts\package-windows.ps1
 ```
+
+Then: **GitHub → Releases → edit/draft → Upload assets**. Update the download links in this section if the version number changes.
 
 ---
 
@@ -468,34 +510,65 @@ extension/devtools/   # Packaged DevTools extension (config + build)
 
 ## 🍴 Fork & contribute
 
-Patroller is **MIT-licensed** and **public** - you are free to fork, modify, and ship your own builds.
+Patroller is **public**, **MIT-licensed**, and **built for community use**. You are encouraged to:
 
-### Fork on GitHub
+- **Fork** the repo and ship your own builds or company-internal variants  
+- **Open issues** for bugs, ideas, and docs gaps  
+- **Send pull requests** for features, Windows packaging help, UI polish, tests  
 
-1. Click **[Fork](https://github.com/aiman-hanif-dolah/patroller/fork)** on GitHub.
+No CLA beyond MIT. By contributing, your work is licensed under the same [MIT License](LICENSE).
+
+### Why fork?
+
+| You want to… | Do this |
+|--------------|---------|
+| Customize for your team | [Fork](https://github.com/aiman-hanif-dolah/patroller/fork) and keep a private/public copy |
+| Fix a bug or add a feature | Fork → branch → PR into `main` |
+| Build Windows/macOS installers | Use `scripts/package-windows.ps1` / `package-release.sh`, upload to *your* Releases if you like |
+| Just try the app | [Download installers](#installation) - no need to fork |
+
+### Fork on GitHub (recommended flow)
+
+1. Click **[Fork](https://github.com/aiman-hanif-dolah/patroller/fork)**.
 2. Clone **your** fork:
 
    ```bash
    git clone https://github.com/<your-username>/patroller.git
    cd patroller
    flutter pub get
+   flutter run -d macos   # or: flutter run -d windows
    ```
 
-3. Create a branch, make changes, push, open a PR upstream.
+3. Create a branch: `git checkout -b feature/your-idea`
+4. Make focused changes; run `flutter test`
+5. Push and open a **Pull Request** against `aiman-hanif-dolah/patroller` `main`
 
-### Remote tip
+### Keep your fork up to date
 
 ```bash
 git remote add upstream https://github.com/aiman-hanif-dolah/patroller.git
 git fetch upstream
+git checkout main
 git merge upstream/main   # or: git rebase upstream/main
 ```
 
-See **[CONTRIBUTING.md](CONTRIBUTING.md)** for setup, PR checklist, and issue templates under `.github/`.
+### Good first contributions
+
+- Windows portable zip packaging / docs  
+- UI accessibility and polish  
+- Health checks for more toolchains (FVM, asdf, puro)  
+- Recording export and flow-editor edge cases  
+- Examples of Patrol project layout  
+
+Full guide: **[CONTRIBUTING.md](CONTRIBUTING.md)**  
+Issue / PR templates: `.github/`
 
 <p align="center">
   <a href="https://github.com/aiman-hanif-dolah/patroller/fork">
     <img src="https://img.shields.io/badge/Fork%20this%20repo-181717?style=for-the-badge&logo=github" alt="Fork this repo" />
+  </a>
+  <a href="CONTRIBUTING.md">
+    <img src="https://img.shields.io/badge/Read%20CONTRIBUTING-2ea44f?style=for-the-badge&logo=github" alt="Contributing" />
   </a>
   <a href="https://github.com/aiman-hanif-dolah/patroller/issues/new/choose">
     <img src="https://img.shields.io/badge/Open%20an%20issue-c41e3a?style=for-the-badge&logo=github" alt="Open an issue" />
