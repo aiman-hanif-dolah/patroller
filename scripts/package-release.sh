@@ -277,4 +277,5 @@ echo "→ checksums"
 
 echo
 echo "✓ Release packaging complete → $DIST"
-echo "  Upload zip/dmg to a GitHub Release so users can download without building."
+echo "  Upload zip/dmg manually on GitHub → Releases (no CI)."
+echo "  Then update the Installation download links in README.md if the version changed."

@@ -81,76 +81,66 @@ Built with **pure Dart process control** - no Electron shell, no WebView tax for
 
 ## Installation
 
-Download a prebuilt app from **[GitHub Releases](https://github.com/aiman-hanif-dolah/patroller/releases)** - no Flutter install required to *run* Patroller.
-
-| Platform | Artifact | How to install |
-|----------|----------|----------------|
-| **macOS** | `Patroller-<version>-macos-arm64.dmg` | Open the DMG → drag **Patroller** into **Applications** |
-| **macOS** | `Patroller-<version>-macos-arm64.zip` | Unzip → drag `Patroller.app` into **Applications** |
-| **Windows** | `Patroller-<version>-windows-x64.zip` | Unzip to a folder → run `patroller.exe` |
+No Flutter SDK is required to **run** Patroller. Download the installer we publish on GitHub Releases (built and uploaded manually - no CI).
 
 <p align="center">
   <a href="https://github.com/aiman-hanif-dolah/patroller/releases/latest">
     <img src="https://img.shields.io/github/v/release/aiman-hanif-dolah/patroller?style=for-the-badge&label=Latest%20release" alt="Latest release" />
   </a>
-  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/latest">
-    <img src="https://img.shields.io/badge/Download-macOS%20%2F%20Windows-0A84FF?style=for-the-badge&logo=github" alt="Download" />
+  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.dmg">
+    <img src="https://img.shields.io/badge/Download-macOS%20DMG-0A84FF?style=for-the-badge&logo=apple" alt="Download macOS DMG" />
+  </a>
+  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.zip">
+    <img src="https://img.shields.io/badge/Download-macOS%20ZIP-555555?style=for-the-badge&logo=apple" alt="Download macOS ZIP" />
   </a>
 </p>
 
-### macOS (recommended: DMG)
+### macOS installer (current: v1.0.0)
 
-1. Open [Releases](https://github.com/aiman-hanif-dolah/patroller/releases/latest).
-2. Download **`Patroller-*-macos-*.dmg`** (or the `.zip`).
-3. Open the DMG and drag **Patroller** into **Applications**.
-4. Launch from Launchpad or Spotlight (`Patroller`).
-5. **First open (unsigned builds):** if macOS blocks the app, right-click **Patroller** → **Open** → **Open**.  
-   Or clear quarantine after install:
+| File | Link |
+|------|------|
+| **DMG (recommended)** | [Patroller-1.0.0-macos-arm64.dmg](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.dmg) |
+| ZIP | [Patroller-1.0.0-macos-arm64.zip](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.zip) |
+| All releases | [github.com/aiman-hanif-dolah/patroller/releases](https://github.com/aiman-hanif-dolah/patroller/releases) |
+
+**Install steps**
+
+1. Download the **DMG** (or ZIP) above.
+2. Open the DMG and drag **Patroller** into **Applications**  
+   (or unzip and move `Patroller.app` into Applications).
+3. Launch **Patroller** from Launchpad or Spotlight.
+4. **First open:** if macOS blocks an unsigned build, right-click **Patroller** → **Open** → **Open**, or:
 
    ```bash
    xattr -dr com.apple.quarantine /Applications/Patroller.app
    open -a Patroller
    ```
 
-Optional helper (if you keep the zip/dmg next to it):
+### Windows
 
-```bash
-# after downloading assets into ./dist
-chmod +x dist/install-macos.sh
-./dist/install-macos.sh   # copies Patroller.app → /Applications
-```
+A Windows portable zip can be attached to a release the same way (build locally with `./scripts/package-release.sh --windows-only`, then upload the zip on the [Releases](https://github.com/aiman-hanif-dolah/patroller/releases) page). Until one is uploaded, use [build from source](#-quick-start-build-from-source) on Windows.
 
-### Windows (portable zip)
-
-1. Open [Releases](https://github.com/aiman-hanif-dolah/patroller/releases/latest).
-2. Download **`Patroller-*-windows-x64.zip`**.
-3. Unzip anywhere (e.g. `%LOCALAPPDATA%\Patroller`).
-4. Run **`patroller.exe`** (pin to taskbar if you like).
-
-No admin installer is required for the portable zip.
-
-### After install: use a Flutter *app* with Patrol
+### After install: Flutter app under test
 
 Patroller is the **workbench**. The project you open still needs Patrol configured (deps + Android `MainActivityTest` + iOS **RunnerUITests**). See [Prepare your Flutter app for Patrol](#-prepare-your-flutter-app-for-patrol).
 
-Also install tooling used when *running* tests from Patroller:
+To **run** tests from Patroller you also want:
 
 ```bash
 dart pub global activate patrol_cli
 patrol doctor
 ```
 
-### Build installers yourself (maintainers)
+### Maintainers: rebuild and upload (local only)
 
 ```bash
-# macOS host → .app + .zip + .dmg under dist/
+# On a Mac - produces dist/Patroller-*.dmg and dist/Patroller-*.zip
 ./scripts/package-release.sh --macos-only
 
-# Windows host → portable zip under dist/
-./scripts/package-release.sh --windows-only
+# Create/edit a release on GitHub and attach the files from dist/
+# (GitHub → Releases → Draft a new release → upload assets)
+# No GitHub Actions required.
 ```
-
-Pushing a tag `v*` (e.g. `v1.0.0`) runs [`.github/workflows/release.yml`](.github/workflows/release.yml), which builds **macOS + Windows** artifacts and attaches them to a GitHub Release.
 
 ---
 
