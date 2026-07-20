@@ -9,6 +9,15 @@ Thanks for helping improve Patroller. Forks, issues, and pull requests are welco
 - Keep secrets and real credentials out of commits (use placeholders in tests and defaults).
 - Match existing Dart / Flutter style and folder layout under `lib/`.
 
+## Testing Flutter apps with Patroller
+
+Patroller is a **runner/workbench**. Flutter apps you open still need full **Patrol native setup**:
+
+- Android: `PatrolJUnitRunner` + `MainActivityTest` instrumentation
+- iOS: **RunnerUITests** target + `RunnerUITests.m` + Test Plan / scheme + Pods
+
+See **[Prepare your Flutter app for Patrol](README.md#-prepare-your-flutter-app-for-patrol)** in the README before filing "tests won't run" issues.
+
 ## Development setup
 
 ```bash
