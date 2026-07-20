@@ -95,7 +95,7 @@ SimulatorDriverReadiness resolveSimulatorDriverReadiness({
     embeddedRecordingReady: true,
     canInspect: false,
     userMessage:
-        'Interact in Simulator.app — taps and swipes are recorded automatically.',
+        'Interact in Simulator.app - taps and swipes are recorded automatically.',
     fixInstruction:
         'Click Record, then use the Simulator window. Patroller maps screen coordinates to the selected device.',
     allowExternalFallback: true,

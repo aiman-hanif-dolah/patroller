@@ -259,7 +259,7 @@ class _FlowEditorViewState extends State<FlowEditorView> {
                 child: _actions.isEmpty
                     ? Center(
                         child: Text(
-                          'No steps — record or insert an assert',
+                          'No steps - record or insert an assert',
                           style: TextStyle(fontSize: 11, color: p.textMuted),
                         ),
                       )

@@ -47,7 +47,7 @@ List<SettingsFieldError> validateAppSettings(AppSettings settings) {
       settings.rightPanelWidth > rightPanelMaxWidth) {
     errors.add(SettingsFieldError(
       'rightPanelWidth',
-      'Right panel width must be $rightPanelMinWidth–$rightPanelMaxWidth.',
+      'Right panel width must be $rightPanelMinWidth-$rightPanelMaxWidth.',
     ));
   }
 
@@ -55,7 +55,7 @@ List<SettingsFieldError> validateAppSettings(AppSettings settings) {
       settings.logsPanelWidth > logsPanelMaxWidth) {
     errors.add(SettingsFieldError(
       'logsPanelWidth',
-      'Logs panel width must be $logsPanelMinWidth–$logsPanelMaxWidth.',
+      'Logs panel width must be $logsPanelMinWidth-$logsPanelMaxWidth.',
     ));
   }
 

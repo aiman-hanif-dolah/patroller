@@ -446,7 +446,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               decoration: InputDecoration(
                 isDense: true,
                 errorText: error,
-                helperText: '$min–$max',
+                helperText: '$min-$max',
                 helperStyle: const TextStyle(fontSize: 10),
               ),
               controller: TextEditingController(text: value),

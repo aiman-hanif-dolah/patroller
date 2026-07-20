@@ -11,7 +11,7 @@ import '../../domain/settings_validation.dart';
 import '../../models/models.dart';
 import '../../providers/settings_provider.dart';
 
-/// Compact bento settings strip — sits under the Logs column so Workspace
+/// Compact bento settings strip - sits under the Logs column so Workspace
 /// keeps full height on the top-right.
 class ControlDeck extends ConsumerStatefulWidget {
   const ControlDeck({super.key});
@@ -131,7 +131,7 @@ class _ControlDeckState extends ConsumerState<ControlDeck> {
     return LayoutBuilder(
       builder: (context, constraints) {
         // During panel resize or collapse animation, skip bento rows entirely
-        // so dropdown/checkbox rows are never laid out at ~45–70px width.
+        // so dropdown/checkbox rows are never laid out at ~45-70px width.
         const contentMinWidth = 200.0;
         final showContent =
             !collapsed && constraints.maxWidth >= contentMinWidth;
@@ -275,7 +275,7 @@ class _ControlDeckState extends ConsumerState<ControlDeck> {
                                             setState(() {
                                               _fieldErrors = {
                                                 ..._fieldErrors,
-                                                'logRetentionCount': '10–1000',
+                                                'logRetentionCount': '10-1000',
                                               };
                                             });
                                           }
@@ -391,7 +391,7 @@ class _ControlDeckState extends ConsumerState<ControlDeck> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        // Row 2: CLI Paths — full width, 2×2 path grid
+                        // Row 2: CLI Paths - full width, 2×2 path grid
                         _BentoTile(
                           title: 'CLI paths',
                           accent: PatrolColors.orange400,
@@ -504,7 +504,7 @@ class _BentoTile extends StatelessWidget {
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.7,
-                  // Theme primary ink — never accent green/amber/violet/orange.
+                  // Theme primary ink - never accent green/amber/violet/orange.
                   color: p.text,
                 ),
               ),

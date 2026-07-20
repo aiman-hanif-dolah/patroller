@@ -24,7 +24,7 @@ verify_app_bundle() {
     return 1
   fi
   if [ -d "$app_path/patroller.app" ] || [ -d "$app_path/Patroller.app" ]; then
-    echo "error: $app_path contains a nested .app bundle — refusing to install"
+    echo "error: $app_path contains a nested .app bundle - refusing to install"
     return 1
   fi
   return 0
@@ -59,7 +59,7 @@ if [ -d "$ROOT/devtools_extension" ]; then
   )
   echo "  DevTools panel → extension/devtools/build"
 else
-  echo "  warn: devtools_extension/ missing — skipping panel build"
+  echo "  warn: devtools_extension/ missing - skipping panel build"
 fi
 
 echo "→ flutter build macos --release"

@@ -115,7 +115,7 @@ Future<void> _replayAction({
         deviceType: deviceType,
       );
     case RecordingActionType.assertVisible:
-      // Studio driver has no semantic assert — skip so Flow Editor asserts
+      // Studio driver has no semantic assert - skip so Flow Editor asserts
       // don't fail native replay. Patrol codegen still emits waitUntilVisible.
       return;
   }

@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Open-source Flutter desktop workbench for <a href="https://patrol.leancode.co">Patrol</a> UI tests</strong><br/>
-  Run, develop, record, and agent-assist Patrol flows — without living in the terminal.
+  Run, develop, record, and agent-assist Patrol flows - without living in the terminal.
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 ## 🎯 Why Patroller?
 
-[Patrol](https://patrol.leancode.co) is excellent for Flutter E2E UI tests — but the day-to-day loop is still heavy: devices, `patrol test` / `patrol develop`, logs, recordings, MCP agents, and health checks scattered across terminals and IDEs.
+[Patrol](https://patrol.leancode.co) is excellent for Flutter E2E UI tests - but the day-to-day loop is still heavy: devices, `patrol test` / `patrol develop`, logs, recordings, MCP agents, and health checks scattered across terminals and IDEs.
 
 **Patroller** is a **native Flutter desktop app** that turns that loop into a visual workbench:
 
@@ -43,24 +43,24 @@
 | Wire MCP for AI agents by hand | Agent workbench installs & binds MCP |
 | Capture a flow as code | Record → export `patrolTest` Dart / flow editor |
 
-Built with **pure Dart process control** — no Electron shell, no WebView tax for the main UI.
+Built with **pure Dart process control** - no Electron shell, no WebView tax for the main UI.
 
 ---
 
 ## ✨ Features
 
-- **Landing & projects** — open Flutter projects, recent list, validation
-- **Test explorer** — search, multi-select, status badges
-- **Runner** — Test / Test All / Develop / Develop All / Stop
-- **Devices** — list, boot, shutdown; simulator-first workflows on macOS
-- **Live logs** — batching, filters, search, failed-log focus, export
-- **Run history** — retained per project
-- **Environment health** — Flutter, Patrol CLI, simctl, paths (FVM-aware)
-- **Recordings** — capture Simulator interactions, replay, export Patrol code
-- **Visual flow editor** — edit steps → generate / run Patrol-oriented flows
-- **Agent workbench** — install Patrol MCP + Marionette MCP on the machine, bind Cursor config, fill agent prompts
-- **DevTools extension** — local HTTP + WebSocket API + panel (`/panel`)
-- **Keyboard shortcuts** — ⌘O open, ⌘R test, ⇧⌘R test all, ⌘D develop, and more
+- **Landing & projects** - open Flutter projects, recent list, validation
+- **Test explorer** - search, multi-select, status badges
+- **Runner** - Test / Test All / Develop / Develop All / Stop
+- **Devices** - list, boot, shutdown; simulator-first workflows on macOS
+- **Live logs** - batching, filters, search, failed-log focus, export
+- **Run history** - retained per project
+- **Environment health** - Flutter, Patrol CLI, simctl, paths (FVM-aware)
+- **Recordings** - capture Simulator interactions, replay, export Patrol code
+- **Visual flow editor** - edit steps → generate / run Patrol-oriented flows
+- **Agent workbench** - install Patrol MCP + Marionette MCP on the machine, bind Cursor config, fill agent prompts
+- **DevTools extension** - local HTTP + WebSocket API + panel (`/panel`)
+- **Keyboard shortcuts** - ⌘O open, ⌘R test, ⇧⌘R test all, ⌘D develop, and more
 
 > Settings and history live under the shared **Patrol Studio** data folder so Electron / Tauri / Flutter editions can coexist:
 > - **macOS:** `~/Library/Application Support/Patrol Studio/`
@@ -195,7 +195,7 @@ extension/devtools/   # Packaged DevTools extension (config + build)
 
 ## 🍴 Fork & contribute
 
-Patroller is **MIT-licensed** and **public** — you are free to fork, modify, and ship your own builds.
+Patroller is **MIT-licensed** and **public** - you are free to fork, modify, and ship your own builds.
 
 ### Fork on GitHub
 
@@ -244,7 +244,7 @@ flutter test
 
 ## 🔗 Related
 
-- [Patrol](https://patrol.leancode.co) — Flutter-first UI testing
+- [Patrol](https://patrol.leancode.co) - Flutter-first UI testing
 - [patrol](https://pub.dev/packages/patrol) / [patrol_cli](https://pub.dev/packages/patrol_cli) on pub.dev
 - LeanCode’s Patrol ecosystem (MCP, finders, docs)
 
@@ -252,7 +252,7 @@ flutter test
 
 ## 📄 License
 
-Released under the **[MIT License](LICENSE)** — free to use, fork, modify, and distribute.
+Released under the **[MIT License](LICENSE)** - free to use, fork, modify, and distribute.
 
 ```
 Copyright (c) 2026 Aiman Hanif

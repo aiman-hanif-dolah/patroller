@@ -1045,7 +1045,7 @@ class _SessionDashboard extends ConsumerWidget {
         _dashboardRow(
           'Health',
           health == null
-              ? '—'
+              ? '-'
               : health == 0
                   ? 'All checks passed'
                   : '$health warning${health == 1 ? '' : 's'}',

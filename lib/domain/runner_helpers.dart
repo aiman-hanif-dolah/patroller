@@ -101,7 +101,7 @@ String? getRunDisabledReason({
   if (!isSelectableDevice(selectedDevice)) {
     return 'Only iOS Simulator is supported';
   }
-  // Not booted is OK — runtime auto-boots via _ensureDevice.
+  // Not booted is OK - runtime auto-boots via _ensureDevice.
   return null;
 }
 
@@ -144,7 +144,7 @@ String? getQueueRunDisabledReason({
   if (!isSelectableDevice(selectedDevice)) {
     return 'Only iOS Simulator is supported';
   }
-  // Not booted is OK — runtime auto-boots via _ensureDevice.
+  // Not booted is OK - runtime auto-boots via _ensureDevice.
   return null;
 }
 
@@ -261,19 +261,19 @@ String? sessionCompletionSnackbarMessage({
   switch (runMode) {
     case RunMode.test:
       return switch (status) {
-        RunRecordStatus.passed => 'Test finished — all tests passed',
+        RunRecordStatus.passed => 'Test finished - all tests passed',
         RunRecordStatus.failed || RunRecordStatus.error =>
-          'Test finished — failed',
+          'Test finished - failed',
         _ => null,
       };
     case RunMode.develop:
       if (allTestsExecutedSeen || status == RunRecordStatus.passed) {
-        return 'Develop session finished — all tests executed';
+        return 'Develop session finished - all tests executed';
       }
       return null;
     case RunMode.developSuite:
       if (allTestsExecutedSeen || status == RunRecordStatus.passed) {
-        return 'Develop All finished — all tests executed';
+        return 'Develop All finished - all tests executed';
       }
       return null;
     case RunMode.fullSuite:

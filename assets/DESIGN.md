@@ -1,68 +1,68 @@
-# ClickUp™ — Style Reference
+# ClickUp™ - Style Reference
 > Hardworking dashboard on white marble. The page is a product brochure for a productivity tool, so the visual language borrows from the product itself: dense lists, status pills, avatar clusters, and bold typographic claims that read like a product spec sheet at exhibition scale.
 
 **Theme:** light
 
-ClickUp speaks in a sharp, high-contrast productivity dialect: a white canvas where oversized bold headlines (52-80px, weight 650-800, tracking pulled to -0.04em) collide with compact 14px button labels and a black filled CTA. The signature move is the 9999px pill — chips, tags, nav items, and badges all share one relentless full-radius curve, giving the interface a soft, rounded personality against otherwise hard typographic weight. Color is used surgically: a single vivid purple (#6647f0) stamps brand identity, blue (#0091ff) handles interactive links, and the rest of the system is pure grayscale. Rotating conic-gradient borders animate around hero elements, the only moment the page lets its hair down. The product UI screenshot on the right of the hero anchors the brand: real, dense, working software — not abstract gradients or stock illustration.
+ClickUp speaks in a sharp, high-contrast productivity dialect: a white canvas where oversized bold headlines (52-80px, weight 650-800, tracking pulled to -0.04em) collide with compact 14px button labels and a black filled CTA. The signature move is the 9999px pill - chips, tags, nav items, and badges all share one relentless full-radius curve, giving the interface a soft, rounded personality against otherwise hard typographic weight. Color is used surgically: a single vivid purple (#6647f0) stamps brand identity, blue (#0091ff) handles interactive links, and the rest of the system is pure grayscale. Rotating conic-gradient borders animate around hero elements, the only moment the page lets its hair down. The product UI screenshot on the right of the hero anchors the brand: real, dense, working software - not abstract gradients or stock illustration.
 
-## Tokens — Colors
+## Tokens - Colors
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
-| Signal White | `#ffffff` | `--color-signal-white` | Page background, card surfaces, button fills — the default canvas against which every other color is placed |
-| Ink Black | `#202020` | `--color-ink-black` | Primary action fills, headline text, filled CTA buttons — near-black at 12.9:1 on white for confident authority without pure #000 harshness |
-| Onyx | `#090c1d` | `--color-onyx` | Headlines at maximum scale (48-80px display) — the deepest near-black with a barely perceptible cool tint |
-| Carbon | `#2a2a2a` | `--color-carbon` | Card borders, button text on light fills, section dividers — the workhorse dark neutral for structural elements |
-| Slate | `#646464` | `--color-slate` | Body text secondary, link text, nav labels, icon fills — carries the 153-occurrence body copy load |
-| Ash | `#838383` | `--color-ash` | Tertiary text, muted nav, meta labels, disabled states — recedes into the background hierarchy |
-| Fog | `#b3b3b3` | `--color-fog` | Card borders at low contrast, subtle dividers, placeholder accents — the lightest border that still reads on white |
-| Cloud | `#d4d4d4` | `--color-cloud` | Hairline borders, dashed dividers, input outlines — appears 49× as borderColor |
+| Signal White | `#ffffff` | `--color-signal-white` | Page background, card surfaces, button fills - the default canvas against which every other color is placed |
+| Ink Black | `#202020` | `--color-ink-black` | Primary action fills, headline text, filled CTA buttons - near-black at 12.9:1 on white for confident authority without pure #000 harshness |
+| Onyx | `#090c1d` | `--color-onyx` | Headlines at maximum scale (48-80px display) - the deepest near-black with a barely perceptible cool tint |
+| Carbon | `#2a2a2a` | `--color-carbon` | Card borders, button text on light fills, section dividers - the workhorse dark neutral for structural elements |
+| Slate | `#646464` | `--color-slate` | Body text secondary, link text, nav labels, icon fills - carries the 153-occurrence body copy load |
+| Ash | `#838383` | `--color-ash` | Tertiary text, muted nav, meta labels, disabled states - recedes into the background hierarchy |
+| Fog | `#b3b3b3` | `--color-fog` | Card borders at low contrast, subtle dividers, placeholder accents - the lightest border that still reads on white |
+| Cloud | `#d4d4d4` | `--color-cloud` | Hairline borders, dashed dividers, input outlines - appears 49× as borderColor |
 | Bone | `#e8e8e8` | `--color-bone` | Default border color (88× in buttons), the most-used border tone in the system |
 | Mist | `#f8f9fa` | `--color-mist` | Light neutral action fill for buttons on dark surfaces. |
-| Plaster | `#e9ebf0` | `--color-plaster` | Body section background band — appears 500×, the large neutral that breaks white sections |
-| Mercury | `#eeeeee` | `--color-mercury` | Badge text, card accents, neutral chip backgrounds — soft contrast for non-interactive surfaces |
+| Plaster | `#e9ebf0` | `--color-plaster` | Body section background band - appears 500×, the large neutral that breaks white sections |
+| Mercury | `#eeeeee` | `--color-mercury` | Badge text, card accents, neutral chip backgrounds - soft contrast for non-interactive surfaces |
 | Brand Violet | `#6647f0` | `--color-brand-violet` | Violet state accent for badges, validation surfaces, and short status labels. |
 | Signal Blue | `#0091ff` | `--color-signal-blue` | Blue accent for outlined action borders, linked labels, and lightweight interactive emphasis. Do not promote it to the primary CTA color |
 | Mint | `#6ee7b7` | `--color-mint` | Green text accent for links, tags, and emphasized short phrases |
 | Emerald | `#00c07a` | `--color-emerald` | Green outline accent for tags, dividers, and focused UI edges |
 | Teal Tag | `#16c0a4` | `--color-teal-tag` | Teal state accent for badges, validation surfaces, and short status labels. |
-| Rainbow Conic | `conic-gradient(from 90deg, rgb(125, 91, 231) 19%, rgb(188, 63, 218) 28%, rgb(250, 36, 206) 37%, rgb(251, 73, 165) 45%, rgb(252, 109, 123) 52%, rgb(253, 132, 97) 55%, rgb(253, 154, 70) 58%, rgb(246, 135, 198) 65%, rgb(163, 160, 224) 80%, rgb(79, 185, 250) 95%, rgb(0, 145, 255) 100%)` | `--color-rainbow-conic` | Animated conic-gradient border rotating around hero CTAs and Brain² element — the brand's most expressive moment |
-| Primary Gradient | `linear-gradient(83deg,rgba(64,221,255) -5%,rgba(118,18,250) 51%,rgba(250,18,227) 125%)` | `--color-primary-gradient` | Cyan-to-magenta linear gradient for premium brand moments, 83deg angle — the system gradient for hero text and premium badges |
-| Dark Fade | `linear-gradient(rgb(17, 17, 17) 24%, rgb(0, 0, 0))` | `--color-dark-fade` | Section-level dark gradient from charcoal to true black — used on dark feature panels |
+| Rainbow Conic | `conic-gradient(from 90deg, rgb(125, 91, 231) 19%, rgb(188, 63, 218) 28%, rgb(250, 36, 206) 37%, rgb(251, 73, 165) 45%, rgb(252, 109, 123) 52%, rgb(253, 132, 97) 55%, rgb(253, 154, 70) 58%, rgb(246, 135, 198) 65%, rgb(163, 160, 224) 80%, rgb(79, 185, 250) 95%, rgb(0, 145, 255) 100%)` | `--color-rainbow-conic` | Animated conic-gradient border rotating around hero CTAs and Brain² element - the brand's most expressive moment |
+| Primary Gradient | `linear-gradient(83deg,rgba(64,221,255) -5%,rgba(118,18,250) 51%,rgba(250,18,227) 125%)` | `--color-primary-gradient` | Cyan-to-magenta linear gradient for premium brand moments, 83deg angle - the system gradient for hero text and premium badges |
+| Dark Fade | `linear-gradient(rgb(17, 17, 17) 24%, rgb(0, 0, 0))` | `--color-dark-fade` | Section-level dark gradient from charcoal to true black - used on dark feature panels |
 
-## Tokens — Typography
+## Tokens - Typography
 
-### Plus Jakarta Sans — Primary brand typeface — handles all display headings (48-80px at weight 650-800, tracking -0.04em), body copy (16px/400), and button labels (14px/700). The geometric humanist proportions give headlines a confident, modern stance. Weight 800 at 42px for ultra-bold emphasis. Substitute: Inter or General Sans if unavailable. · `--font-plus-jakarta-sans`
+### Plus Jakarta Sans - Primary brand typeface - handles all display headings (48-80px at weight 650-800, tracking -0.04em), body copy (16px/400), and button labels (14px/700). The geometric humanist proportions give headlines a confident, modern stance. Weight 800 at 42px for ultra-bold emphasis. Substitute: Inter or General Sans if unavailable. · `--font-plus-jakarta-sans`
 - **Substitute:** Inter
 - **Weights:** 400, 500, 600, 650, 700, 800
 - **Sizes:** 14, 16, 34, 42, 48, 52, 60, 80
-- **Line height:** 1.05–1.50
+- **Line height:** 1.05-1.50
 - **Letter spacing:** -0.0400em at 80px/52px, -0.0350em at 60px/48px, -0.0230em at 34px, normal at 16px body
 - **OpenType features:** `"calt" 0`
-- **Role:** Primary brand typeface — handles all display headings (48-80px at weight 650-800, tracking -0.04em), body copy (16px/400), and button labels (14px/700). The geometric humanist proportions give headlines a confident, modern stance. Weight 800 at 42px for ultra-bold emphasis. Substitute: Inter or General Sans if unavailable.
+- **Role:** Primary brand typeface - handles all display headings (48-80px at weight 650-800, tracking -0.04em), body copy (16px/400), and button labels (14px/700). The geometric humanist proportions give headlines a confident, modern stance. Weight 800 at 42px for ultra-bold emphasis. Substitute: Inter or General Sans if unavailable.
 
-### Inter — Secondary workhorse for supporting copy, body text in cards, captions, and micro-labels (8-24px). Used where Plus Jakarta would be too heavy or where extra x-height clarity is needed. Substitute: system-ui. · `--font-inter`
+### Inter - Secondary workhorse for supporting copy, body text in cards, captions, and micro-labels (8-24px). Used where Plus Jakarta would be too heavy or where extra x-height clarity is needed. Substitute: system-ui. · `--font-inter`
 - **Substitute:** system-ui
 - **Weights:** 400, 500, 600, 650, 700
 - **Sizes:** 8, 12, 14, 15, 16, 17, 18, 19, 20, 24
-- **Line height:** 0.90–1.57
+- **Line height:** 0.90-1.57
 - **Letter spacing:** -0.0260em at 24px, -0.0200em at 20px, -0.0140em at 18px, -0.0100em at 16px, -0.0080em at 8px
 - **OpenType features:** `"calt" 0, "clig" 0, "liga" 0`
 - **Role:** Secondary workhorse for supporting copy, body text in cards, captions, and micro-labels (8-24px). Used where Plus Jakarta would be too heavy or where extra x-height clarity is needed. Substitute: system-ui.
 
-### Sometype Mono — Monospaced accent for 'status' labels, feature tags, code-like annotations, and the 10px tracking-wide uppercase meta labels (ls=0.0600-0.0800em). Brings a technical, almost developer-tool personality. Substitute: JetBrains Mono or IBM Plex Mono. · `--font-sometype-mono`
+### Sometype Mono - Monospaced accent for 'status' labels, feature tags, code-like annotations, and the 10px tracking-wide uppercase meta labels (ls=0.0600-0.0800em). Brings a technical, almost developer-tool personality. Substitute: JetBrains Mono or IBM Plex Mono. · `--font-sometype-mono`
 - **Substitute:** JetBrains Mono
 - **Weights:** 400, 500
 - **Sizes:** 10, 12, 14, 16, 40
-- **Line height:** 1.10–2.00
+- **Line height:** 1.10-2.00
 - **Letter spacing:** 0.0600em at 12px uppercase, 0.0800em at 10px uppercase, -0.0080em at body sizes
 - **Role:** Monospaced accent for 'status' labels, feature tags, code-like annotations, and the 10px tracking-wide uppercase meta labels (ls=0.0600-0.0800em). Brings a technical, almost developer-tool personality. Substitute: JetBrains Mono or IBM Plex Mono.
 
-### SF Pro — SF Pro — detected in extracted data but not described by AI · `--font-sf-pro`
+### SF Pro - SF Pro - detected in extracted data but not described by AI · `--font-sf-pro`
 - **Weights:** 500, 590
 - **Sizes:** 12px
 - **Line height:** 1.5
-- **Role:** SF Pro — detected in extracted data but not described by AI
+- **Role:** SF Pro - detected in extracted data but not described by AI
 
 ### Type Scale
 
@@ -76,7 +76,7 @@ ClickUp speaks in a sharp, high-contrast productivity dialect: a white canvas wh
 | heading-lg | 60px | 1.1 | -0.035px | `--text-heading-lg` |
 | display | 80px | 1.2 | -0.04px | `--text-display` |
 
-## Tokens — Spacing & Shapes
+## Tokens - Spacing & Shapes
 
 **Base unit:** 4px
 
@@ -138,7 +138,7 @@ ClickUp speaks in a sharp, high-contrast productivity dialect: a white canvas wh
 ## Components
 
 ### Filled Dark CTA Button
-**Role:** Primary action — the most important button on any page
+**Role:** Primary action - the most important button on any page
 
 Background #202020, text #ffffff at 14px Plus Jakarta Sans weight 700, border-radius 9999px (fully pill-shaped), padding 12px 24px, no border. Single solid color, no shadow. Used for 'Get started. It's FREE!', 'Sign Up' in header.
 
@@ -158,7 +158,7 @@ Background rgba(0,0,0,0.04) hover, text #2a2a2a at 14-16px, border-radius 9999px
 Background transparent or #f8f9fa, text #202020 or #0091ff at 14px weight 700, border-radius 9999px, padding 8px 16px, no border or 1px #e8e8e8. The blue-text variant indicates the currently active or highlighted tag.
 
 ### Product Screenshot Card
-**Role:** Hero image container — the product UI screenshot on the right side of the hero
+**Role:** Hero image container - the product UI screenshot on the right side of the hero
 
 No background fill, border-radius 12px, no shadow, the screenshot sits on the white canvas with breathing room. Padding 0 (screenshot is the content). 16-32px corner radius on screenshot itself.
 
@@ -205,33 +205,33 @@ Pill-shaped with border-radius 9999px, small text 10-12px weight 600, colored ba
 ## Do's and Don'ts
 
 ### Do
-- Use Plus Jakarta Sans at weight 650-800 for any display text 34px or larger — the heavy weight with tight tracking is the brand's typographic signature
-- Default all buttons, tags, and badges to border-radius 9999px — the fully-pill curve is the system's most consistent geometric choice
-- Use #202020 (not pure #000) for filled CTA buttons and headline text — the slight softness reads more premium than absolute black
-- Apply -0.04em letter-spacing to all display text 48px+ — the aggressive negative tracking is what makes the headlines feel confident rather than shy
-- Use #6647f0 purple exclusively for brand identity moments (badges, Brain² tags, brand icon) — never as a primary action fill
+- Use Plus Jakarta Sans at weight 650-800 for any display text 34px or larger - the heavy weight with tight tracking is the brand's typographic signature
+- Default all buttons, tags, and badges to border-radius 9999px - the fully-pill curve is the system's most consistent geometric choice
+- Use #202020 (not pure #000) for filled CTA buttons and headline text - the slight softness reads more premium than absolute black
+- Apply -0.04em letter-spacing to all display text 48px+ - the aggressive negative tracking is what makes the headlines feel confident rather than shy
+- Use #6647f0 purple exclusively for brand identity moments (badges, Brain² tags, brand icon) - never as a primary action fill
 - Maintain a 4px spacing base unit; snap all padding and margin values to multiples of 4
-- Use 1px solid #e8e8e8 as the default border — 88 occurrences in buttons make it the structural baseline
-- Add the rotating conic-gradient border to one hero element per page — restraint keeps the rainbow effect from becoming visual noise
+- Use 1px solid #e8e8e8 as the default border - 88 occurrences in buttons make it the structural baseline
+- Add the rotating conic-gradient border to one hero element per page - restraint keeps the rainbow effect from becoming visual noise
 
 ### Don't
-- Don't use #000000 for large text fills or backgrounds — use #202020 (Ink Black) or #090c1d (Onyx) instead for softer contrast
-- Don't mix multiple border-radius values on the same component level — if buttons are 9999px, every button stays 9999px
-- Don't use Plus Jakarta Sans below 14px — it gets too geometric for small text; switch to Inter for body-sm and caption roles
-- Don't apply the brand purple #6647f0 to primary CTA buttons — it appears only on badges and brand marks
-- Don't stack more than two surface elevation levels in a single section — the system relies on flat hierarchy, not deep shadow stacking
-- Don't use letter-spacing wider than 0 for any body text — positive tracking appears only on uppercase mono labels
-- Don't use Inter as a display font — it lacks the geometric authority of Plus Jakarta Sans at large sizes
-- Don't add decorative gradients to cards or section backgrounds — gradients belong only in the conic border animation and hero text
+- Don't use #000000 for large text fills or backgrounds - use #202020 (Ink Black) or #090c1d (Onyx) instead for softer contrast
+- Don't mix multiple border-radius values on the same component level - if buttons are 9999px, every button stays 9999px
+- Don't use Plus Jakarta Sans below 14px - it gets too geometric for small text; switch to Inter for body-sm and caption roles
+- Don't apply the brand purple #6647f0 to primary CTA buttons - it appears only on badges and brand marks
+- Don't stack more than two surface elevation levels in a single section - the system relies on flat hierarchy, not deep shadow stacking
+- Don't use letter-spacing wider than 0 for any body text - positive tracking appears only on uppercase mono labels
+- Don't use Inter as a display font - it lacks the geometric authority of Plus Jakarta Sans at large sizes
+- Don't add decorative gradients to cards or section backgrounds - gradients belong only in the conic border animation and hero text
 
 ## Surfaces
 
 | Level | Name | Value | Purpose |
 |-------|------|-------|---------|
-| 1 | Canvas | `#ffffff` | Page background — the default surface for 95% of the page |
+| 1 | Canvas | `#ffffff` | Page background - the default surface for 95% of the page |
 | 2 | Card | `#f8f9fa` | Elevated card surface, subtle off-white for content blocks and secondary panels |
 | 3 | Section Band | `#e9ebf0` | Large alternating section background to break white rhythm (appears 500× as body bg) |
-| 4 | Dark Panel | `#111111` | Dark feature sections for contrast — gradient-faded from charcoal to true black |
+| 4 | Dark Panel | `#111111` | Dark feature sections for contrast - gradient-faded from charcoal to true black |
 | 5 | Ink Surface | `#000000` | Product screenshot context and deep-contrast feature cards |
 
 ## Elevation
@@ -240,7 +240,7 @@ The system treats elevation as negative space rather than positive shadow. Cards
 
 ## Imagery
 
-The page is UI-screenshot-dominant, not photo-dominant. The hero features a real product UI screenshot of the ClickUp app (sidebar nav, inbox, task list with status pills and avatar clusters) rendered at large scale. Secondary visuals include: G2 award badge grid (grayscale with red G2 logos), logo strip for 'trusted by' (Amazon, NVIDIA, Wayfair, Verizon, Spotify, Stanford — all rendered flat in grayscale), and abstract decorative elements made of gray swirling line-art (the 'context loss' illustration uses tangled gray ribbons with floating app icons). Photography is essentially absent. The visual language is: show the product, show the awards, show the logos — no stock lifestyle photography, no hero videos. Icons are colorful and flat in the product UI (red, blue, green, purple app icons) but rendered in single-tone grayscale in decorative contexts.
+The page is UI-screenshot-dominant, not photo-dominant. The hero features a real product UI screenshot of the ClickUp app (sidebar nav, inbox, task list with status pills and avatar clusters) rendered at large scale. Secondary visuals include: G2 award badge grid (grayscale with red G2 logos), logo strip for 'trusted by' (Amazon, NVIDIA, Wayfair, Verizon, Spotify, Stanford - all rendered flat in grayscale), and abstract decorative elements made of gray swirling line-art (the 'context loss' illustration uses tangled gray ribbons with floating app icons). Photography is essentially absent. The visual language is: show the product, show the awards, show the logos - no stock lifestyle photography, no hero videos. Icons are colorful and flat in the product UI (red, blue, green, purple app icons) but rendered in single-tone grayscale in decorative contexts.
 
 ## Layout
 
@@ -252,7 +252,7 @@ Max-width 1200px centered, no sidebar. Hero is a 2-column split: left column hol
 - Text: #202020 (primary), #646464 (secondary), #838383 (tertiary)
 - Background: #ffffff (canvas), #f8f9fa (card), #e9ebf0 (section band)
 - Border: #e8e8e8 (default), #d4d4d4 (hairline), #0091ff (interactive accent)
-- Brand: #6647f0 (purple — badges, brand identity only)
+- Brand: #6647f0 (purple - badges, brand identity only)
 - primary action: #202020 (filled action)
 
 **3 Example Component Prompts**
@@ -266,22 +266,22 @@ Max-width 1200px centered, no sidebar. Hero is a 2-column split: left column hol
 
 Two gradient families serve distinct purposes:
 
-**1. Conic Gradients — Animation**: Used exclusively for the rotating border effect on hero CTAs and the Brain² element. The signature 11-stop conic (violet → magenta → pink → orange → cyan → blue) rotates at 0.45s linear infinite, creating a rainbow chase. This is the brand's most expressive visual moment and should appear at most once per page section.
+**1. Conic Gradients - Animation**: Used exclusively for the rotating border effect on hero CTAs and the Brain² element. The signature 11-stop conic (violet → magenta → pink → orange → cyan → blue) rotates at 0.45s linear infinite, creating a rainbow chase. This is the brand's most expressive visual moment and should appear at most once per page section.
 
-**2. Linear Gradients — Static Brand**: The 83deg cyan-to-magenta primary gradient (#40ddff → #7612fa → #fa18e3) is used for premium text treatments and the 'Brain²' wordmark. The 97deg dark-to-gray gradient (#202020 → #8f8f8f) is used on premium badges and feature highlights.
+**2. Linear Gradients - Static Brand**: The 83deg cyan-to-magenta primary gradient (#40ddff → #7612fa → #fa18e3) is used for premium text treatments and the 'Brain²' wordmark. The 97deg dark-to-gray gradient (#202020 → #8f8f8f) is used on premium badges and feature highlights.
 
-**3. Dark Fades**: linear-gradient(#111111 24%, #000000) creates the 'abyss' effect on dark feature panels — a subtle 3-stop fade from charcoal to true black that adds depth without a flat black surface.
+**3. Dark Fades**: linear-gradient(#111111 24%, #000000) creates the 'abyss' effect on dark feature panels - a subtle 3-stop fade from charcoal to true black that adds depth without a flat black surface.
 
 ## Motion Philosophy
 
-Motion is expressive but constrained. The dominant duration is 0.45s (1000 occurrences) with a cubic-bezier(0.33, 1, 0.68, 1) ease — a slow-out curve that feels like content settling into place. Secondary durations are 0.25s and 0.3s for state changes. The hero conic gradient rotates at 0.45s linear, creating constant motion that draws the eye to the single brand-significant CTA. Hover transitions use 0.15s for instant feedback. Named animations (Brain2MemoryVisual, ContextCardVisual, HomeHero4o) all involve border-pulse or rainbow-rotation effects tied to the conic gradient system. The principle: one dramatic continuous animation per viewport, everything else settles with soft ease-out.
+Motion is expressive but constrained. The dominant duration is 0.45s (1000 occurrences) with a cubic-bezier(0.33, 1, 0.68, 1) ease - a slow-out curve that feels like content settling into place. Secondary durations are 0.25s and 0.3s for state changes. The hero conic gradient rotates at 0.45s linear, creating constant motion that draws the eye to the single brand-significant CTA. Hover transitions use 0.15s for instant feedback. Named animations (Brain2MemoryVisual, ContextCardVisual, HomeHero4o) all involve border-pulse or rainbow-rotation effects tied to the conic gradient system. The principle: one dramatic continuous animation per viewport, everything else settles with soft ease-out.
 
 ## Similar Brands
 
-- **Linear** — Same tight typographic discipline with display headlines at 48-80px, negative letter-spacing, monochrome canvas with a single brand accent (purple vs Linear's violet), and 9999px pill buttons for primary actions
-- **Notion** — Shared compact density, 4px spacing base, and a flat UI philosophy that relies on hairlines and whitespace instead of heavy shadows; both use a near-black for primary CTAs and reserve color for badges and tags
-- **Vercel** — Similar treatment of black/white/grayscale as the primary palette, with vivid color appearing only in decorative gradient borders; both use a custom geometric sans for display and rely on real product screenshots in hero sections
-- **Webflow** — Comparable use of a conic-gradient rainbow border as the signature brand element, 9999px pills throughout the component system, and product-screenshot-driven hero layouts with bold oversized headlines
+- **Linear** - Same tight typographic discipline with display headlines at 48-80px, negative letter-spacing, monochrome canvas with a single brand accent (purple vs Linear's violet), and 9999px pill buttons for primary actions
+- **Notion** - Shared compact density, 4px spacing base, and a flat UI philosophy that relies on hairlines and whitespace instead of heavy shadows; both use a near-black for primary CTAs and reserve color for badges and tags
+- **Vercel** - Similar treatment of black/white/grayscale as the primary palette, with vivid color appearing only in decorative gradient borders; both use a custom geometric sans for display and rely on real product screenshots in hero sections
+- **Webflow** - Comparable use of a conic-gradient rainbow border as the signature brand element, 9999px pills throughout the component system, and product-screenshot-driven hero layouts with bold oversized headlines
 
 ## Quick Start
 
@@ -314,13 +314,13 @@ Motion is expressive but constrained. The dominant duration is 0.45s (1000 occur
   --color-dark-fade: #111111;
   --gradient-dark-fade: linear-gradient(rgb(17, 17, 17) 24%, rgb(0, 0, 0));
 
-  /* Typography — Font Families */
+  /* Typography - Font Families */
   --font-plus-jakarta-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-sometype-mono: 'Sometype Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-sf-pro: 'SF Pro', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
-  /* Typography — Scale */
+  /* Typography - Scale */
   --text-body-sm: 14px;
   --leading-body-sm: 1.5;
   --tracking-body-sm: -0.01px;
@@ -343,7 +343,7 @@ Motion is expressive but constrained. The dominant duration is 0.45s (1000 occur
   --leading-display: 1.2;
   --tracking-display: -0.04px;
 
-  /* Typography — Weights */
+  /* Typography - Weights */
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-w590: 590;
@@ -454,7 +454,7 @@ Motion is expressive but constrained. The dominant duration is 0.45s (1000 occur
   --font-sometype-mono: 'Sometype Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-sf-pro: 'SF Pro', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
-  /* Typography — Scale */
+  /* Typography - Scale */
   --text-body-sm: 14px;
   --leading-body-sm: 1.5;
   --tracking-body-sm: -0.01px;

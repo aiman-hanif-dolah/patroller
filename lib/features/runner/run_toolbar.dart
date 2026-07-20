@@ -101,7 +101,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
             (health.warningCount ?? 0) > 0) ||
         health.state == HealthCheckState.stale;
 
-    // Multi-select is summarized by Test All badge only — a single
+    // Multi-select is summarized by Test All badge only - a single
     // "Selected file" chip is misleading when more than one file is checked.
     final runningFileLabel = isRunning && activeRunFile != null
         ? middleTruncate(activeRunFile.fileName, 28)
@@ -120,7 +120,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
       ),
       child: Row(
         children: [
-          // Brand cluster — fixed width, project name ellipsizes.
+          // Brand cluster - fixed width, project name ellipsizes.
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [

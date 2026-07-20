@@ -12,7 +12,7 @@ abstract final class PatrolTheme {
         systemOverlayStyle: SystemUiOverlayStyle.dark,
       );
 
-  /// Zinc dark companion — polished macOS-style dark app chrome.
+  /// Zinc dark companion - polished macOS-style dark app chrome.
   static ThemeData dark() => _build(
         brightness: Brightness.dark,
         palette: PatrolPalette.dark,

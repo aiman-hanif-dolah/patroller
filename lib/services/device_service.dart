@@ -50,7 +50,7 @@ class DeviceService {
     if (simResult.error != null) errors.add(simResult.error!);
 
     final flutterDevices = flutterResult.devices;
-    // Flutter scan is enrichment only — don't fail the whole list on it
+    // Flutter scan is enrichment only - don't fail the whole list on it
     // when simctl already returned devices.
     if (flutterResult.error != null && simulators.isEmpty) {
       errors.add(flutterResult.error!);
@@ -130,7 +130,7 @@ class DeviceService {
     if (result.exitCode != 0) {
       final stderr = '${result.stderr}'.trim();
       // simctl returns a non-zero exit (often 405) when the device is already
-      // Booted — treat that as an idempotent success.
+      // Booted - treat that as an idempotent success.
       if (_isAlreadyBootedError(stderr)) {
         return 'Simulator already booted';
       }
@@ -171,7 +171,7 @@ class DeviceService {
     try {
       final result = await Process.run(
         flutter,
-        // Skip wireless discovery — LAN probes hang and block device UX.
+        // Skip wireless discovery - LAN probes hang and block device UX.
         [
           'devices',
           '--machine',

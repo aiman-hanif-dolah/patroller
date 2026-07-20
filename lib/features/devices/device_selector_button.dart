@@ -21,13 +21,13 @@ class DeviceSelectorButton extends ConsumerWidget {
     final device = ref.watch(runnerProvider.select((s) => s.selectedDevice));
     final hasDevice = device != null;
     final booted = device?.state == DeviceState.booted;
-    // Status color lives on the adjacent PatrolStatusDot — keep label/icon white.
+    // Status color lives on the adjacent PatrolStatusDot - keep label/icon white.
     final labelColor = hasDevice ? p.text : PatrolColors.ember;
 
     return Tooltip(
       message: hasDevice
-          ? '${device.name} · ${device.state?.name ?? 'unknown'} — click to change'
-          : 'No simulator selected — click to pick one',
+          ? '${device.name} · ${device.state?.name ?? 'unknown'} - click to change'
+          : 'No simulator selected - click to pick one',
       child: Material(
         color: p.surfaceMuted,
         borderRadius: BorderRadius.circular(PatrolRadius.chip),

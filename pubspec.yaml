@@ -1,5 +1,5 @@
 name: patroller
-description: Patroller — Flutter desktop visual runner for Flutter Patrol tests (macOS & Windows).
+description: Patroller - Flutter desktop visual runner for Flutter Patrol tests (macOS & Windows).
 publish_to: 'none'
 version: 1.0.0+2
 

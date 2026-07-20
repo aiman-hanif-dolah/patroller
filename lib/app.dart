@@ -21,7 +21,7 @@ class PatrollerApp extends ConsumerWidget {
     final activeView = ref.watch(appProvider).activeView;
 
     // Extension server lifecycle is owned by settingsProvider
-    // (_applyExtensionServer). Do not start it here — that orphans servers.
+    // (_applyExtensionServer). Do not start it here - that orphans servers.
 
     return MaterialApp(
       title: 'Patroller',

@@ -79,7 +79,7 @@ class PatrolStudioFacade {
   final SimulatorDriverService _simulatorDriver;
   final ExternalRecordingService _externalRecording;
   /// Single owner of the extension HTTP server. Never replace this with a new
-  /// manager without stopping the previous one — that orphans the HttpServer.
+  /// manager without stopping the previous one - that orphans the HttpServer.
   PatrollerExtensionManager? extension;
 
   SimulatorDriverService get simulatorDriver => _simulatorDriver;
@@ -101,7 +101,7 @@ class PatrolStudioFacade {
   /// Starts the local DevTools extension server (idempotent).
   ///
   /// Owned exclusively by [extension]. Callers (settings, DevTools panel)
-  /// must use this method — do not construct [PatrollerExtensionManager]
+  /// must use this method - do not construct [PatrollerExtensionManager]
   /// elsewhere.
   Future<void> startExtensionServer({int port = 8771}) async {
     extension ??= PatrollerExtensionManager(this, port: port);

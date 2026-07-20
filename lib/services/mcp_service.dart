@@ -201,7 +201,7 @@ class McpService {
         id: 'cursor_dir',
         label: 'Cursor config dir',
         ok: cursorDir != null,
-        detail: cursorDir ?? 'HOME not set — cannot write ~/.cursor/mcp.json',
+        detail: cursorDir ?? 'HOME not set - cannot write ~/.cursor/mcp.json',
         fixHint: 'Ensure HOME is set so Patroller can write MCP config',
       ),
     );
@@ -330,7 +330,7 @@ class McpService {
     return results;
   }
 
-  /// `dart pub global activate <package>` — machine-wide, never project-local.
+  /// `dart pub global activate <package>` - machine-wide, never project-local.
   Future<McpInstallResult> activatePackage(String package) async {
     final dart = resolveExecutable('dart');
     try {
@@ -428,7 +428,7 @@ class McpService {
     final dart = resolveExecutable('dart');
     final flutter = resolveExecutable('flutter');
 
-    // Use the resolved dart binary directly — never `fvm dart` here.
+    // Use the resolved dart binary directly - never `fvm dart` here.
     // FVM can prompt interactively (version cache mismatches), which hangs
     // Cursor's stdio MCP transport and breaks Patrol MCP discovery.
     final wrapper = buildPatrolWrapperScript(
@@ -747,7 +747,7 @@ exec "$dartExecutable" pub global run patrol_mcp:patrol_mcp "\$@"
   }) async {
     final cursorDir = _cursorDir();
     if (cursorDir == null) {
-      throw StateError('HOME not set — cannot write agent prompt');
+      throw StateError('HOME not set - cannot write agent prompt');
     }
     final dir = Directory(p.join(cursorDir, 'patroller-prompts'));
     if (!dir.existsSync()) {

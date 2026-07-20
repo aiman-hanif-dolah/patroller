@@ -148,7 +148,7 @@ String renderAgentPrompt(AgentPromptId id, AgentPromptContext context) {
 
 String _marionetteCoverageExplorationPrompt(AgentPromptContext c) {
   final flavorNote = c.flavorArgs.trim().isEmpty
-      ? '(no flavor flag — add one if this app requires it)'
+      ? '(no flavor flag - add one if this app requires it)'
       : c.flavorArgs.trim();
 
   return '''

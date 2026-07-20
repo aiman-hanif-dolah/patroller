@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Patroller design tokens — ClickUp light system + zinc dark companion.
+/// Patroller design tokens - ClickUp light system + zinc dark companion.
 ///
 /// Structural / surface colors for light live here as constants.
 /// Prefer [PatrolPalette.of] in widgets so light and dark stay in sync.
@@ -252,7 +252,7 @@ abstract final class PatrolGradients {
     colors: [PatrolColors.amberBright, PatrolColors.amber],
   );
 
-  /// Soft top sheen for light cards — nearly invisible flat hierarchy.
+  /// Soft top sheen for light cards - nearly invisible flat hierarchy.
   static const panelSheen = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,

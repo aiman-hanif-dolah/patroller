@@ -168,7 +168,7 @@ void main() {
           status: RunRecordStatus.running,
           allTestsExecutedSeen: true,
         ),
-        'Develop session finished — all tests executed',
+        'Develop session finished - all tests executed',
       );
     });
 
@@ -179,7 +179,7 @@ void main() {
           status: RunRecordStatus.passed,
           allTestsExecutedSeen: false,
         ),
-        'Test finished — all tests passed',
+        'Test finished - all tests passed',
       );
     });
 

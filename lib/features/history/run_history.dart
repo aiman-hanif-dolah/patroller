@@ -203,7 +203,7 @@ class _RunHistoryState extends ConsumerState<RunHistory> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
-                                    '${record.status.name} · ${record.runMode.toJson()} · ${record.durationMs != null ? '${(record.durationMs! / 1000).toStringAsFixed(1)}s' : '—'}',
+                                    '${record.status.name} · ${record.runMode.toJson()} · ${record.durationMs != null ? '${(record.durationMs! / 1000).toStringAsFixed(1)}s' : '-'}',
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: p.textMuted,

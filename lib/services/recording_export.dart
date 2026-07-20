@@ -198,7 +198,7 @@ List<String> _actionToPatrol(
       final label = (action.targetLabel ?? action.text ?? '').trim();
       if (label.isEmpty) {
         lines.add(
-          "    // assertVisible skipped — empty finder label",
+          "    // assertVisible skipped - empty finder label",
         );
       } else {
         lines.add(

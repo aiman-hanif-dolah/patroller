@@ -9,7 +9,7 @@ void main() {
         embeddedRecordingReady: false,
         canInspect: false,
         userMessage:
-            'Interact in Simulator.app — taps and swipes are recorded automatically.',
+            'Interact in Simulator.app - taps and swipes are recorded automatically.',
         fixInstruction: '',
         allowExternalFallback: true,
       );

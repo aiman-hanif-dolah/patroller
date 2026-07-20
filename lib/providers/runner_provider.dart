@@ -220,7 +220,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
       if (match != null) {
         selected = match;
       } else if (autoSelect) {
-        // Previously selected device vanished — pick a sensible default.
+        // Previously selected device vanished - pick a sensible default.
         selected = pickDefaultSelectableDevice(devices);
       }
     }
@@ -465,7 +465,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     showSnackbar(
       'Test All started (${files.length} file${files.length == 1 ? '' : 's'})',
     );
-    // Test All keeps logs across every file in the batch — only Test/Develop clear.
+    // Test All keeps logs across every file in the batch - only Test/Develop clear.
     log.setActiveLogRunId(null);
     state = state.copyWith(
       isRunning: true,
@@ -628,7 +628,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
       clearQueueStatus: true,
     );
 
-    // Kill the actual process(es) in the background — don't block the UI.
+    // Kill the actual process(es) in the background - don't block the UI.
     if (queue != null && queue.status == QueueStatus.running) {
       unawaited(_stopQueueSafe(queue.queueId));
     }

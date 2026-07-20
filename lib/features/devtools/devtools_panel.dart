@@ -313,7 +313,7 @@ class _StatusCard extends StatelessWidget {
                     : ok
                         ? 'Healthy on port $port'
                         : enabled
-                            ? 'Enabled — server not responding on $port'
+                            ? 'Enabled - server not responding on $port'
                             : 'Disabled in settings',
                 style: TextStyle(
                   fontSize: 12,

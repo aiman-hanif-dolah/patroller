@@ -221,7 +221,7 @@ class McpNotifier extends StateNotifier<McpState> {
     if (project == null) {
       state = state.copyWith(
         lastError:
-            'Open a project first — MCP packages are global, but the routine '
+            'Open a project first - MCP packages are global, but the routine '
             'binds Patrol MCP to the selected project',
       );
       return;
@@ -332,7 +332,7 @@ class McpNotifier extends StateNotifier<McpState> {
     if (project == null) {
       state = state.copyWith(
         lastError:
-            'Open a project first — the agent prompt is filled from the '
+            'Open a project first - the agent prompt is filled from the '
             'selected project and simulator',
       );
       return null;

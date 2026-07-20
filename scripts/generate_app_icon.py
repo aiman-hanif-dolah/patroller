@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Patroller macOS app icon — sleek squircle, lime field, black radar."""
+"""Generate Patroller macOS app icon - sleek squircle, lime field, black radar."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def polar(cx: float, cy: float, radius: float, angle: float) -> tuple[float, flo
 
 
 def draw_background(size: int) -> Image.Image:
-    """Premium radial field — stays in lime family, not amber."""
+    """Premium radial field - stays in lime family, not amber."""
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     cx = cy = size / 2.0
     max_r = size * 0.72
@@ -86,7 +86,7 @@ def draw_gloss(size: int) -> Image.Image:
 
 
 def draw_emblem(size: int) -> Image.Image:
-    """Black radar mark — bold, centered, readable at 16px."""
+    """Black radar mark - bold, centered, readable at 16px."""
     scale = size / 1024.0
     layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
@@ -115,7 +115,7 @@ def draw_emblem(size: int) -> Image.Image:
         r = outer_r * ratio
         draw.ellipse(ring_bbox(cx, cy, r), outline=BLACK, width=ring_w)
 
-    # Power sweep — sharper, more assertive
+    # Power sweep - sharper, more assertive
     sweep_angle = math.radians(-32)
     spread = 0.19
     outer_edge = outer_r - outer_w * 0.15

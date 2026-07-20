@@ -10,7 +10,7 @@ import '../../services/mcp_service.dart';
 
 /// Agent workbench:
 /// 1. Install / update Patrol MCP + Marionette MCP **on this machine**
-///    (global `dart pub global activate` — never into the Flutter project).
+///    (global `dart pub global activate` - never into the Flutter project).
 /// 2. Bind those servers to the **currently open project** via Cursor MCP config.
 class AgentWorkbenchPanel extends ConsumerStatefulWidget {
   const AgentWorkbenchPanel({super.key});
@@ -77,7 +77,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Uses dart pub global activate — same as installing from a terminal. '
+            'Uses dart pub global activate - same as installing from a terminal. '
             'Packages live in your pub cache, shared by all projects.',
             style: TextStyle(fontSize: 11, color: p.textMuted, height: 1.4),
           ),
@@ -305,7 +305,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
               'Patroller fills a Cursor agent prompt from the open project + '
               'selected simulator, binds MCP, writes the prompt under '
               '~/.cursor/patroller-prompts/, and copies it for paste into '
-              'Cursor. Patroller does not run the agent itself — Cursor + MCP do.',
+              'Cursor. Patroller does not run the agent itself - Cursor + MCP do.',
               style: TextStyle(fontSize: 11, color: p.textMuted, height: 1.4),
             ),
             const SizedBox(height: 10),
@@ -332,7 +332,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
                         context,
                         text,
                         snack:
-                            'Agent prompt copied — paste into Cursor agent chat',
+                            'Agent prompt copied - paste into Cursor agent chat',
                       );
                     }
                   },
@@ -397,7 +397,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           ),
           const _WorkflowStep(
             number: 4,
-            title: 'Discover (Marionette MCP — optional)',
+            title: 'Discover (Marionette MCP - optional)',
             body:
                 'For Flutter widget keys/text, use Marionette MCP on a debug app '
                 'with marionette_flutter.',
