@@ -560,9 +560,9 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: TextFormField(
                       autofocus: true,
-                      controller: TextEditingController(text: _renameValue),
+                      initialValue: _renameValue,
                       onChanged: (v) => _renameValue = v,
                       style: const TextStyle(fontSize: 12),
                     ),
