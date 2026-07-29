@@ -4,7 +4,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TAURI_ROOT="$(cd "$ROOT/../patrol-studio-tauri" && pwd)"
+TAURI_ROOT="${PATROL_STUDIO_TAURI_ROOT:-$ROOT/../patrol-studio-tauri}"
+if [ ! -f "$TAURI_ROOT/scripts/build-simulator-driver.sh" ]; then
+  echo "error: simulator driver source not found at $TAURI_ROOT" >&2
+  echo "set PATROL_STUDIO_TAURI_ROOT to the patrol-studio-tauri checkout" >&2
+  exit 1
+fi
+TAURI_ROOT="$(cd "$TAURI_ROOT" && pwd)"
 
 bash "$TAURI_ROOT/scripts/build-simulator-driver.sh"
 

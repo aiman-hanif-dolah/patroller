@@ -11,7 +11,7 @@ import '../../services/mcp_service.dart';
 /// Agent workbench:
 /// 1. Install / update Patrol MCP + Marionette MCP **on this machine**
 ///    (global `dart pub global activate` - never into the Flutter project).
-/// 2. Bind those servers to the **currently open project** via Cursor MCP config.
+/// 2. Bind those servers to the **currently open project** via OpenCode MCP config.
 class AgentWorkbenchPanel extends ConsumerStatefulWidget {
   const AgentWorkbenchPanel({super.key});
 
@@ -44,8 +44,8 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           const _Heading('Agent workbench'),
           const SizedBox(height: 6),
           Text(
-            'Patroller installs MCP servers on this Mac (not inside your app '
-            'project). Once installed, bind them to the open project so Cursor '
+            'Patroller installs MCP servers on this machine (not inside your app '
+            'project). Once installed, bind them to the open project so OpenCode '
             'agents can run Patrol / Marionette against that codebase.',
             style: TextStyle(fontSize: 12, color: p.textMuted, height: 1.45),
           ),
@@ -209,7 +209,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
                 .where((r) =>
                     r.id == 'project' ||
                     r.id == 'pubspec' ||
-                    r.id == 'cursor_dir')
+                    r.id == 'opencode')
                 .map((r) => Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: _ReqRow(req: r),
@@ -281,7 +281,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
             const SizedBox(height: 14),
             _CopyTile(
               label: 'Global MCP config template',
-              detail: '~/.cursor/mcp.json (Patrol + Marionette)',
+              detail: '~/.config/opencode/opencode.jsonc (Patrol + Marionette)',
               onCopy: () {
                 final snippet = ref.read(mcpProvider.notifier).configSnippet();
                 _copy(context, snippet);
@@ -302,10 +302,10 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
             const _Heading('3. Agent prompt routines'),
             const SizedBox(height: 4),
             Text(
-              'Patroller fills a Cursor agent prompt from the open project + '
+              'Patroller fills an agent prompt from the open project + '
               'selected simulator, binds MCP, writes the prompt under '
-              '~/.cursor/patroller-prompts/, and copies it for paste into '
-              'Cursor. Patroller does not run the agent itself - Cursor + MCP do.',
+              '~/.config/opencode/patroller-prompts/, and copies it for paste '
+              'into OpenCode or your AI IDE. Patroller does not run the agent itself.',
               style: TextStyle(fontSize: 11, color: p.textMuted, height: 1.4),
             ),
             const SizedBox(height: 10),
@@ -332,7 +332,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
                         context,
                         text,
                         snack:
-                            'Agent prompt copied - paste into Cursor agent chat',
+                            'Agent prompt copied - paste into OpenCode or your AI IDE',
                       );
                     }
                   },
@@ -376,7 +376,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           const SizedBox(height: 8),
           const _WorkflowStep(
             number: 1,
-            title: 'Install MCP on this Mac (above)',
+            title: 'Install MCP on this machine (above)',
             body:
                 'Patroller activates patrol_mcp + marionette_mcp globally once. '
                 'No project pubspec changes.',
@@ -411,10 +411,10 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           ),
           const _WorkflowStep(
             number: 6,
-            title: 'Marionette coverage routine (section 3)',
+            title: 'Coverage routine (section 3)',
             body:
-                'Start the prompt routine → paste into Cursor → agent explores '
-                'with Marionette MCP and writes Patrol tests for gaps only.',
+                'Start the prompt routine → paste into OpenCode → agent explores '
+                'with MCP and writes Patrol tests for gaps only.',
           ),
         ],
       ),

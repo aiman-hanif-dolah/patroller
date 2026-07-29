@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
@@ -46,15 +44,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   PatrolStudioFacade get _facade => _ref.read(patrolStudioFacadeProvider);
 
   Future<void> load() async {
-    final log = File('${Platform.environment['HOME'] ?? ''}/patroller_ext_err.log');
-    try {
-      log.writeAsStringSync('load() entered\n', mode: FileMode.append);
-    } catch (_) {}
     try {
       final settings = await _facade.settings.get();
-      try {
-        log.writeAsStringSync('got settings enable=${settings.enableDevtoolsExtension}\n', mode: FileMode.append);
-      } catch (_) {}
       state = SettingsState(settings: settings, loaded: true);
       _ref.read(logProvider.notifier).applySettings(settings);
       await _applyExtensionServer(settings);
@@ -67,26 +58,13 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 
   Future<void> _applyExtensionServer(AppSettings settings) async {
-    final log = File(
-      '${Platform.environment['HOME'] ?? ''}/patroller_ext_err.log',
-    );
-    try {
-      log.writeAsStringSync('applyExtensionServer enable=${settings.enableDevtoolsExtension}\n', mode: FileMode.append);
-    } catch (_) {}
     try {
       if (settings.enableDevtoolsExtension) {
         await _facade.startExtensionServer(port: settings.devtoolsExtensionPort);
-        try {
-          log.writeAsStringSync('OK started on ${settings.devtoolsExtensionPort}\n', mode: FileMode.append);
-        } catch (_) {}
       } else {
         await _facade.stopExtensionServer();
       }
-    } catch (e, st) {
-      try {
-        log.writeAsStringSync('ERR: $e\n$st\n', mode: FileMode.append);
-      } catch (_) {}
-    }
+    } catch (_) {}
   }
 
   Future<void> update(AppSettings settings) async {

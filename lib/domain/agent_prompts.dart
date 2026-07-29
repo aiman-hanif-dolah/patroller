@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 /// Built-in agent routine prompts that Patroller can fill and hand off to
-/// Cursor (with Patrol MCP + Marionette MCP already configured).
+/// OpenCode or any AI IDE (with Patrol MCP + Marionette MCP already configured).
 enum AgentPromptId {
-  marionetteCoverageExploration,
+  patrolCoverageExploration,
 }
 
 class AgentPromptMeta {
@@ -22,11 +22,11 @@ class AgentPromptMeta {
 
 const agentPromptCatalog = <AgentPromptMeta>[
   AgentPromptMeta(
-    id: AgentPromptId.marionetteCoverageExploration,
-    title: 'Marionette coverage exploration',
+    id: AgentPromptId.patrolCoverageExploration,
+    title: 'Patrol coverage exploration',
     summary:
-        'Systematically explore the live app with Marionette MCP, map coverage, '
-        'and generate maintainable Patrol tests without duplicates.',
+        'Systematically explore the live app with MCP tools, discover test '
+        'scenarios, and generate maintainable Patrol tests without duplicates.',
   ),
 ];
 
@@ -141,362 +141,246 @@ String? _detectStagingLabel(String projectName, String flavorArgs) {
 /// Render a built-in agent prompt with [context] substituted.
 String renderAgentPrompt(AgentPromptId id, AgentPromptContext context) {
   switch (id) {
-    case AgentPromptId.marionetteCoverageExploration:
-      return _marionetteCoverageExplorationPrompt(context);
+    case AgentPromptId.patrolCoverageExploration:
+      return _patrolCoverageExplorationPrompt(context);
   }
 }
 
-String _marionetteCoverageExplorationPrompt(AgentPromptContext c) {
+String _patrolCoverageExplorationPrompt(AgentPromptContext c) {
   final flavorNote = c.flavorArgs.trim().isEmpty
       ? '(no flavor flag - add one if this app requires it)'
       : c.flavorArgs.trim();
 
   return '''
-You are working inside:
+You are a senior QA engineer systematically exploring a Flutter application to
+discover and create Patrol end-to-end tests.
 
-${c.projectName}
+## Project
 
-Project path: ${c.projectPath}
+- Name: ${c.projectName}
+- Path: ${c.projectPath}
+- Patrol test directory: ${c.patrolTestDir}/
 
 ## Objective
 
-Systematically explore the live `${c.appLabel}` Flutter application and maximize maintainable Patrol test coverage using Marionette MCP.
-
-Continue exploring until no additional stable, meaningful, non-duplicate user journeys can be identified.
-
----
-
-## Current Environment
-
-The project already contains (or should already contain):
-
-- Temporary Marionette instrumentation in staging/debug entrypoints as needed
-- `MarionetteBinding.ensureInitialized()` enabled only for debug
-- `marionette_flutter` installed
-- Patrol configured and working
-- Cursor with both Patrol MCP and Marionette MCP enabled (configured by Patroller)
-
-Patroller has prepared Patrol MCP + Marionette MCP for this project. Prefer those MCP tools over ad-hoc shell work when possible.
+Explore the live Flutter app exhaustively, discover every testable user journey,
+and create Patrol tests that provide maximum coverage. Continue until no new
+meaningful, non-duplicate scenarios can be found.
 
 ---
 
-## Startup
+## Phase 0: Reconnaissance (do this first, before any exploration)
 
-Launch the existing staging/debug application using exactly:
+1. Read \`AGENTS.md\` if present.
+2. List the project structure: \`lib/\`, \`test/\`, \`${c.patrolTestDir}/\`.
+3. Read \`pubspec.yaml\` to understand dependencies (especially patrol, marionette_flutter).
+4. Read every existing Patrol test file under \`${c.patrolTestDir}/\`. For each file:
+   - Note the test name and what it covers
+   - Note helpers, fixtures, and shared utilities
+   - Note the naming convention
+5. Read \`lib/main.dart\` (and any flavor entry points) to understand app structure.
+6. Identify the navigation graph: routes, named routes, go_router, auto_route, etc.
+7. Identify state management: Provider, Riverpod, Bloc, GetX, etc.
+8. Produce a coverage map: list every screen/feature you know exists, and mark
+   which ones already have Patrol tests.
+
+Never create duplicate coverage. If a scenario is already tested, skip it.
+
+---
+
+## Phase 1: Launch and connect
+
+Launch the app:
 
 ${c.launchCommand}
 
-Notes:
-- Flutter binary: `${c.flutterExecutable}`
-- Entry target: `${c.entryTarget}`
-- Flavor args: $flavorNote
-- Device: `${c.deviceName}`
+- Flutter binary: \`${c.flutterExecutable}\`
+- Entry target: \`${c.entryTarget}\`
+- Flavor: $flavorNote
+- Device: \`${c.deviceName}\`
 
-Never launch a second simulator.
+Capture the VM Service URI and connect Marionette MCP.
 
-Never clone or duplicate the running application.
-
-Use only the pinned simulator above.
-
-Capture the Flutter VM Service URI from the terminal and connect Marionette MCP using that URI.
-
-If Marionette disconnects or the VM Service becomes unavailable, rerun the launch command above yourself and reconnect automatically.
-
-Never terminate the simulator unless absolutely required.
+If Marionette disconnects, relaunch and reconnect automatically.
+Never launch a second simulator. Never terminate the simulator.
 
 ---
 
-## Initial Steps
+## Phase 2: Systematic screen-by-screen exploration
 
-1. Read `AGENTS.md` if present.
-2. Inspect the existing project structure.
-3. Inspect every existing Patrol test under `${c.patrolTestDir}/`.
-4. Learn naming conventions.
-5. Learn helpers, fixtures, utilities and shared patterns.
-6. Detect existing coverage before creating anything new.
+For EVERY screen in the app, perform this checklist:
 
-Never create duplicate coverage.
+### 2a: Screen inventory
+- What is the screen name / route?
+- What widgets are on screen?
+- What interactive elements exist (buttons, inputs, lists, tabs, etc.)?
 
----
+### 2b: User journey discovery
+For each screen, discover ALL possible user journeys:
 
-## Exploration Workflow
+- **Entry paths**: How can a user reach this screen? (tap, deep link, navigation)
+- **Exit paths**: Where can a user go from here? (back button, tab switch, link)
+- **Actions**: What can the user DO on this screen? (tap buttons, fill forms, scroll)
+- **State changes**: What happens after an action? (navigation, dialog, refresh, error)
+- **Edge cases**: What happens with empty state, loading, error, retry?
 
-Use Marionette MCP to continuously:
+### 2c: Widget interaction matrix
+Use Marionette MCP to inspect the widget tree. For each interactive widget:
+- What type is it? (ElevatedButton, TextButton, IconButton, GestureDetector, etc.)
+- What does it do when tapped?
+- Is it conditionally visible? (depends on state, feature flag, auth)
+- Does it trigger navigation, API call, dialog, or state change?
 
-- inspect the widget tree
-- enumerate interactive elements
-- take screenshots
-- inspect logs
-- tap
-- swipe
-- scroll
-- enter text
-- navigate
-- inspect state transitions
-
-For every newly discovered screen:
-
-- identify reachable features
-- inspect navigation paths
-- inspect dialogs
-- inspect bottom sheets
-- inspect permissions
-- inspect tabs
-- inspect forms
-- inspect error states
-- inspect loading states
-- inspect empty states
-
-Continue exploring recursively until all reachable application areas have been exhausted.
-
-Do not stop after generating one or two tests.
+### 2d: Navigation graph
+Map the complete navigation graph:
+- Screen A → tap X → Screen B
+- Screen B → back → Screen A
+- Screen B → tab 3 → Screen C
+- Deep link \`myapp://settings\` → Settings screen
 
 ---
 
-## Areas To Explore
+## Phase 3: Coverage gap analysis
 
-Explore every reachable area including but not limited to:
+After exploring each screen, update your coverage map:
 
-- Authentication
-- Login
-- Logout
-- Registration
-- Home
-- Content
-- Rewards
-- Store
-- Search
-- Profile
-- Settings
-- Onboarding
-- Terms & Conditions
-- Deep Links
-- Native dialogs
-- Permissions
-- Bottom sheets
-- Modals
-- Tabs
+| Screen | Has Patrol Test | User Journeys | Priority |
+|--------|----------------|---------------|----------|
+| Login  | Yes (login_test.dart) | email+password, social login, forgot password | medium |
+| Home   | No | feed scroll, pull refresh, tap article | high |
+| ...    | ... | ... | ... |
 
-Also discover any additional areas not listed above.
+Priority rules:
+- **High**: Core user journeys (auth, main content, checkout, etc.)
+- **Medium**: Secondary features (search, settings, profile)
+- **Low**: Rarely used features, edge cases
+
+Focus on HIGH priority gaps first.
 
 ---
 
-## Marionette Instrumentation
+## Phase 4: Test creation
 
-If Marionette cannot detect custom widgets:
+For each uncovered scenario, create a Patrol test.
 
-Inspect the design system.
+### Test structure rules:
+- One user journey per test file
+- Place tests in \`${c.patrolTestDir}/<feature>/\`
+- Follow existing naming conventions
+- Reuse existing helpers and fixtures
+- Use \`patrolTest()\` (not \`testWidgets()\`)
+- Each test should be independent and deterministic
 
-Locate custom:
+### Test file template:
+```dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:patrol/patrol.dart';
+import 'package:${c.projectName}/main.dart';
 
-- buttons
-- text fields
-- cards
-- tabs
-- lists
-- bottom sheets
-- custom gesture widgets
+void main() {
+  patrolTest('<descriptive name>', (PatrolIntegrationTester \$) async {
+    await \$.pumpWidgetAndSettle(const MyApp());
+    // ... steps ...
+  });
+}
+```
 
-Only if necessary:
+### Assertion rules:
+- Assert navigation, visibility, structure, interaction capability
+- Assert state transitions
+- NEVER assert: live titles, backend text, timestamps, item counts, ordering, dynamic content
 
-Add reusable Marionette semantics or metadata that improves discoverability.
-
-Requirements:
-
-- debug only
-- staging only
-- zero production impact
-- reusable
-- minimal
-- isolated
-
-Never modify:
-
-- production behaviour
-- APIs
-- navigation
-- business logic
-- feature flags
-- release builds
-
----
-
-## Patrol Test Generation
-
-Generate Patrol tests only for meaningful uncovered scenarios.
-
-Rules:
-
-- one user journey per test file
-- merge only when the journey is identical and only test data differs
-- place tests inside the appropriate `${c.patrolTestDir}/` feature folder
-- reuse helpers whenever possible
-- follow existing architecture
-- keep changes small and additive
-
-Coverage should include where applicable:
-
-- navigation
-- screen entry
-- authentication boundaries
-- back navigation
-- loading states
-- empty states
-- retry flows
-- pull-to-refresh
-- pagination
-- search
-- filtering
-- forms
-- validation
-- dialogs
-- bottom sheets
-- permissions
-- scrolling
-- deep links
-- state transitions
-- session restoration
-- feature-specific actions
-
-Prefer deterministic mock-based tests.
-
-Use hybrid live tests only when mocks cannot reasonably reproduce the behaviour.
-
-Never assert:
-
-- live titles
-- backend text
-- timestamps
-- item counts
-- ordering
-- dynamic content
-
-Instead assert:
-
-- navigation
-- visibility
-- structure
-- interaction capability
-- state transitions
+### What to test per screen:
+- Screen renders without error
+- All interactive elements are tappable
+- Navigation works (forward and back)
+- Forms validate correctly
+- Loading states appear and resolve
+- Empty states render
+- Error states render with retry
+- Pull-to-refresh works
+- Pagination works
+- Search/filter works
+- Dialogs/bottom sheets open and dismiss
+- Permissions are requested when needed
+- Deep links navigate correctly
 
 ---
 
-## Existing Coverage
+## Phase 5: Validation
 
-Before writing any new test:
-
-Inspect all Patrol tests under `${c.patrolTestDir}/`.
-
-Determine:
-
-- already covered scenarios
-- partially covered scenarios
-- uncovered scenarios
-
-Never duplicate existing coverage.
+After creating each test:
+1. Run it with Patrol MCP: \`patrol develop\` for that specific test
+2. Verify it passes
+3. If it fails, fix and re-run
+4. Only mark as complete when the test passes
 
 ---
 
-## Blockers
+## MCP Tools
 
-If automation is blocked because of:
+Use Patrol MCP when appropriate:
+- \`patrol develop\` - run a specific test interactively
+- \`native-tree\` - inspect native iOS/Android hierarchy
+- \`screenshot\` - capture current screen state
+- \`run\` - execute test files
 
-- OTP
-- CAPTCHA
-- authentication
-- third-party integrations
-- backend instability
-- feature flags
-- environment limitations
-
-Document the blocker and continue exploring everything else.
-
-Never stop exploration because one flow is blocked.
-
----
-
-## Patrol MCP
-
-Use Patrol MCP when appropriate to:
-
-- inspect status
-- execute focused tests
-- inspect native hierarchy
-- capture screenshots
-- terminate sessions cleanly
-
-Avoid unnecessary full-suite execution.
+Use Marionette MCP for:
+- Inspecting Flutter widget tree
+- Finding interactive elements
+- Tapping, scrolling, entering text
+- Taking screenshots
 
 ---
 
 ## Login Credentials
 
-For authenticated exploration, use:
+For authenticated exploration:
+- Email: ${c.loginEmail}
+- Password: ${c.loginPassword}
 
-Email:
-${c.loginEmail}
+Use only when authentication is required. Treat as staging/test credentials.
 
-Password:
-${c.loginPassword}
+---
 
-Use these credentials only when authentication is required.
-Treat them as staging/test credentials only.
+## Blockers
+
+If blocked by OTP, CAPTCHA, auth, third-party integrations, or backend issues:
+1. Document the blocker
+2. Continue exploring everything else
+3. Never stop because one flow is blocked
 
 ---
 
 ## Hard Rules
 
-Read `AGENTS.md` first.
+Read \`AGENTS.md\` first.
 
-Never:
+Never: commit, push, pull, merge, rebase, branch, reset, stash.
 
-- commit
-- push
-- pull
-- merge
-- rebase
-- branch
-- reset
-- stash
-
-Do not modify:
-
-- dev entrypoints
-- preprod entrypoints
-- production entrypoints
+Do not modify: dev entrypoints, preprod entrypoints, production entrypoints.
 
 Only temporary staging/debug Marionette instrumentation is permitted.
 
-Do not introduce:
+Do not introduce: production-only keys, feature flags, routes, APIs, test hooks.
 
-- production-only keys
-- feature flags
-- routes
-- APIs
-- test hooks
-
-Keep every modification minimal, reusable and maintainable.
+Keep every modification minimal, reusable, and maintainable.
 
 ---
 
 ## Final Report
 
-Provide a comprehensive report including:
+Provide a comprehensive report:
 
-- Marionette connection status
-- VM Service URI format (without secrets)
-- exploration summary
-- Patrol MCP operations performed
-- files changed
-- instrumentation added
-- new Patrol tests created
-- existing coverage discovered
-- remaining coverage gaps
-- blocked scenarios and reasons
-- focused Patrol execution results
-- confirmation that production behaviour was untouched
-- estimated coverage improvement
+- **Coverage map**: Every screen explored, test status, gaps identified
+- **Tests created**: File paths, what each tests, line count
+- **Existing tests discovered**: File paths, what each covers
+- **Navigation graph**: Complete screen-to-screen map
+- **Blocked scenarios**: What couldn't be tested and why
+- **Coverage improvement**: Before/after estimate
+- **Confirmation**: Production code untouched
 
-Do not finish until exploration has converged and no further stable, meaningful Patrol scenarios remain.
+Do not finish until exploration has converged and no further stable, meaningful
+Patrol scenarios remain.
 '''.trim();
 }

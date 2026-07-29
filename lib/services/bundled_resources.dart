@@ -16,24 +16,21 @@ Directory resolveBundledResourceRoot(String name) {
   }
 
   final executable = Platform.resolvedExecutable;
-  final bundleResources = p.join(
-    p.dirname(executable),
-    '..',
-    'Resources',
-    name,
-  );
-  if (Directory(bundleResources).existsSync()) {
-    return Directory(p.normalize(bundleResources));
+  for (final base in [
+    // macOS app bundle: Patroller.app/Contents/MacOS/Patroller.
+    p.join(p.dirname(executable), '..', 'Resources', name),
+    // Windows/Linux portable package: resources next to the executable.
+    p.join(p.dirname(executable), 'resources', name),
+  ]) {
+    if (Directory(base).existsSync()) {
+      return Directory(p.normalize(base));
+    }
   }
 
   final cwd = Directory.current.path;
   for (final base in [
     p.join(cwd, 'resources', name),
     p.join(cwd, '..', 'resources', name),
-    p.join(cwd, '..', 'patrol-studio-tauri', 'resources', name),
-    p.join(cwd, '..', 'ideaprojects', 'patrol-studio-tauri', 'resources', name),
-    '/Users/ahdaiman/ideaprojects/patrol-studio-tauri/resources/$name',
-    '/Users/ahdaiman/IdeaProjects/patrol-studio-tauri/resources/$name',
   ]) {
     if (Directory(base).existsSync()) {
       return Directory(p.normalize(base));

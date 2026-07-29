@@ -3,11 +3,11 @@ import 'package:patroller/domain/agent_prompts.dart';
 
 void main() {
   group('agent prompts', () {
-    test('catalog includes marionette coverage exploration', () {
+    test('catalog includes patrol coverage exploration', () {
       expect(agentPromptCatalog, isNotEmpty);
       expect(
         agentPromptCatalog.any(
-          (m) => m.id == AgentPromptId.marionetteCoverageExploration,
+          (m) => m.id == AgentPromptId.patrolCoverageExploration,
         ),
         isTrue,
       );
@@ -18,8 +18,7 @@ void main() {
       const ctx = AgentPromptContext(
         projectName: 'myastro-flutter',
         projectPath: '/Users/dev/myastro-flutter',
-        flutterExecutable:
-            '/Users/ahdaiman/develop/fvm/versions/3.44.1/bin/flutter',
+        flutterExecutable: '/Users/dev/flutter/bin/flutter',
         deviceName: 'iPhone 17 Pro Max',
         entryTarget: 'lib/main_stg.dart',
         flavorArgs: '--flavor=myastro_stg',
@@ -31,19 +30,18 @@ void main() {
 
       expect(
         ctx.launchCommand,
-        '/Users/ahdaiman/develop/fvm/versions/3.44.1/bin/flutter run '
+        '/Users/dev/flutter/bin/flutter run '
         '-t lib/main_stg.dart --flavor=myastro_stg '
         '-d "iPhone 17 Pro Max" 2>&1',
       );
       expect(ctx.appLabel, 'myastro_stg');
     });
 
-    test('render marionette coverage prompt substitutes project + launch', () {
+    test('render patrol coverage prompt substitutes project + launch', () {
       const ctx = AgentPromptContext(
         projectName: 'myastro-flutter',
         projectPath: '/Users/dev/myastro-flutter',
-        flutterExecutable:
-            '/Users/ahdaiman/develop/fvm/versions/3.44.1/bin/flutter',
+        flutterExecutable: '/Users/dev/flutter/bin/flutter',
         deviceName: 'iPhone 17 Pro Max',
         entryTarget: 'lib/main_stg.dart',
         flavorArgs: '--flavor=myastro_stg',
@@ -54,7 +52,7 @@ void main() {
       );
 
       final prompt = renderAgentPrompt(
-        AgentPromptId.marionetteCoverageExploration,
+        AgentPromptId.patrolCoverageExploration,
         ctx,
       );
 
@@ -66,10 +64,9 @@ void main() {
       expect(prompt, contains('iPhone 17 Pro Max'));
       expect(prompt, contains('user@example.com'));
       expect(prompt, contains('your_password'));
-      expect(prompt, contains('Marionette MCP'));
       expect(prompt, contains('Patrol MCP'));
-      expect(prompt, contains('Never create duplicate coverage'));
-      expect(prompt, contains('Final Report'));
+      expect(prompt, contains('Phase 0'));
+      expect(prompt, contains('coverage map'));
       expect(prompt, isNot(contains('{{')));
     });
 

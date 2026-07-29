@@ -206,6 +206,13 @@ package_windows() {
     exit 1
   fi
 
+  if [ -f "$ROOT/extension/devtools/build/index.html" ]; then
+    rm -rf "$release_dir/resources/patroller-devtools-panel"
+    mkdir -p "$release_dir/resources"
+    cp -R "$ROOT/extension/devtools/build" \
+      "$release_dir/resources/patroller-devtools-panel"
+  fi
+
   local zip_name="Patroller-${VERSION}-windows-x64.zip"
   local zip_path="$DIST/$zip_name"
   rm -f "$zip_path"

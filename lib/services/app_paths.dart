@@ -3,10 +3,12 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'cli_env.dart';
+
 /// Synchronous user data path resolution for settings/bootstrap.
 Directory patrolStudioUserDataDirSync() {
   if (Platform.isMacOS) {
-    final home = Platform.environment['HOME'];
+    final home = userHomeDirectory();
     if (home != null && home.isNotEmpty) {
       return Directory(p.join(home, 'Library', 'Application Support', 'Patrol Studio'));
     }
@@ -17,9 +19,7 @@ Directory patrolStudioUserDataDirSync() {
     }
   }
 
-  final home = Platform.environment['HOME'] ??
-      Platform.environment['USERPROFILE'] ??
-      Directory.systemTemp.path;
+  final home = userHomeDirectory() ?? Directory.systemTemp.path;
   return Directory(p.join(home, 'Patrol Studio'));
 }
 
@@ -28,7 +28,7 @@ Directory patrolStudioUserDataDirSync() {
 /// Windows: %APPDATA%/Patrol Studio/
 Future<Directory> patrolStudioUserDataDir() async {
   if (Platform.isMacOS) {
-    final home = Platform.environment['HOME'];
+    final home = userHomeDirectory();
     if (home != null && home.isNotEmpty) {
       return Directory(p.join(home, 'Library', 'Application Support', 'Patrol Studio'));
     }

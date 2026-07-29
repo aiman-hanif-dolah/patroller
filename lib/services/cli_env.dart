@@ -5,18 +5,47 @@ import 'package:path/path.dart' as p;
 String? _augmentedPathCache;
 String? _developerDirCache;
 
+String? userHomeDirectory([Map<String, String>? environment]) {
+  final env = environment ?? Platform.environment;
+  for (final key in ['HOME', 'USERPROFILE']) {
+    final value = env[key]?.trim();
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return null;
+}
+
+String pubCacheBinDirectory({
+  Map<String, String>? environment,
+  bool? isWindows,
+}) {
+  final env = environment ?? Platform.environment;
+  final configured = env['PUB_CACHE']?.trim();
+  if (configured != null && configured.isNotEmpty) {
+    return p.join(configured, 'bin');
+  }
+
+  final windows = isWindows ?? Platform.isWindows;
+  if (windows) {
+    final localAppData = env['LOCALAPPDATA']?.trim();
+    if (localAppData != null && localAppData.isNotEmpty) {
+      return p.join(localAppData, 'Pub', 'Cache', 'bin');
+    }
+  }
+
+  final home = userHomeDirectory(env);
+  return p.join(home ?? '.', '.pub-cache', 'bin');
+}
+
 /// Common bin directories for Flutter/Dart/Patrol tooling.
 List<String> developerToolBinDirs() {
-  final home = Platform.environment['HOME'] ??
-      Platform.environment['USERPROFILE'] ??
-      '.';
+  final home = userHomeDirectory() ?? '.';
   final dirs = <String>[
     p.join(home, 'develop', 'fvm', 'default', 'bin'),
     p.join(home, 'fvm', 'default', 'bin'),
     p.join(home, '.fvm', 'default', 'bin'),
     p.join(home, 'develop', 'flutter', 'bin'),
     p.join(home, 'flutter', 'bin'),
-    p.join(home, '.pub-cache', 'bin'),
+    pubCacheBinDirectory(),
     if (Platform.isMacOS) '/opt/homebrew/bin',
     if (Platform.isMacOS) '/opt/homebrew/sbin',
     '/usr/local/bin',
@@ -108,34 +137,31 @@ String resolveExecutable(String name, {String? configuredPath}) {
   }
 
   for (final dir in developerToolBinDirs()) {
-    final full = p.join(dir, candidate);
-    if (Platform.isWindows && !full.toLowerCase().endsWith('.exe')) {
-      final withExe = '$full.exe';
-      if (File(withExe).existsSync()) {
-        return withExe;
-      }
-    }
-    if (File(full).existsSync()) {
-      return full;
-    }
+    final resolved = _executableIn(dir, candidate);
+    if (resolved != null) return resolved;
   }
 
   final separator = Platform.isWindows ? ';' : ':';
   for (final dir in (Platform.environment['PATH'] ?? '').split(separator)) {
     if (dir.isEmpty) continue;
-    final full = p.join(dir, candidate);
-    if (Platform.isWindows && !full.toLowerCase().endsWith('.exe')) {
-      final withExe = '$full.exe';
-      if (File(withExe).existsSync()) {
-        return withExe;
-      }
-    }
-    if (File(full).existsSync()) {
-      return full;
-    }
+    final resolved = _executableIn(dir, candidate);
+    if (resolved != null) return resolved;
   }
 
   return candidate;
+}
+
+String? _executableIn(String directory, String name) {
+  final full = p.join(directory, name);
+  final candidates = Platform.isWindows && p.extension(full).isEmpty
+      ? ['$full.exe', '$full.cmd', '$full.bat', full]
+      : [full];
+  for (final candidate in candidates) {
+    if (File(candidate).existsSync() && isTrustedExecutablePath(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 String? _resolveDeveloperDir(Map<String, String> env) {

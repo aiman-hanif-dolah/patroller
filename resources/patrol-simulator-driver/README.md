@@ -17,10 +17,12 @@ resources/patrol-simulator-driver/
 
 ## Rebuild
 
-From `patrol-studio-tauri`:
+The source currently lives in `native/ios-simulator-driver/` in a
+`patrol-studio-tauri` checkout. From this repository, run:
 
 ```bash
-scripts/build-simulator-driver.sh
+PATROL_STUDIO_TAURI_ROOT=/path/to/patrol-studio-tauri \
+  scripts/build-simulator-driver.sh
 ```
 
-Sources live in `native/ios-simulator-driver/`.
+If both repositories are siblings, the environment variable can be omitted.

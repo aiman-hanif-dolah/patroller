@@ -272,6 +272,11 @@ class PatrollerExtensionServer {
     final candidates = [
       p.join(
         p.dirname(Platform.resolvedExecutable),
+        'resources',
+        'patroller-devtools-panel',
+      ),
+      p.join(
+        p.dirname(Platform.resolvedExecutable),
         '..',
         'Resources',
         'patroller-devtools-panel',

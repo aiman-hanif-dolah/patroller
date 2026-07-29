@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../domain/agent_prompts.dart';
 import 'cli_env.dart';
+import 'opencode_service.dart';
 
 class McpRequirement {
   const McpRequirement({
@@ -195,14 +196,18 @@ class McpService {
       );
     }
 
-    final cursorDir = _cursorDir();
+    final opencode = await OpenCodeService().detect();
     reqs.add(
       McpRequirement(
-        id: 'cursor_dir',
-        label: 'Cursor config dir',
-        ok: cursorDir != null,
-        detail: cursorDir ?? 'HOME not set - cannot write ~/.cursor/mcp.json',
-        fixHint: 'Ensure HOME is set so Patroller can write MCP config',
+        id: 'opencode',
+        label: 'OpenCode',
+        ok: opencode.available,
+        detail: opencode.available
+            ? 'OpenCode ${opencode.version ?? 'available'}'
+            : 'OpenCode not found on PATH',
+        fixHint: opencode.available
+            ? null
+            : 'Install: npm install -g opencode-ai  (or see opencode.ai)',
       ),
     );
 
@@ -215,7 +220,7 @@ class McpService {
       'patrol_mcp',
       'marionette_mcp',
       'project',
-      'cursor_dir',
+      'opencode',
     };
     return reqs
         .where((r) => required.contains(r.id))
@@ -243,17 +248,14 @@ class McpService {
     } catch (_) {}
 
     // Fallback: pub-cache bin shim if present.
-    final home = Platform.environment['HOME'];
-    if (home != null) {
-      final shim = p.join(home, '.pub-cache', 'bin', 'patrol_mcp');
-      if (File(shim).existsSync()) {
-        return McpToolStatus(
-          name: 'patrol_mcp',
-          available: true,
-          command: shim,
-          version: await _versionOf(shim, const ['--version']),
-        );
-      }
+    final shim = resolveExecutable('patrol_mcp');
+    if (File(shim).existsSync()) {
+      return McpToolStatus(
+        name: 'patrol_mcp',
+        available: true,
+        command: shim,
+        version: await _versionOf(shim, const ['--version']),
+      );
     }
 
     return const McpToolStatus(
@@ -394,7 +396,7 @@ class McpService {
     return null;
   }
 
-  /// Writes wrappers + merges ~/.cursor/mcp.json, then probes both servers.
+  /// Writes wrappers + merges OpenCode MCP config, then probes both servers.
   Future<McpRoutineResult> startAgentRoutine({
     required String projectPath,
     required String projectName,
@@ -410,31 +412,34 @@ class McpService {
       );
     }
 
-    final cursorDir = _cursorDir();
-    if (cursorDir == null) {
+    final home = userHomeDirectory();
+    if (home == null) {
       return const McpRoutineResult(
         ok: false,
-        message: 'Cannot resolve ~/.cursor directory',
+        message: 'Cannot resolve user home directory',
       );
     }
 
-    final dir = Directory(cursorDir);
+    final slug = _slug(projectName);
+    final wrapperDir = p.join(home, '.config', 'opencode');
+    final wrapperPath = p.join(
+      wrapperDir,
+      'run-patrol-$slug${Platform.isWindows ? '.cmd' : ''}',
+    );
+
+    final dir = Directory(wrapperDir);
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
 
-    final slug = _slug(projectName);
-    final wrapperPath = p.join(cursorDir, 'run-patrol-$slug');
     final dart = resolveExecutable('dart');
     final flutter = resolveExecutable('flutter');
 
-    // Use the resolved dart binary directly - never `fvm dart` here.
-    // FVM can prompt interactively (version cache mismatches), which hangs
-    // Cursor's stdio MCP transport and breaks Patrol MCP discovery.
     final wrapper = buildPatrolWrapperScript(
       projectPath: projectPath,
       dartExecutable: dart,
       flutterExecutable: flutter,
+      windows: Platform.isWindows,
     );
     await File(wrapperPath).writeAsString(wrapper);
     if (!Platform.isWindows) {
@@ -443,33 +448,21 @@ class McpService {
 
     final marionette = await resolveMarionetteMcp();
     final marionetteLaunch = _marionetteLaunch(marionette);
-    final mcpPath = p.join(cursorDir, 'mcp.json');
-    final existing = await _readJsonMap(mcpPath);
-    final servers = Map<String, dynamic>.from(
-      (existing['mcpServers'] as Map?)?.cast<String, dynamic>() ?? {},
-    );
 
-    servers['patrol'] = {
-      'command': wrapperPath,
-      'env': {
+    final opencodeService = OpenCodeService();
+    final mcpPath = await opencodeService.writeMcpConfig(
+      projectPath: projectPath,
+      patrolCommand: wrapperPath,
+      patrolArgs: const [],
+      patrolEnv: {
         'PROJECT_ROOT': projectPath,
         if (patrolFlags != null && patrolFlags.isNotEmpty)
           'PATROL_FLAGS': patrolFlags,
         'SHOW_TERMINAL': 'false',
         'CI': 'true',
       },
-    };
-    servers['marionette'] = {
-      'command': marionetteLaunch.command,
-      'args': marionetteLaunch.args,
-    };
-
-    final payload = {
-      ...existing,
-      'mcpServers': servers,
-    };
-    await File(mcpPath).writeAsString(
-      const JsonEncoder.withIndent('  ').convert(payload),
+      marionetteCommand: marionetteLaunch.command,
+      marionetteArgs: marionetteLaunch.args,
     );
 
     McpServerProbe? patrolProbe;
@@ -489,10 +482,10 @@ class McpService {
     final bothOk = !verify ||
         ((patrolProbe?.ok ?? false) && (marionetteProbe?.ok ?? false));
     final message = !verify
-        ? 'MCP config written. Restart Cursor (or reload MCP servers).'
+        ? 'MCP config written to OpenCode. Restart OpenCode to pick up changes.'
         : bothOk
             ? 'Patrol MCP + Marionette MCP triggered successfully. '
-                'Reload MCP servers in Cursor to use them.'
+                'OpenCode can now use them against this project.'
             : 'MCP config written, but server probes failed. '
                 'See Patrol / Marionette status below.';
 
@@ -511,7 +504,19 @@ class McpService {
     required String projectPath,
     required String dartExecutable,
     required String flutterExecutable,
+    bool? windows,
   }) {
+    if (windows ?? Platform.isWindows) {
+      return '''@echo off
+setlocal
+if not defined PROJECT_ROOT set "PROJECT_ROOT=$projectPath"
+if not defined PATROL_FLUTTER_COMMAND set "PATROL_FLUTTER_COMMAND=$flutterExecutable"
+if not defined CI set "CI=true"
+if not defined FVM_CI set "FVM_CI=true"
+cd /d "%PROJECT_ROOT%"
+"$dartExecutable" pub global run patrol_mcp:patrol_mcp %*
+''';
+    }
     return '''
 #!/usr/bin/env sh
 set -e
@@ -605,12 +610,9 @@ exec "$dartExecutable" pub global run patrol_mcp:patrol_mcp "\$@"
   ({String command, List<String> args}) _marionetteLaunch(
     McpToolStatus marionette,
   ) {
-    final home = Platform.environment['HOME'];
-    if (home != null) {
-      final shim = p.join(home, '.pub-cache', 'bin', 'marionette_mcp');
-      if (File(shim).existsSync()) {
-        return (command: shim, args: const <String>[]);
-      }
+    final shim = resolveExecutable('marionette_mcp');
+    if (File(shim).existsSync()) {
+      return (command: shim, args: const <String>[]);
     }
 
     if (marionette.command.contains('pub global run')) {
@@ -739,24 +741,25 @@ exec "$dartExecutable" pub global run patrol_mcp:patrol_mcp "\$@"
     }
   }
 
-  /// Writes a filled agent prompt under `~/.cursor/patroller-prompts/` and
-  /// returns the absolute path + body (for clipboard hand-off to Cursor).
+  /// Writes a filled agent prompt under `~/.config/opencode/patroller-prompts/`
+  /// and returns the absolute path + body (for clipboard hand-off).
   Future<({String path, String text})> writeAgentPrompt({
     required AgentPromptId id,
     required AgentPromptContext context,
   }) async {
-    final cursorDir = _cursorDir();
-    if (cursorDir == null) {
-      throw StateError('HOME not set - cannot write agent prompt');
+    final home = userHomeDirectory();
+    if (home == null) {
+      throw StateError('User home not found - cannot write agent prompt');
     }
-    final dir = Directory(p.join(cursorDir, 'patroller-prompts'));
+    final promptsDir = p.join(home, '.config', 'opencode', 'patroller-prompts');
+    final dir = Directory(promptsDir);
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
     final slug = _slug(context.projectName);
     final fileName = switch (id) {
-      AgentPromptId.marionetteCoverageExploration =>
-        'marionette-coverage-$slug.md',
+      AgentPromptId.patrolCoverageExploration =>
+        'patrol-coverage-$slug.md',
     };
     final path = p.join(dir.path, fileName);
     final text = renderAgentPrompt(id, context);
@@ -795,7 +798,7 @@ exec "$dartExecutable" pub global run patrol_mcp:patrol_mcp "\$@"
         ok: true,
         message:
             '$title ready. MCP config written; prompt saved and ready to paste '
-            'into Cursor agent chat.\n${written.path}',
+            'into OpenCode or your AI IDE.\n${written.path}',
         promptPath: written.path,
         promptText: written.text,
         mcpConfigPath: mcp.mcpConfigPath,
@@ -816,10 +819,15 @@ exec "$dartExecutable" pub global run patrol_mcp:patrol_mcp "\$@"
     required String projectName,
     String? patrolFlags,
   }) {
-    final home = Platform.environment['HOME'] ?? '/Users/<you>';
+    final home = userHomeDirectory() ?? '<user-home>';
     final slug = _slug(projectName);
-    final wrapper = p.join(home, '.cursor', 'run-patrol-$slug');
-    final marionette = p.join(home, '.pub-cache', 'bin', 'marionette_mcp');
+    final wrapper = p.join(
+      home,
+      '.config',
+      'opencode',
+      'run-patrol-$slug${Platform.isWindows ? '.cmd' : ''}',
+    );
+    final marionette = p.join(pubCacheBinDirectory(), 'marionette_mcp');
     final flags = patrolFlags ?? '';
     return '''
 {
@@ -842,28 +850,11 @@ exec "$dartExecutable" pub global run patrol_mcp:patrol_mcp "\$@"
 '''.trim();
   }
 
-  String? _cursorDir() {
-    final home = Platform.environment['HOME'];
-    if (home == null || home.isEmpty) return null;
-    return p.join(home, '.cursor');
-  }
-
   String _slug(String name) {
     return name
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
         .replaceAll(RegExp(r'^-+|-+$'), '');
-  }
-
-  Future<Map<String, dynamic>> _readJsonMap(String path) async {
-    final file = File(path);
-    if (!file.existsSync()) return {};
-    try {
-      final decoded = jsonDecode(await file.readAsString());
-      if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map) return decoded.cast<String, dynamic>();
-    } catch (_) {}
-    return {};
   }
 
   Future<McpToolStatus> _probeTool(String name, List<String> args) async {

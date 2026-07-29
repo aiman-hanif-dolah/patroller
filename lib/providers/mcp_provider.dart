@@ -214,7 +214,7 @@ class McpNotifier extends StateNotifier<McpState> {
     }
   }
 
-  /// Writes Cursor MCP config for the **currently open project**.
+  /// Writes OpenCode MCP config for the **currently open project**.
   /// MCP packages themselves stay machine-global.
   Future<void> startRoutine() async {
     final project = _ref.read(appProvider).currentProject;
@@ -326,7 +326,8 @@ class McpNotifier extends StateNotifier<McpState> {
   }
 
   /// Full trigger: bind Patrol + Marionette MCP to the open project, write the
-  /// agent prompt under ~/.cursor/patroller-prompts/, and keep text for clipboard.
+  /// agent prompt under ~/.config/opencode/patroller-prompts/, and keep text
+  /// for clipboard.
   Future<String?> startAgentPromptRoutine(AgentPromptId id) async {
     final project = _ref.read(appProvider).currentProject;
     if (project == null) {

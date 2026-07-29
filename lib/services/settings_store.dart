@@ -19,13 +19,6 @@ class SettingsStore {
   bool _loaded = false;
 
   void _bootstrap() {
-    try {
-      File('${Platform.environment['HOME'] ?? ''}/patroller_ext_err.log')
-          .writeAsStringSync(
-        'BOOTSTRAP enter _loaded=$_loaded inst=${identityHashCode(this)}\n',
-        mode: FileMode.append,
-      );
-    } catch (_) {}
     final dir = patrolStudioUserDataDirSync();
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
@@ -64,13 +57,6 @@ class SettingsStore {
         return AppSettings.defaults();
       }
       final parsed = jsonDecode(file.readAsStringSync());
-      try {
-        File('${Platform.environment['HOME'] ?? ''}/patroller_ext_err.log')
-            .writeAsStringSync(
-              'raw parsed enable=${parsed is Map ? parsed['enableDevtoolsExtension'] : 'notmap'}\n',
-              mode: FileMode.append,
-            );
-      } catch (_) {}
       if (parsed is! Map<String, dynamic>) {
         return AppSettings.defaults();
       }
@@ -80,21 +66,7 @@ class SettingsStore {
         ...defaults.toJson(),
         ...parsed,
       };
-      try {
-        File('${Platform.environment['HOME'] ?? ''}/patroller_ext_err.log')
-            .writeAsStringSync(
-          'merged enable=${merged['enableDevtoolsExtension']} defaults.toJson has=${defaults.toJson().containsKey('enableDevtoolsExtension')}\n',
-          mode: FileMode.append,
-        );
-      } catch (_) {}
       var loaded = AppSettings.fromJson(merged);
-      try {
-        File('${Platform.environment['HOME'] ?? ''}/patroller_ext_err.log')
-            .writeAsStringSync(
-          'after-fromJson enable=${loaded.enableDevtoolsExtension} inst=${identityHashCode(this)}\n',
-          mode: FileMode.append,
-        );
-      } catch (_) {}
       final sanitized = _sanitizeExecutableSettings(loaded);
       final needsSave = sanitized.patrolPath != loaded.patrolPath ||
           sanitized.flutterPath != loaded.flutterPath ||
@@ -117,16 +89,7 @@ class SettingsStore {
     } catch (_) {}
   }
 
-  AppSettings get() {
-    try {
-      File('${Platform.environment['HOME'] ?? ''}/patroller_ext_err.log')
-          .writeAsStringSync(
-        'get() enable=${_settings.enableDevtoolsExtension} _loaded=$_loaded inst=${identityHashCode(this)} trace=${StackTrace.current}\n',
-        mode: FileMode.append,
-      );
-    } catch (_) {}
-    return _settings;
-  }
+  AppSettings get() => _settings;
 
   Future<AppSettings> getAsync() async {
     if (!_loaded) _bootstrap();
@@ -136,13 +99,6 @@ class SettingsStore {
   AppSettings getDefaults() => AppSettings.defaults();
 
   AppSettings updatePartial(Map<String, dynamic> partialMap) {
-    try {
-      File('${Platform.environment['HOME'] ?? ''}/patroller_ext_err.log')
-          .writeAsStringSync(
-        'updatePartial called enable=${partialMap['enableDevtoolsExtension']} keys=${partialMap.keys.join(',')}\n',
-        mode: FileMode.append,
-      );
-    } catch (_) {}
     final defaults = AppSettings.defaults();
     final current = _settings.toJson();
     current.addAll(partialMap);
@@ -174,13 +130,6 @@ class SettingsStore {
 
     clearAugmentedPathCache();
     _settings = AppSettings.fromJson(current);
-    try {
-      File('${Platform.environment['HOME'] ?? ''}/patroller_ext_err.log')
-          .writeAsStringSync(
-        'updatePartial result enable=${_settings.enableDevtoolsExtension} currentEnable=${current['enableDevtoolsExtension']}\n',
-        mode: FileMode.append,
-      );
-    } catch (_) {}
     _saveToDisk(_settingsPath, _settings);
     return _settings;
   }

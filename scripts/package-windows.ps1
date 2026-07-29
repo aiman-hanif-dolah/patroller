@@ -81,6 +81,14 @@ if (-not $Exe) {
   throw "patroller.exe not found in $ReleaseDir"
 }
 
+$PanelBuild = Join-Path $Root "extension\devtools\build"
+if (Test-Path (Join-Path $PanelBuild "index.html")) {
+  $PanelTarget = Join-Path $ReleaseDir "resources\patroller-devtools-panel"
+  if (Test-Path $PanelTarget) { Remove-Item -Recurse -Force $PanelTarget }
+  New-Item -ItemType Directory -Force -Path (Split-Path $PanelTarget) | Out-Null
+  Copy-Item -Recurse $PanelBuild $PanelTarget
+}
+
 $ZipName = "Patroller-$Version-windows-x64.zip"
 $ZipPath = Join-Path $Dist $ZipName
 if (Test-Path $ZipPath) { Remove-Item -Force $ZipPath }
