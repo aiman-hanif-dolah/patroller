@@ -40,6 +40,7 @@ class AppSettings {
     this.controlDeckCollapsed = false,
     this.enableDevtoolsExtension = false,
     this.devtoolsExtensionPort = 8771,
+    this.routineModel,
   });
 
   final String patrolPath;
@@ -81,6 +82,7 @@ class AppSettings {
   final bool controlDeckCollapsed;
   final bool enableDevtoolsExtension;
   final int devtoolsExtensionPort;
+  final String? routineModel;
 
   static AppSettings defaults() => const AppSettings(
         patrolPath: 'patrol',
@@ -121,6 +123,7 @@ class AppSettings {
         controlDeckCollapsed: false,
         enableDevtoolsExtension: true,
         devtoolsExtensionPort: 8771,
+        routineModel: null,
       );
 
   AppSettings copyWith({
@@ -162,6 +165,7 @@ class AppSettings {
     bool? controlDeckCollapsed,
     bool? enableDevtoolsExtension,
     int? devtoolsExtensionPort,
+    String? routineModel,
   }) =>
       AppSettings(
         patrolPath: patrolPath ?? this.patrolPath,
@@ -210,6 +214,7 @@ class AppSettings {
         controlDeckCollapsed: controlDeckCollapsed ?? this.controlDeckCollapsed,
         enableDevtoolsExtension: enableDevtoolsExtension ?? false,
         devtoolsExtensionPort: devtoolsExtensionPort ?? 8771,
+        routineModel: routineModel ?? this.routineModel,
       );
 
   Map<String, dynamic> toJson() => {
@@ -251,6 +256,7 @@ class AppSettings {
         'controlDeckCollapsed': controlDeckCollapsed,
         'enableDevtoolsExtension': enableDevtoolsExtension,
         'devtoolsExtensionPort': devtoolsExtensionPort,
+        'routineModel': routineModel,
       };
 
   static AppSettings resetLayoutDefaults(AppSettings current) => current.copyWith(
@@ -323,6 +329,7 @@ class AppSettings {
           json['enableDevtoolsExtension'] as bool? ?? defaults.enableDevtoolsExtension,
       devtoolsExtensionPort:
           json['devtoolsExtensionPort'] as int? ?? defaults.devtoolsExtensionPort,
+      routineModel: json['routineModel'] as String? ?? defaults.routineModel,
     );
   }
 }

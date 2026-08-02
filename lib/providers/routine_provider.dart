@@ -1,0 +1,291 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../domain/routine_models.dart';
+import '../models/models.dart';
+import '../services/routine_service.dart';
+import 'app_provider.dart';
+import 'runner_provider.dart';
+import 'settings_provider.dart';
+
+class RoutineState {
+  const RoutineState({
+    this.status = RoutineStatus.idle,
+    this.readiness,
+    this.models = const [],
+    this.dependencies = const [],
+    this.selectedModel,
+    this.goal =
+        'Explore stable user journeys, repair failing Patrol tests, and add meaningful uncovered tests.',
+    this.events = const [],
+    this.lastResult,
+    this.pendingPermissionRequest,
+    this.allowDirtyWorktree = false,
+    this.error,
+  });
+
+  final RoutineStatus status;
+  final RoutineReadinessReport? readiness;
+  final List<OpenCodeModel> models;
+  final List<ProjectDependency> dependencies;
+  final String? selectedModel;
+  final String goal;
+  final List<RoutineEvent> events;
+  final RoutineResult? lastResult;
+  final PermissionRequest? pendingPermissionRequest;
+  final bool allowDirtyWorktree;
+  final String? error;
+
+  bool get busy =>
+      status == RoutineStatus.checking ||
+      status == RoutineStatus.awaitingApproval ||
+      status == RoutineStatus.running ||
+      status == RoutineStatus.stopping;
+
+  RoutineState copyWith({
+    RoutineStatus? status,
+    RoutineReadinessReport? readiness,
+    List<OpenCodeModel>? models,
+    List<ProjectDependency>? dependencies,
+    String? selectedModel,
+    String? goal,
+    List<RoutineEvent>? events,
+    RoutineResult? lastResult,
+    PermissionRequest? pendingPermissionRequest,
+    bool clearPermissionRequest = false,
+    bool? allowDirtyWorktree,
+    String? error,
+    bool clearError = false,
+    bool clearResult = false,
+  }) {
+    return RoutineState(
+      status: status ?? this.status,
+      readiness: readiness ?? this.readiness,
+      models: models ?? this.models,
+      dependencies: dependencies ?? this.dependencies,
+      selectedModel: selectedModel ?? this.selectedModel,
+      goal: goal ?? this.goal,
+      events: events ?? this.events,
+      lastResult: clearResult ? null : (lastResult ?? this.lastResult),
+      pendingPermissionRequest: clearPermissionRequest
+          ? null
+          : (pendingPermissionRequest ?? this.pendingPermissionRequest),
+      allowDirtyWorktree: allowDirtyWorktree ?? this.allowDirtyWorktree,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+}
+
+class RoutineNotifier extends StateNotifier<RoutineState> {
+  RoutineNotifier(this._ref) : super(const RoutineState());
+
+  final Ref _ref;
+  final _service = RoutineService();
+
+  Future<void> refresh() async {
+    final project = _ref.read(appProvider).currentProject;
+    if (project == null) {
+      state = state.copyWith(error: 'Open a Flutter project first');
+      return;
+    }
+    state = state.copyWith(status: RoutineStatus.checking, clearError: true);
+    try {
+      final device = _ref.read(runnerProvider).selectedDevice;
+      final readiness = await _service.inspect(
+        projectPath: project.projectPath,
+        selectedDevice: device?.state == DeviceState.booted
+            ? device?.name
+            : null,
+      );
+      final models = await _service.openCode.listVerifiedFreeModels();
+      final dependencies = await _service.projectTooling.listDependencies(
+        project.projectPath,
+      );
+      final preferred = _ref.read(settingsProvider).settings.routineModel;
+      state = state.copyWith(
+        status: RoutineStatus.idle,
+        readiness: readiness,
+        models: models,
+        dependencies: dependencies,
+        selectedModel: models.any((model) => model.id == state.selectedModel)
+            ? state.selectedModel
+            : models.any((model) => model.id == preferred)
+            ? preferred
+            : (models.isEmpty ? null : models.first.id),
+      );
+    } catch (error) {
+      state = state.copyWith(status: RoutineStatus.idle, error: '$error');
+    }
+  }
+
+  void setGoal(String goal) => state = state.copyWith(goal: goal);
+
+  void selectModel(String? model) {
+    state = state.copyWith(selectedModel: model);
+    if (model != null) {
+      _ref.read(settingsProvider.notifier).updatePartial({
+        'routineModel': model,
+      });
+    }
+  }
+
+  Future<void> pubGet() async {
+    final project = _ref.read(appProvider).currentProject;
+    if (project == null) return;
+    final result = await _service.projectTooling.pubGet(project.projectPath);
+    if (!result.ok) {
+      state = state.copyWith(error: result.output);
+      return;
+    }
+    await refresh();
+  }
+
+  Future<void> installOpenCode() async {
+    state = state.copyWith(status: RoutineStatus.checking, clearError: true);
+    final ok = await _service.openCode.installOnMac();
+    if (!ok) {
+      state = state.copyWith(
+        status: RoutineStatus.needsAttention,
+        error:
+            'Could not install OpenCode. Install Homebrew or npm, then use the official package command.',
+      );
+      return;
+    }
+    await refresh();
+  }
+
+  Future<void> removeDependency(String package) async {
+    final project = _ref.read(appProvider).currentProject;
+    if (project == null) return;
+    final result = await _service.projectTooling.removeDependency(
+      project.projectPath,
+      package,
+    );
+    if (!result.ok) {
+      state = state.copyWith(error: result.output);
+      return;
+    }
+    await refresh();
+  }
+
+  void toggleAllowDirtyWorktree(bool allow) =>
+      state = state.copyWith(allowDirtyWorktree: allow);
+
+  void respondPermission(String requestId, bool allow) {
+    _service.openCode.respondPermission(id: requestId, allow: allow);
+    state = state.copyWith(
+      clearPermissionRequest: true,
+      events: [
+        ...state.events,
+        RoutineEvent(
+          time: DateTime.now(),
+          kind: 'permission',
+          message:
+              'User ${allow ? "granted" : "denied"} permission request ($requestId)',
+        ),
+      ],
+    );
+  }
+
+  Future<void> prepareAndStart({bool approved = false}) async {
+    final project = _ref.read(appProvider).currentProject;
+    final model = state.selectedModel;
+    final readiness = state.readiness;
+    if (project == null || readiness == null) {
+      await refresh();
+      return;
+    }
+    if (model == null || model.isEmpty) {
+      state = state.copyWith(
+        error: 'Select a verified zero-cost OpenCode model first',
+      );
+      return;
+    }
+    if (!approved) {
+      state = state.copyWith(
+        status: RoutineStatus.awaitingApproval,
+        clearError: true,
+      );
+      return;
+    }
+    state = state.copyWith(
+      status: RoutineStatus.running,
+      events: [],
+      clearError: true,
+      clearResult: true,
+    );
+    final started = DateTime.now();
+    try {
+      if (readiness.status == RoutineReadiness.blocked &&
+          !state.allowDirtyWorktree) {
+        state = state.copyWith(
+          status: RoutineStatus.needsAttention,
+          error: 'Readiness is blocked; resolve the failed checks first',
+        );
+        return;
+      }
+      final setup = await _service.prepare(readiness);
+      final setupErrors = setup.where((result) => !result.ok).toList();
+      if (setupErrors.isNotEmpty) {
+        state = state.copyWith(
+          status: RoutineStatus.needsAttention,
+          error: setupErrors
+              .map((result) => '${result.command}: ${result.output}')
+              .join('\n'),
+        );
+        return;
+      }
+      final plan = RoutinePlan(
+        projectPath: project.projectPath,
+        goal: state.goal,
+        model: model,
+        allowDirtyWorktree: state.allowDirtyWorktree,
+      );
+      final reportPath = await _service.run(
+        plan: plan,
+        onEvent: (event) =>
+            state = state.copyWith(events: [...state.events, event]),
+        onPermissionRequest: (request) =>
+            state = state.copyWith(pendingPermissionRequest: request),
+      );
+      final finished = DateTime.now();
+      final success = state.events.any((event) => event.kind == 'completed');
+      state = state.copyWith(
+        status: success
+            ? RoutineStatus.completed
+            : RoutineStatus.needsAttention,
+        clearPermissionRequest: true,
+        lastResult: RoutineResult(
+          status: success
+              ? RoutineStatus.completed
+              : RoutineStatus.needsAttention,
+          message: success
+              ? 'OpenCode completed the bounded routine'
+              : 'Routine ended before verified completion',
+          startedAt: started,
+          finishedAt: finished,
+          reportPath: reportPath,
+        ),
+      );
+    } catch (error) {
+      state = state.copyWith(
+        status: RoutineStatus.needsAttention,
+        clearPermissionRequest: true,
+        error: '$error',
+      );
+    }
+  }
+
+  Future<void> stop() async {
+    if (!state.busy) return;
+    state = state.copyWith(status: RoutineStatus.stopping);
+    await _service.openCode.stopRoutine();
+    state = state.copyWith(
+      status: RoutineStatus.needsAttention,
+      error: 'Routine stopped by the user',
+    );
+  }
+}
+
+final routineProvider = StateNotifierProvider<RoutineNotifier, RoutineState>(
+  (ref) => RoutineNotifier(ref),
+);

@@ -83,6 +83,7 @@ The report lists targets/suites, leaf `*_test.dart` files, scenario Pass/Fail, f
 
 ## ✨ Features
 
+- **Autonomous Patrol Routine (macOS/iOS)** - per-routine OpenCode HTTP server, live event stream, zero-cost model filtering, interactive permission requests, automatic Marionette debug app-session lifecycle management, and native test runner auto-wiring
 - **Landing & projects** - open Flutter projects, recent list, validation
 - **Test explorer** - search, multi-select, status badges
 - **Runner** - Test / Test All / Develop / Develop All / Stop
@@ -94,7 +95,7 @@ The report lists targets/suites, leaf `*_test.dart` files, scenario Pass/Fail, f
 - **Environment health** - Flutter, Patrol CLI, simctl, copyable fixes, “CLI Patrol works → no extra setup” guidance
 - **Recordings** - capture Simulator interactions, replay, export Patrol code *(optional)*
 - **Visual flow editor** - edit steps → generate / run Patrol-oriented flows
-- **Agent workbench** - install Patrol MCP + Marionette MCP on the machine, bind Cursor config, fill agent prompts *(optional)*
+- **Agent workbench** - install Patrol MCP + Marionette MCP on the machine, bind Cursor/OpenCode config, run autonomous routines *(optional)*
 - **DevTools extension** - local HTTP + WebSocket API + panel (`/panel`) *(optional)*
 - **Keyboard shortcuts** - ⌘O open, ⌘R test, ⇧⌘R test all, ⌘D develop, and more
 
@@ -121,10 +122,10 @@ No Flutter SDK is required to **run** Patroller. Download the installer we publi
   <a href="https://github.com/aiman-hanif-dolah/patroller/releases/latest">
     <img src="https://img.shields.io/github/v/release/aiman-hanif-dolah/patroller?style=for-the-badge&label=Latest%20release" alt="Latest release" />
   </a>
-  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.dmg">
+  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.dmg">
     <img src="https://img.shields.io/badge/Download-macOS%20DMG-0A84FF?style=for-the-badge&logo=apple" alt="Download macOS DMG" />
   </a>
-  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.zip">
+  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.zip">
     <img src="https://img.shields.io/badge/Download-macOS%20ZIP-555555?style=for-the-badge&logo=apple" alt="Download macOS ZIP" />
   </a>
   <a href="https://github.com/aiman-hanif-dolah/patroller/releases/latest">
@@ -134,15 +135,15 @@ No Flutter SDK is required to **run** Patroller. Download the installer we publi
 
 | Platform | Installer | Status |
 |----------|-----------|--------|
-| **macOS (Apple Silicon)** | [DMG](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.dmg) · [ZIP](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.zip) | Published on [v1.0.0](https://github.com/aiman-hanif-dolah/patroller/releases/tag/v1.0.0) |
+| **macOS (Apple Silicon)** | [DMG](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.dmg) · [ZIP](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.zip) | Published on [v1.1.0](https://github.com/aiman-hanif-dolah/patroller/releases/tag/v1.1.0) |
 | **Windows x64** | Portable `Patroller-*-windows-x64.zip` on [Releases](https://github.com/aiman-hanif-dolah/patroller/releases) | Build on a Windows PC and upload (see below) |
 
-### macOS installer (current: v1.0.0)
+### macOS installer (current: v1.1.0)
 
 | File | Link |
 |------|------|
-| **DMG (recommended)** | [Patroller-1.0.0-macos-arm64.dmg](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.dmg) |
-| ZIP | [Patroller-1.0.0-macos-arm64.zip](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.0.0/Patroller-1.0.0-macos-arm64.zip) |
+| **DMG (recommended)** | [Patroller-1.1.0-macos-arm64.dmg](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.dmg) |
+| ZIP | [Patroller-1.1.0-macos-arm64.zip](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.zip) |
 | All releases | [github.com/aiman-hanif-dolah/patroller/releases](https://github.com/aiman-hanif-dolah/patroller/releases) |
 
 **Install steps**
@@ -620,6 +621,15 @@ flutter test
 - [Patrol](https://patrol.leancode.co) - Flutter-first UI testing
 - [patrol](https://pub.dev/packages/patrol) / [patrol_cli](https://pub.dev/packages/patrol_cli) on pub.dev
 - LeanCode’s Patrol ecosystem (MCP, finders, docs)
+
+---
+
+## 📜 Version history
+
+| Version | Released | Highlights & Key Features |
+|---------|----------|---------------------------|
+| **v1.1.0** | 2026-08-03 | **Autonomous Patrol Routine for macOS/iOS**: Per-routine OpenCode HTTP server & event stream API (`opencode serve --port 4096`), live interactive permission requests (`Allow`/`Deny`), automatic Marionette debug app-session launcher & VM Service URI discovery (`MARIONETTE_VM_SERVICE_URI`), native test runner auto-wiring (`RunnerTests.swift` & `MainActivityTest.kt`), zero-cost model selector, and flexible Git worktree policy override UI. |
+| **v1.0.0** | 2026-07-28 | Initial open-source release of Patroller: visual runner, test explorer, live logs, failure diagnosis, HTML batch reports, recordings, visual flow editor, and machine-level MCP setup. |
 
 ---
 
