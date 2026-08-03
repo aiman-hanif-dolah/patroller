@@ -105,23 +105,38 @@ class ProjectToolingService {
   Future<ProjectCommandResult> pubGet(String projectPath) =>
       _run(projectPath, const ['pub', 'get'], 'flutter pub get');
 
-  Future<ProjectCommandResult> runPatrolSweep(String projectPath) async {
+  /// Args for a full-suite `patrol test` sweep, including optional `-d`.
+  static List<String> patrolSweepArgs({String? device}) {
+    final args = <String>['test'];
+    final trimmed = device?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      args.addAll(['-d', trimmed]);
+    }
+    return args;
+  }
+
+  Future<ProjectCommandResult> runPatrolSweep(
+    String projectPath, {
+    String? device,
+  }) async {
+    final args = patrolSweepArgs(device: device);
+    final command = 'patrol ${args.join(' ')}';
     try {
       final result = await Process.run(
         resolveExecutable('patrol'),
-        const ['test'],
+        args,
         workingDirectory: projectPath,
         environment: developerToolEnv(),
       );
       return ProjectCommandResult(
         ok: result.exitCode == 0,
-        command: 'patrol test',
+        command: command,
         output: '${result.stdout}${result.stderr}'.trim(),
       );
     } catch (error) {
       return ProjectCommandResult(
         ok: false,
-        command: 'patrol test',
+        command: command,
         output: '$error',
       );
     }

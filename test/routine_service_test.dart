@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:patroller/domain/routine_models.dart';
 import 'package:patroller/services/routine_service.dart';
 
 void main() {
@@ -29,5 +30,27 @@ void main() {
     } finally {
       tempDir.deleteSync(recursive: true);
     }
+  });
+
+  test('run fails clearly when plan has no usable device id', () async {
+    final service = RoutineService();
+    await expectLater(
+      service.run(
+        plan: const RoutinePlan(
+          projectPath: '/tmp/app',
+          goal: 'Explore',
+          model: 'provider/free',
+          deviceId: '  ',
+        ),
+        onEvent: (_) {},
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('iOS Simulator'),
+        ),
+      ),
+    );
   });
 }

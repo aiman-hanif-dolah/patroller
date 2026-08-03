@@ -177,9 +177,11 @@ void main() {
       projectPath: '/tmp/app',
       goal: 'Explore',
       model: 'provider/free',
+      deviceId: 'SIM-UDID-1',
       allowDirtyWorktree: true,
     );
     expect(plan.allowDirtyWorktree, isTrue);
+    expect(plan.deviceId, 'SIM-UDID-1');
   });
 
   test('RoutineResult tracks stopping reason and test pass/fail sweeps', () {

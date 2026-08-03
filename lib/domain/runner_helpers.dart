@@ -68,6 +68,19 @@ String? routineTargetDeviceLabel(DeviceInfo? device) {
   return name.isEmpty ? null : name;
 }
 
+/// Device id (preferred) or name for Patrol/Flutter `-d` args.
+///
+/// Same booted-simulator gate as [routineTargetDeviceLabel]. Prefer UDID so
+/// Patrol does not fall back to its "first device" when names collide.
+String? routineTargetDeviceArg(DeviceInfo? device) {
+  if (device == null || !isSelectableDevice(device)) return null;
+  if (device.state != DeviceState.booted) return null;
+  final id = device.id.trim();
+  if (id.isNotEmpty) return id;
+  final name = device.name.trim();
+  return name.isEmpty ? null : name;
+}
+
 String? getDeviceUnavailableReason(DeviceInfo device) {
   if (device.type != DeviceType.iosSimulator) {
     return 'Patroller runs currently support iOS Simulator only';

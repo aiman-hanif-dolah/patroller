@@ -224,6 +224,7 @@ class RoutinePlan {
     required this.projectPath,
     required this.goal,
     required this.model,
+    required this.deviceId,
     this.maxMinutes = 90,
     this.maxIterations = 15,
     this.noProgressLimit = 3,
@@ -233,6 +234,8 @@ class RoutinePlan {
   final String projectPath;
   final String goal;
   final String model;
+  /// Booted iOS Simulator id (UDID) or name for Patrol/Flutter `-d`.
+  final String deviceId;
   final int maxMinutes;
   final int maxIterations;
   final int noProgressLimit;

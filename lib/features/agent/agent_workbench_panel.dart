@@ -11,9 +11,10 @@ import '../../providers/routine_provider.dart';
 import '../../services/mcp_service.dart';
 
 /// Agent workbench:
-/// 1. Install / update Patrol MCP + Marionette MCP **on this machine**
-///    (global `dart pub global activate` - never into the Flutter project).
-/// 2. Bind those servers to the **currently open project** via OpenCode MCP config.
+/// - Install / update Patrol MCP + Marionette MCP **on this machine**
+///   (global `dart pub global activate` — never into the Flutter project pubspec).
+/// - Bind those servers to the **currently open project** (for DIY agents).
+/// - Separate paths: Autonomous Routine, copy-prompt routines, or Record tab.
 class AgentWorkbenchPanel extends ConsumerStatefulWidget {
   const AgentWorkbenchPanel({super.key});
 
@@ -68,9 +69,10 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           const _Heading('Agent workbench'),
           const SizedBox(height: 6),
           Text(
-            'Patroller installs MCP servers on this machine (not inside your app '
-            'project). Once installed, bind them to the open project so OpenCode '
-            'agents can run Patrol / Marionette against that codebase.',
+            'Install MCP on this machine (global tools — not your app pubspec), '
+            'then pick a path: Autonomous Routine (Patroller runs OpenCode), '
+            'copy an agent prompt for your own AI, or use the Record tab for '
+            'manual capture. These are separate paths, not one pipeline.',
             style: TextStyle(fontSize: 12, color: p.textMuted, height: 1.45),
           ),
           const SizedBox(height: 16),
@@ -412,49 +414,40 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           ],
 
           const SizedBox(height: 20),
-          const _Heading('Workflow'),
-          const SizedBox(height: 8),
-          const _WorkflowStep(
-            number: 1,
-            title: 'Install MCP on this machine (above)',
-            body:
-                'Patroller activates patrol_mcp + marionette_mcp globally once. '
-                'No project pubspec changes.',
+          const _Heading('Ways to work'),
+          const SizedBox(height: 4),
+          Text(
+            'Pick one path. They are not steps in a single pipeline.',
+            style: TextStyle(fontSize: 11, color: p.textMuted, height: 1.4),
           ),
-          const _WorkflowStep(
-            number: 2,
-            title: 'Record (Record tab)',
+          const SizedBox(height: 10),
+          const _WorkflowPath(
+            title: 'Prerequisite — Install MCP on this machine',
             body:
-                'Boot a simulator, click Record, interact in Simulator.app. '
-                'Save and export a generated patrolTest.',
+                'Section 1 activates patrol_mcp + marionette_mcp globally '
+                '(dart pub global activate). Does not add packages to your '
+                'Flutter project pubspec. Bind (section 2) wires those tools '
+                'to the open project for DIY agents.',
           ),
-          const _WorkflowStep(
-            number: 3,
-            title: 'Discover (Patrol MCP)',
+          const _WorkflowPath(
+            title: 'Autonomous Patrol routine',
             body:
-                'During patrol develop, agent calls native-tree and screenshot '
-                'to see device state on the open project.',
+                'Top of this tab. Patroller prepares project packages as needed '
+                'and runs OpenCode itself. May change the open project.',
           ),
-          const _WorkflowStep(
-            number: 4,
-            title: 'Discover (Marionette MCP - optional)',
+          const _WorkflowPath(
+            title: 'Agent prompt routines',
             body:
-                'For Flutter widget keys/text, use Marionette MCP on a debug app '
-                'with marionette_flutter.',
+                'Section 3 ("Copy prompt only" / coverage exploration). '
+                'Patroller fills and copies a prompt for your own AI '
+                '(OpenCode or IDE). Patroller does not run that agent.',
           ),
-          const _WorkflowStep(
-            number: 5,
-            title: 'Write & verify (Patrol MCP)',
+          const _WorkflowPath(
+            title: 'Record tab (optional, separate)',
             body:
-                'Agent runs patrol develop via run, adds steps incrementally, '
-                'and validates before saving patrol_test/*.dart files.',
-          ),
-          const _WorkflowStep(
-            number: 6,
-            title: 'Coverage routine (section 3)',
-            body:
-                'Start the prompt routine → paste into OpenCode → agent explores '
-                'with MCP and writes Patrol tests for gaps only.',
+                'Manual capture path — not the same as Autonomous Routine or '
+                'copy-prompt. Boot a simulator, interact, save and export a '
+                'generated patrolTest.',
           ),
         ],
       ),
@@ -655,7 +648,10 @@ class _RoutineCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Explore, create, repair, and validate Patrol tests with a selected verified zero-cost OpenCode model.',
+            'Patroller prepares project packages as needed (patrol, '
+            'integration_test, marionette_flutter, binding, etc.) and runs '
+            'OpenCode itself to explore, create, repair, and validate Patrol '
+            'tests with a selected verified zero-cost model.',
             style: TextStyle(
               fontSize: 11,
               color: palette.textMuted,
@@ -1329,14 +1325,12 @@ class _Banner extends StatelessWidget {
   }
 }
 
-class _WorkflowStep extends StatelessWidget {
-  const _WorkflowStep({
-    required this.number,
+class _WorkflowPath extends StatelessWidget {
+  const _WorkflowPath({
     required this.title,
     required this.body,
   });
 
-  final int number;
   final String title;
   final String body;
 
@@ -1349,20 +1343,12 @@ class _WorkflowStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 22,
-            height: 22,
-            alignment: Alignment.center,
+            width: 6,
+            height: 6,
+            margin: const EdgeInsets.only(top: 5),
             decoration: BoxDecoration(
-              color: p.border,
-              borderRadius: const BorderRadius.all(Radius.circular(6)),
-            ),
-            child: Text(
-              '$number',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: p.text,
-              ),
+              color: PatrolColors.violet400.withValues(alpha: 0.7),
+              shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: 10),

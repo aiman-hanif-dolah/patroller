@@ -214,12 +214,13 @@ void main() {
   group('routineTargetDeviceLabel', () {
     DeviceInfo sim({
       String name = 'iPhone 17 Pro',
+      String id = 'UDID-1',
       DeviceState state = DeviceState.booted,
       DeviceType type = DeviceType.iosSimulator,
     }) {
       return DeviceInfo(
         name: name,
-        id: 'UDID-1',
+        id: id,
         platform: 'iOS',
         type: type,
         availability: 'available',
@@ -243,6 +244,46 @@ void main() {
         isNull,
       );
       expect(routineTargetDeviceLabel(sim(name: '  ')), isNull);
+    });
+  });
+
+  group('routineTargetDeviceArg', () {
+    DeviceInfo sim({
+      String name = 'iPhone 17 Pro',
+      String id = 'UDID-1',
+      DeviceState state = DeviceState.booted,
+      DeviceType type = DeviceType.iosSimulator,
+    }) {
+      return DeviceInfo(
+        name: name,
+        id: id,
+        platform: 'iOS',
+        type: type,
+        availability: 'available',
+        rawLine: '',
+        state: state,
+      );
+    }
+
+    test('prefers id over name for booted iOS Simulator', () {
+      expect(routineTargetDeviceArg(sim()), 'UDID-1');
+    });
+
+    test('falls back to name when id is blank', () {
+      expect(routineTargetDeviceArg(sim(id: '  ')), 'iPhone 17 Pro');
+    });
+
+    test('returns null when device is missing, shutdown, or non-simulator', () {
+      expect(routineTargetDeviceArg(null), isNull);
+      expect(
+        routineTargetDeviceArg(sim(state: DeviceState.shutdown)),
+        isNull,
+      );
+      expect(
+        routineTargetDeviceArg(sim(type: DeviceType.androidEmulator)),
+        isNull,
+      );
+      expect(routineTargetDeviceArg(sim(id: '', name: '  ')), isNull);
     });
   });
 }

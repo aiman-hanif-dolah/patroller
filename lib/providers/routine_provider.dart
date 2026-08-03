@@ -257,12 +257,12 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
 
       // Re-read the live top-bar selection after prepare so a booted simulator
       // chosen while readiness was stale no longer blocks Start Routine.
-      final liveDeviceLabel = routineTargetDeviceLabel(
-        _ref.read(runnerProvider).selectedDevice,
-      );
+      final liveDevice = _ref.read(runnerProvider).selectedDevice;
+      final liveDeviceLabel = routineTargetDeviceLabel(liveDevice);
+      final liveDeviceArg = routineTargetDeviceArg(liveDevice);
       final readinessAfterDevice = readiness.withSelectedDevice(liveDeviceLabel);
       state = state.copyWith(readiness: readinessAfterDevice);
-      if (liveDeviceLabel == null) {
+      if (liveDeviceArg == null) {
         state = state.copyWith(
           status: RoutineStatus.needsAttention,
           error:
@@ -282,6 +282,7 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
         projectPath: project.projectPath,
         goal: state.goal,
         model: model,
+        deviceId: liveDeviceArg,
         allowDirtyWorktree: state.allowDirtyWorktree,
       );
       final reportPath = await _service.run(

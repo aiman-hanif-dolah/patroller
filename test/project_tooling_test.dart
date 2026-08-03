@@ -143,4 +143,13 @@ dev_dependencies:
       tempDir.deleteSync(recursive: true);
     }
   });
+
+  test('patrolSweepArgs includes -d when device is set', () {
+    expect(ProjectToolingService.patrolSweepArgs(), ['test']);
+    expect(ProjectToolingService.patrolSweepArgs(device: '  '), ['test']);
+    expect(
+      ProjectToolingService.patrolSweepArgs(device: 'SIM-UDID'),
+      ['test', '-d', 'SIM-UDID'],
+    );
+  });
 }

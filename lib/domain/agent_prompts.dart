@@ -58,16 +58,48 @@ class AgentPromptContext {
   /// Short app / env label (e.g. myastro_stg).
   final String? stagingAppLabel;
 
+  /// Portable Flutter invocation for prompts (`flutter` or `fvm flutter`).
+  String get portableFlutterCommand {
+    if (_projectUsesFvm(projectPath) ||
+        flutterExecutable.toLowerCase().contains('fvm')) {
+      return 'fvm flutter';
+    }
+    return 'flutter';
+  }
+
+  /// Portable launch line (PATH / FVM — no absolute host paths).
   String get launchCommand {
     final flavor = flavorArgs.trim().isEmpty ? '' : ' ${flavorArgs.trim()}';
-    return '$flutterExecutable run -t $entryTarget$flavor '
-        '-d "$deviceName" 2>&1';
+    return '$portableFlutterCommand run -t $entryTarget$flavor';
+  }
+
+  /// `package:<name>/<entry under lib/>` for the detected entry target.
+  String get packageEntryImport {
+    var rel = entryTarget.replaceAll('\\', '/');
+    if (rel.startsWith('lib/')) {
+      rel = rel.substring(4);
+    }
+    return 'package:$projectName/$rel';
   }
 
   String get appLabel =>
       stagingAppLabel?.trim().isNotEmpty == true
           ? stagingAppLabel!.trim()
           : projectName;
+
+  String get deviceHintLine {
+    final name = deviceName.trim();
+    if (name.isEmpty) {
+      return 'the currently selected simulator in Patroller';
+    }
+    return 'the currently selected simulator in Patroller '
+        '(soft hint: `$name`)';
+  }
+}
+
+bool _projectUsesFvm(String projectPath) {
+  return Directory(p.join(projectPath, '.fvm')).existsSync() ||
+      File(p.join(projectPath, '.fvmrc')).existsSync();
 }
 
 /// Resolve sensible defaults from the open project + selected device.
@@ -91,9 +123,7 @@ AgentPromptContext buildAgentPromptContext({
     projectName: projectName,
     projectPath: projectPath,
     flutterExecutable: flutterExecutable,
-    deviceName: (deviceName == null || deviceName.trim().isEmpty)
-        ? 'iPhone 17 Pro Max'
-        : deviceName.trim(),
+    deviceName: deviceName?.trim() ?? '',
     entryTarget: entry,
     flavorArgs: flavor,
     patrolTestDir: patrolTestDir,
@@ -158,8 +188,11 @@ discover and create Patrol end-to-end tests.
 ## Project
 
 - Name: ${c.projectName}
-- Path: ${c.projectPath}
-- Patrol test directory: ${c.patrolTestDir}/
+- Patrol test directory: `${c.patrolTestDir}/`
+- Entry target: `${c.entryTarget}`
+- Flavor: $flavorNote
+
+Prefer project-relative paths (`lib/`, `${c.patrolTestDir}/`) over absolute host paths.
 
 ## Objective
 
@@ -178,7 +211,7 @@ meaningful, non-duplicate scenarios can be found.
    - Note the test name and what it covers
    - Note helpers, fixtures, and shared utilities
    - Note the naming convention
-5. Read \`lib/main.dart\` (and any flavor entry points) to understand app structure.
+5. Read \`${c.entryTarget}\` (and any other flavor entry points) to understand app structure.
 6. Identify the navigation graph: routes, named routes, go_router, auto_route, etc.
 7. Identify state management: Provider, Riverpod, Bloc, GetX, etc.
 8. Produce a coverage map: list every screen/feature you know exists, and mark
@@ -190,14 +223,19 @@ Never create duplicate coverage. If a scenario is already tested, skip it.
 
 ## Phase 1: Launch and connect
 
-Launch the app:
+From the project root, launch with the project's Flutter SDK / FVM if configured
+(prefer \`${c.portableFlutterCommand}\` on PATH — do not require an absolute Flutter binary):
 
+\`\`\`
 ${c.launchCommand}
+\`\`\`
 
-- Flutter binary: \`${c.flutterExecutable}\`
 - Entry target: \`${c.entryTarget}\`
 - Flavor: $flavorNote
-- Device: \`${c.deviceName}\`
+- Device: ${c.deviceHintLine}
+
+Target the selected simulator with \`-d\` only if needed; treat any device name as a
+soft hint, not a machine-locked launch recipe.
 
 Capture the VM Service URI and connect Marionette MCP.
 
@@ -275,7 +313,7 @@ For each uncovered scenario, create a Patrol test.
 ```dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
-import 'package:${c.projectName}/main.dart';
+import '${c.packageEntryImport}';
 
 void main() {
   patrolTest('<descriptive name>', (PatrolIntegrationTester \$) async {
@@ -340,6 +378,17 @@ For authenticated exploration:
 - Password: ${c.loginPassword}
 
 Use only when authentication is required. Treat as staging/test credentials.
+
+---
+
+## Local binding (optional)
+
+Patroller filled these machine-local values for MCP / session binding on this host.
+Prefer the portable instructions above when sharing or reusing this prompt.
+
+- Project path: \`${c.projectPath}\`
+- Resolved Flutter binary (this machine): \`${c.flutterExecutable}\`
+- Selected device name: ${c.deviceName.trim().isEmpty ? '(none selected)' : '`${c.deviceName}`'}
 
 ---
 

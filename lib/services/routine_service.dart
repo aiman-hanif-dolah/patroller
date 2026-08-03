@@ -200,6 +200,13 @@ class RoutineService {
     required void Function(RoutineEvent event) onEvent,
     void Function(PermissionRequest request)? onPermissionRequest,
   }) async {
+    final device = plan.deviceId.trim();
+    if (device.isEmpty) {
+      throw StateError(
+        'Boot and select an iOS Simulator before running the routine.',
+      );
+    }
+
     final stamp = DateTime.now().millisecondsSinceEpoch.toString();
     final dataDir = patrolStudioUserDataDirSync();
     final routineDir = Directory(p.join(dataDir.path, 'routines', stamp));
@@ -219,7 +226,7 @@ class RoutineService {
         final entrypoint = projectTooling.findEntrypoint(plan.projectPath) ?? 'lib/main.dart';
         debugAppProcess = await Process.start(
           flutterExec,
-          ['run', '-d', 'ios', '--debug', '-t', entrypoint],
+          ['run', '-d', device, '--debug', '-t', entrypoint],
           workingDirectory: plan.projectPath,
           environment: developerToolEnv(),
         );
@@ -252,7 +259,7 @@ class RoutineService {
             RoutineEvent(
               time: DateTime.now(),
               kind: 'debug_session',
-              message: 'Automated Flutter debug session launched; Marionette will connect upon VM Service readiness',
+              message: 'Automated Flutter debug session launched on $device; Marionette will connect upon VM Service readiness',
             ),
           );
         }
@@ -273,6 +280,7 @@ class RoutineService {
         patrolArgs: const ['run', 'patrol_mcp'],
         patrolEnvironment: {
           'PROJECT_ROOT': plan.projectPath,
+          'PATROL_FLAGS': '-d $device',
           'SHOW_TERMINAL': 'false',
         },
         marionetteCommand: marionette.command,
@@ -282,9 +290,11 @@ class RoutineService {
       );
       final prompt = '''You are running a bounded Patroller routine.
 Project: ${plan.projectPath}
+Target device: $device
 Goal: ${plan.goal}
 Budget: ${plan.maxMinutes} minutes, ${plan.maxIterations} iterations, stop after ${plan.noProgressLimit} repeated no-progress iterations.
 Use Patrol MCP for tests and Marionette MCP for live Flutter exploration.
+Always target device "$device" (pass it to Patrol MCP run / patrol test -d). Do not use another device.
 Read the project rules first. Only edit patrol_test/** and approved dependency/debug bridge files. Never commit, push, delete unrelated files, or change native host files.
 Explore, repair outdated tests, create meaningful non-duplicate tests, and validate every change. Finish with a concise report of changed files, passing tests, failures, and blockers.''';
 
@@ -292,10 +302,13 @@ Explore, repair outdated tests, create meaningful non-duplicate tests, and valid
         RoutineEvent(
           time: DateTime.now(),
           kind: 'started',
-          message: 'OpenCode routine started with ${plan.model}',
+          message: 'OpenCode routine started with ${plan.model} on $device',
         ),
       );
-      final baseline = await projectTooling.runPatrolSweep(plan.projectPath);
+      final baseline = await projectTooling.runPatrolSweep(
+        plan.projectPath,
+        device: device,
+      );
       emit(
         RoutineEvent(
           time: DateTime.now(),
@@ -323,7 +336,10 @@ Explore, repair outdated tests, create meaningful non-duplicate tests, and valid
           return -1;
         },
       );
-      final finalSweep = await projectTooling.runPatrolSweep(plan.projectPath);
+      final finalSweep = await projectTooling.runPatrolSweep(
+        plan.projectPath,
+        device: device,
+      );
       emit(
         RoutineEvent(
           time: DateTime.now(),
@@ -339,6 +355,7 @@ Explore, repair outdated tests, create meaningful non-duplicate tests, and valid
           'projectPath': plan.projectPath,
           'goal': plan.goal,
           'model': plan.model,
+          'deviceId': device,
           'exitCode': exitCode,
           'baselinePassed': baseline.ok,
           'finalSweepPassed': finalSweep.ok,
