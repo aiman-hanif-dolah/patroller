@@ -456,6 +456,8 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
   void _handleQueueStatus(QueueStatusUpdate status) {
     if (_userStopped) return;
     final running = status.status == QueueStatus.running;
+    final activeRunIsRunning =
+        state.currentRun != null && isActiveLifecycle(state.currentRun!.lifecycle);
     state = state.copyWith(
       queueStatus: status,
       runAllContext: running
@@ -464,7 +466,8 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
               current: status.currentIndex.clamp(1, status.total),
             )
           : null,
-      isRunning: running ? true : state.isRunning,
+      clearRunAllContext: !running,
+      isRunning: running ? true : activeRunIsRunning,
     );
 
     if (!running) {

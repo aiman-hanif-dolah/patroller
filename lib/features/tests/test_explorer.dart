@@ -195,6 +195,8 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
                           onToggleSelection: () => ref
                               .read(appProvider.notifier)
                               .toggleFileSelection(file.absolutePath),
+                          onDeleteFile: () =>
+                              _confirmAndDeleteFile(context, ref, file),
                           onToggleExpand: file.detectedTests.isEmpty
                               ? null
                               : () {
@@ -225,6 +227,70 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
         ),
       ],
     );
+  }
+
+  Future<void> _confirmAndDeleteFile(
+    BuildContext context,
+    WidgetRef ref,
+    TestFile file,
+  ) async {
+    final p = PatrolPalette.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: p.surface,
+          title: Text(
+            'Delete test file?',
+            style: TextStyle(
+              color: p.text,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${file.fileName}"? This will permanently remove the file from your project.',
+            style: TextStyle(color: p.textSecondary, fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: p.textMuted, fontSize: 12),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: PatrolColors.red400,
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Delete', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      final success = await ref
+          .read(appProvider.notifier)
+          .deleteTestFile(file.absolutePath);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success
+                  ? 'Deleted ${file.fileName}'
+                  : 'Failed to delete ${file.fileName}',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   List<TestFile> _filteredFiles(
@@ -525,6 +591,7 @@ class _TestFileRow extends StatelessWidget {
     required this.isExpanded,
     required this.onSelectFile,
     required this.onToggleSelection,
+    this.onDeleteFile,
     this.onToggleExpand,
   });
 
@@ -536,6 +603,7 @@ class _TestFileRow extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onSelectFile;
   final VoidCallback onToggleSelection;
+  final VoidCallback? onDeleteFile;
   final VoidCallback? onToggleExpand;
 
   @override
@@ -635,6 +703,16 @@ class _TestFileRow extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           ..._trailingBadges(context, file, isRunning, isHelper),
+                          if (onDeleteFile != null) ...[
+                            const SizedBox(width: 4),
+                            AccessibleIconButton(
+                              icon: Icons.delete_outline,
+                              label: 'Delete ${file.fileName}',
+                              onPressed: onDeleteFile,
+                              size: 14,
+                              color: p.textFaint,
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 6),

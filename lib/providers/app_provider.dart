@@ -368,6 +368,30 @@ class AppNotifier extends StateNotifier<AppState> {
         : state.selectedFile;
     state = state.copyWith(testFiles: files, selectedFile: selected);
   }
+
+  Future<bool> deleteTestFile(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+      final updatedSelectedIds = Set<String>.from(state.selectedFileIds)..remove(filePath);
+      final isSelectedFile = state.selectedFile?.absolutePath == filePath;
+      final updatedSelectedFile = isSelectedFile ? null : state.selectedFile;
+      final updatedTestFiles = state.testFiles.where((f) => f.absolutePath != filePath).toList();
+
+      state = state.copyWith(
+        testFiles: updatedTestFiles,
+        selectedFileIds: updatedSelectedIds,
+        selectedFile: updatedSelectedFile,
+        clearSelectedTestCase: isSelectedFile,
+      );
+      await scanTests();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 }
 
 final appProvider = StateNotifierProvider<AppNotifier, AppState>(
