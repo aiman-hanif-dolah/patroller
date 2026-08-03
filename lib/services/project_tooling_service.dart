@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../domain/patrol_run_outcome.dart';
+import '../domain/runner_helpers.dart';
 import '../domain/routine_models.dart';
 import 'cli_env.dart';
+import 'test_scanner.dart';
 
 class ProjectCommandResult {
   const ProjectCommandResult({
@@ -106,9 +108,17 @@ class ProjectToolingService {
   Future<ProjectCommandResult> pubGet(String projectPath) =>
       _run(projectPath, const ['pub', 'get'], 'flutter pub get');
 
-  /// Args for a full-suite `patrol test` sweep, including optional `-d`.
-  static List<String> patrolSweepArgs({String? device}) {
+  /// Args for a full-suite `patrol test` sweep, including optional `-d` and targets.
+  static List<String> patrolSweepArgs({
+    String? device,
+    List<String>? targetFiles,
+  }) {
     final args = <String>['test', ...patrolTestModeDartDefineArgs()];
+    if (targetFiles != null && targetFiles.isNotEmpty) {
+      for (final target in targetFiles) {
+        args.addAll(['--target', target]);
+      }
+    }
     final trimmed = device?.trim();
     if (trimmed != null && trimmed.isNotEmpty) {
       args.addAll(['-d', trimmed]);
@@ -119,8 +129,28 @@ class ProjectToolingService {
   Future<ProjectCommandResult> runPatrolSweep(
     String projectPath, {
     String? device,
+    List<String>? targetFiles,
   }) async {
-    final args = patrolSweepArgs(device: device);
+    final testDir = p.join(projectPath, 'patrol_test');
+    if (!Directory(testDir).existsSync()) {
+      return const ProjectCommandResult(
+        ok: false,
+        command: 'patrol test',
+        output: 'patrol_test directory does not exist',
+      );
+    }
+    final scannedFiles = await scanTestFiles(projectPath, 'patrol_test');
+    final runnable = runnableTestFiles(scannedFiles);
+    if (runnable.isEmpty) {
+      return const ProjectCommandResult(
+        ok: false,
+        command: 'patrol test',
+        output: 'No runnable Patrol tests (*_test.dart) found in patrol_test directory',
+      );
+    }
+
+    final targets = targetFiles ?? runnable.map((f) => f.absolutePath).toList();
+    final args = patrolSweepArgs(device: device, targetFiles: targets);
     final command = 'patrol ${args.join(' ')}';
     try {
       final result = await Process.run(
