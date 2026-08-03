@@ -105,6 +105,7 @@ enum LogSource {
   xcode,
   device,
   system,
+  routine,
   unknown;
 
   String toJson() {
@@ -119,6 +120,8 @@ enum LogSource {
         return 'Device';
       case LogSource.system:
         return 'System';
+      case LogSource.routine:
+        return 'Routine';
       case LogSource.unknown:
         return 'Unknown';
     }
@@ -136,6 +139,8 @@ enum LogSource {
         return LogSource.device;
       case 'System':
         return LogSource.system;
+      case 'Routine':
+        return LogSource.routine;
       default:
         return LogSource.unknown;
     }

@@ -157,4 +157,14 @@ void main() {
       expect(collapsed[1].text, contains('collapsed'));
     });
   });
+
+  group('getLogFilterKey', () {
+    test('returns routine filter key for routine logs', () {
+      final log = _log(
+        '[routine] [started] OpenCode routine started',
+        source: LogSource.routine,
+      );
+      expect(getLogFilterKey(log), LogFilterKey.routine);
+    });
+  });
 }

@@ -198,6 +198,7 @@ enum LogFilterKey {
   xcode,
   device,
   system,
+  routine,
   unknown,
   info,
 }
@@ -228,6 +229,7 @@ class LogFilters {
       LogFilterKey.xcode: true,
       LogFilterKey.device: true,
       LogFilterKey.system: true,
+      LogFilterKey.routine: true,
       LogFilterKey.unknown: true,
       LogFilterKey.info: true,
     },
@@ -254,6 +256,7 @@ const logFilterLabels = {
   LogFilterKey.xcode: 'Xcode',
   LogFilterKey.device: 'Device',
   LogFilterKey.system: 'System',
+  LogFilterKey.routine: 'Routine',
   LogFilterKey.unknown: 'Unknown',
   LogFilterKey.info: 'Info',
 };
@@ -267,7 +270,9 @@ LogFilterKey getLogFilterKey(LogEvent log) {
   if (category == LogCategory.patrol) return LogFilterKey.patrol;
   if (category == LogCategory.flutter) return LogFilterKey.flutter;
   if (category == LogCategory.system) return LogFilterKey.system;
-  if (category == LogCategory.routine) return LogFilterKey.info;
+  if (category == LogCategory.routine || log.source == LogSource.routine) {
+    return LogFilterKey.routine;
+  }
   if (log.source == LogSource.unknown) return LogFilterKey.unknown;
   return LogFilterKey.info;
 }
