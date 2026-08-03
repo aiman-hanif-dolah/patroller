@@ -9,6 +9,7 @@ import '../../providers/app_provider.dart';
 import '../../providers/mcp_provider.dart';
 import '../../providers/routine_provider.dart';
 import '../../services/mcp_service.dart';
+import '../../widgets/accessible_icon_button.dart';
 
 /// Agent workbench:
 /// - Install / update Patrol MCP + Marionette MCP **on this machine**
@@ -571,7 +572,7 @@ class _AgentPromptCard extends StatelessWidget {
   }
 }
 
-class _RoutineCard extends StatelessWidget {
+class _RoutineCard extends StatefulWidget {
   const _RoutineCard({
     required this.state,
     required this.onRefresh,
@@ -601,131 +602,330 @@ class _RoutineCard extends StatelessWidget {
   final VoidCallback onStop;
 
   @override
+  State<_RoutineCard> createState() => _RoutineCardState();
+}
+
+class _RoutineCardState extends State<_RoutineCard> {
+  bool _showChecksDetail = false;
+
+  @override
   Widget build(BuildContext context) {
     final palette = PatrolPalette.of(context);
-    final readiness = state.readiness;
-    final canStart = state.canStartRoutine;
-    final perm = state.pendingPermissionRequest;
+    final readiness = widget.state.readiness;
+    final canStart = widget.state.canStartRoutine;
+    final perm = widget.state.pendingPermissionRequest;
+
+    final passedChecks = readiness?.checks.where((c) => c.ok).length ?? 0;
+    final totalChecks = readiness?.checks.length ?? 0;
+    final failedChecks = totalChecks - passedChecks;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: palette.surfaceMuted,
-        borderRadius: BorderRadius.circular(10),
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: PatrolColors.violet400.withValues(alpha: 0.45),
+          color: PatrolColors.violet400.withValues(alpha: 0.35),
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.auto_awesome,
-                size: 17,
-                color: PatrolColors.violet400,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: PatrolColors.violet400.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  size: 16,
+                  color: PatrolColors.violet400,
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               const Expanded(
-                child: _Heading('Autonomous — Patroller drives'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Autonomous — Patroller drives',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Patroller runs OpenCode to explore journeys and repair test flows.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white54,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              IconButton(
-                onPressed: state.busy ? null : onRefresh,
-                icon: const Icon(Icons.refresh, size: 16),
-                tooltip: 'Refresh routine readiness',
-                visualDensity: VisualDensity.compact,
+              AccessibleIconButton(
+                icon: Icons.refresh_rounded,
+                label: 'Refresh routine readiness',
+                onPressed: widget.state.busy ? null : widget.onRefresh,
+                size: 14,
+                color: palette.textMuted,
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Patroller drives the robot for you — runs OpenCode itself. '
-            'May change the open project (packages, tests, binding).',
-            style: TextStyle(
-              fontSize: 11,
-              color: palette.textMuted,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
+
+          // Collapsible Readiness Bar (Shadcn Accordion Badge style)
           if (readiness != null) ...[
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: readiness.checks
-                  .map(
-                    (check) => Chip(
-                      avatar: Icon(
-                        check.ok ? Icons.check : Icons.warning_amber_rounded,
-                        size: 13,
-                        color: check.ok
+            InkWell(
+              onTap: () => setState(() => _showChecksDetail = !_showChecksDetail),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: palette.surfaceMuted,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      failedChecks == 0
+                          ? Icons.check_circle_rounded
+                          : Icons.warning_amber_rounded,
+                      size: 14,
+                      color: failedChecks == 0
+                          ? PatrolColors.psPassed
+                          : PatrolColors.amber,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      failedChecks == 0
+                          ? 'All $totalChecks readiness checks passed'
+                          : '$passedChecks of $totalChecks checks passed · $failedChecks warning${failedChecks == 1 ? '' : 's'}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: failedChecks == 0
                             ? PatrolColors.psPassed
                             : PatrolColors.amber,
                       ),
-                      label: Text(
-                        check.label,
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
                     ),
-                  )
-                  .toList(),
+                    const Spacer(),
+                    Text(
+                      _showChecksDetail ? 'Hide checks' : 'Details',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: palette.textMuted,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      _showChecksDetail
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 14,
+                      color: palette.textMuted,
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
+            if (_showChecksDetail) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: palette.surfaceMuted.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: palette.border.withValues(alpha: 0.5)),
+                ),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: readiness.checks.map((check) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: palette.surface,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: check.ok
+                              ? PatrolColors.psPassed.withValues(alpha: 0.3)
+                              : PatrolColors.amber.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            check.ok ? Icons.check : Icons.warning_amber_rounded,
+                            size: 11,
+                            color: check.ok
+                                ? PatrolColors.psPassed
+                                : PatrolColors.amber,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            check.label,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: palette.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
           ],
+
+          // Allow dirty Git worktree checkbox
           Row(
             children: [
-              Checkbox(
-                value: state.allowDirtyWorktree,
-                onChanged: state.busy
-                    ? null
-                    : (val) => onToggleDirtyWorktree(val ?? false),
+              SizedBox(
+                height: 20,
+                width: 20,
+                child: Checkbox(
+                  value: widget.state.allowDirtyWorktree,
+                  onChanged: widget.state.busy
+                      ? null
+                      : (val) => widget.onToggleDirtyWorktree(val ?? false),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  side: BorderSide(color: palette.border, width: 1.5),
+                ),
               ),
-              const Expanded(
+              const SizedBox(width: 8),
+              Expanded(
                 child: Text(
                   'Allow dirty Git worktree (proceed with uncommitted changes)',
-                  style: TextStyle(fontSize: 11),
+                  style: TextStyle(fontSize: 11, color: palette.textSecondary),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          TextFormField(
-            initialValue: state.goal,
-            minLines: 1,
-            maxLines: 3,
-            onChanged: onGoalChanged,
-            decoration: const InputDecoration(
-              labelText: 'Routine goal',
-              hintText: 'What should the agent explore or repair?',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            style: const TextStyle(fontSize: 12),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: state.models.any((model) => model.id == state.selectedModel)
-                ? state.selectedModel
-                : null,
-            items: state.models
-                .map(
-                  (model) => DropdownMenuItem<String>(
-                    value: model.id,
-                    child: Text(model.id, style: const TextStyle(fontSize: 11)),
+          const SizedBox(height: 12),
+
+          // Routine Goal Input
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ROUTINE GOAL',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: palette.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 5),
+              TextFormField(
+                initialValue: widget.state.goal,
+                minLines: 1,
+                maxLines: 3,
+                onChanged: widget.onGoalChanged,
+                style: TextStyle(fontSize: 12, color: palette.text),
+                decoration: InputDecoration(
+                  hintText: 'What should the agent explore or repair?',
+                  hintStyle: TextStyle(fontSize: 12, color: palette.textMuted),
+                  filled: true,
+                  fillColor: palette.surfaceMuted,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: palette.border),
                   ),
-                )
-                .toList(),
-            onChanged: state.busy ? null : onModelChanged,
-            decoration: const InputDecoration(
-              labelText: 'Verified zero-cost model',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: palette.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: PatrolColors.violet400, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
           ),
-          if (state.models.isEmpty) ...[
+          const SizedBox(height: 12),
+
+          // Verified zero-cost model dropdown
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'MODEL SELECTION',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: palette.textMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 5),
+              DropdownButtonFormField<String>(
+                initialValue: widget.state.models
+                        .any((model) => model.id == widget.state.selectedModel)
+                    ? widget.state.selectedModel
+                    : null,
+                items: widget.state.models
+                    .map(
+                      (model) => DropdownMenuItem<String>(
+                        value: model.id,
+                        child: Text(
+                          model.id,
+                          style: TextStyle(fontSize: 12, color: palette.text),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: widget.state.busy ? null : widget.onModelChanged,
+                dropdownColor: palette.fill,
+                style: TextStyle(fontSize: 12, color: palette.text),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: palette.surfaceMuted,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: palette.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: palette.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: PatrolColors.violet400, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (widget.state.models.isEmpty) ...[
             const SizedBox(height: 4),
             Text(
               'No verified zero-cost models found. Run "opencode auth login" or configure a free provider model.',
@@ -736,55 +936,94 @@ class _RoutineCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 8),
-          Row(
+          const SizedBox(height: 12),
+
+          // Remove direct dependency & Pub get
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: state.dependencies.isEmpty
-                      ? null
-                      : state.dependencies.first.name,
-                  items: state.dependencies
-                      .map(
-                        (dependency) => DropdownMenuItem<String>(
-                          value: dependency.name,
-                          child: Text(
-                            '${dependency.name}${dependency.isDev ? ' (dev)' : ''}',
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: state.busy
-                      ? null
-                      : (value) {
-                          if (value != null) onRemoveDependency(value);
-                        },
-                  decoration: const InputDecoration(
-                    labelText: 'Remove direct dependency',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
+              Text(
+                'PROJECT DEPENDENCIES',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: palette.textMuted,
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(width: 8),
-              _ActionChip(
-                label: 'Pub get',
-                icon: Icons.sync,
-                color: PatrolColors.sky400,
-                enabled: !state.busy,
-                onPressed: onPubGet,
+              const SizedBox(height: 5),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: widget.state.dependencies.isEmpty
+                          ? null
+                          : widget.state.dependencies.first.name,
+                      items: widget.state.dependencies
+                          .map(
+                            (dependency) => DropdownMenuItem<String>(
+                              value: dependency.name,
+                              child: Text(
+                                '${dependency.name}${dependency.isDev ? ' (dev)' : ''}',
+                                style: TextStyle(fontSize: 12, color: palette.text),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: widget.state.busy
+                          ? null
+                          : (value) {
+                              if (value != null) widget.onRemoveDependency(value);
+                            },
+                      dropdownColor: palette.fill,
+                      decoration: InputDecoration(
+                        hintText: 'Remove direct dependency',
+                        hintStyle: TextStyle(fontSize: 12, color: palette.textMuted),
+                        filled: true,
+                        fillColor: palette.surfaceMuted,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: palette.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: palette.border),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: widget.state.busy ? null : widget.onPubGet,
+                    icon: const Icon(Icons.sync, size: 14),
+                    label: const Text('Pub get', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: palette.surfaceMuted,
+                      foregroundColor: PatrolColors.sky400,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: palette.border),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
+
+          // Permission Request Dialog
           if (perm != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: PatrolColors.amber.withValues(alpha: 0.15),
+                color: PatrolColors.amber.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: PatrolColors.amber),
+                border: Border.all(color: PatrolColors.amber.withValues(alpha: 0.5)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -811,20 +1050,27 @@ class _RoutineCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      _ActionChip(
-                        label: 'Allow',
-                        icon: Icons.check,
-                        color: PatrolColors.psPassed,
-                        enabled: true,
-                        onPressed: () => onRespondPermission(perm.id, true),
+                      ElevatedButton.icon(
+                        onPressed: () => widget.onRespondPermission(perm.id, true),
+                        icon: const Icon(Icons.check, size: 14),
+                        label: const Text('Allow', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: PatrolColors.psPassed,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      _ActionChip(
-                        label: 'Deny',
-                        icon: Icons.close,
-                        color: PatrolColors.ember,
-                        enabled: true,
-                        onPressed: () => onRespondPermission(perm.id, false),
+                      OutlinedButton.icon(
+                        onPressed: () => widget.onRespondPermission(perm.id, false),
+                        icon: const Icon(Icons.close, size: 14),
+                        label: const Text('Deny', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: PatrolColors.ember,
+                          side: const BorderSide(color: PatrolColors.ember),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
                       ),
                     ],
                   ),
@@ -832,17 +1078,16 @@ class _RoutineCard extends StatelessWidget {
               ),
             ),
           ],
-          if (state.status == RoutineStatus.awaitingApproval &&
-              readiness != null) ...[
-            const SizedBox(height: 10),
+
+          // Approval Scope Section
+          if (widget.state.status == RoutineStatus.awaitingApproval && readiness != null) ...[
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: PatrolColors.amber.withValues(alpha: 0.12),
+                color: PatrolColors.amber.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: PatrolColors.amber.withValues(alpha: 0.4),
-                ),
+                border: Border.all(color: PatrolColors.amber.withValues(alpha: 0.4)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -859,120 +1104,112 @@ class _RoutineCard extends StatelessWidget {
                   if (readiness.preview.isNotEmpty)
                     Text(
                       'Planned commands: ${readiness.preview.join(' • ')}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: palette.textMuted,
-                        height: 1.35,
-                      ),
+                      style: TextStyle(fontSize: 10, color: palette.textMuted, height: 1.35),
                     ),
                   Text(
                     'Allowed write paths: ${readiness.effectiveWriteLocations.join(', ')}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: palette.textMuted,
-                      height: 1.35,
-                    ),
+                    style: TextStyle(fontSize: 10, color: palette.textMuted, height: 1.35),
                   ),
                   Text(
                     'Scope bounds: Max 90 mins, 15 iterations, stop after 3 no-progress steps',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: palette.textMuted,
-                      height: 1.35,
-                    ),
+                    style: TextStyle(fontSize: 10, color: palette.textMuted, height: 1.35),
                   ),
                   if (readiness.selectedDevice != null)
                     Text(
                       'Target device: ${readiness.selectedDevice}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: palette.textMuted,
-                        height: 1.35,
-                      ),
+                      style: TextStyle(fontSize: 10, color: palette.textMuted, height: 1.35),
                     ),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: 8),
+
+          const SizedBox(height: 10),
           Text(
-            routineStatusLabel(state.status),
+            routineStatusLabel(widget.state.status),
             style: TextStyle(
               fontSize: 11,
-              color: state.status == RoutineStatus.needsAttention
+              color: widget.state.status == RoutineStatus.needsAttention
                   ? PatrolColors.ember
                   : palette.textMuted,
             ),
           ),
-          if (readiness?.checks.any(
-                (check) => check.id == 'opencode' && !check.ok,
-              ) ==
-              true) ...[
+          if (readiness?.checks.any((check) => check.id == 'opencode' && !check.ok) == true) ...[
             const SizedBox(height: 8),
-            _ActionChip(
-              label: 'Install OpenCode',
-              icon: Icons.download_outlined,
-              color: PatrolColors.amber,
-              enabled: !state.busy,
-              onPressed: onInstallOpenCode,
+            ElevatedButton.icon(
+              onPressed: widget.state.busy ? null : widget.onInstallOpenCode,
+              icon: const Icon(Icons.download_outlined, size: 14),
+              label: const Text('Install OpenCode', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: PatrolColors.amber,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
             ),
           ],
-          if (state.error != null) ...[
+          if (widget.state.error != null) ...[
             const SizedBox(height: 6),
-            _Banner(text: state.error!, error: true),
+            _Banner(text: widget.state.error!, error: true),
           ],
-          if (state.busy || state.events.isNotEmpty) ...[
+          if (widget.state.busy || widget.state.events.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              state.events.isEmpty
+              widget.state.events.isEmpty
                   ? 'Detail output streams to LIVE logs.'
-                  : 'Latest: [${state.events.last.kind}] ${state.events.last.message}',
-              style: TextStyle(
-                fontSize: 10,
-                color: palette.textMuted,
-                height: 1.35,
-              ),
+                  : 'Latest: [${widget.state.events.last.kind}] ${widget.state.events.last.message}',
+              style: TextStyle(fontSize: 10, color: palette.textMuted, height: 1.35),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            if (state.events.isNotEmpty)
+            if (widget.state.events.isNotEmpty)
               Text(
                 'Full routine output is in LIVE logs.',
                 style: TextStyle(fontSize: 10, color: palette.textMuted),
               ),
           ],
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (state.status == RoutineStatus.awaitingApproval)
-                _ActionChip(
-                  label: 'Approve & Start',
-                  icon: Icons.verified_user_outlined,
-                  color: PatrolColors.psPassed,
-                  enabled:
-                      !state.busy ||
-                      state.status == RoutineStatus.awaitingApproval,
-                  onPressed: onApprove,
-                )
-              else
-                _ActionChip(
-                  label: state.busy ? 'Running…' : 'Start Routine',
-                  icon: Icons.play_arrow_rounded,
-                  color: PatrolColors.violet400,
-                  enabled: canStart,
-                  onPressed: onStart,
-                ),
-              if (state.busy)
-                _ActionChip(
-                  label: 'Stop',
-                  icon: Icons.stop_circle_outlined,
-                  color: PatrolColors.ember,
-                  enabled: true,
-                  onPressed: onStop,
-                ),
-            ],
+          const SizedBox(height: 14),
+
+          // Primary Solid Action Button (Shadcn Style)
+          SizedBox(
+            height: 38,
+            width: double.infinity,
+            child: widget.state.status == RoutineStatus.awaitingApproval
+                ? ElevatedButton.icon(
+                    onPressed: widget.onApprove,
+                    icon: const Icon(Icons.verified_user_outlined, size: 16),
+                    label: const Text('Approve & Start', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PatrolColors.psPassed,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  )
+                : widget.state.busy
+                    ? ElevatedButton.icon(
+                        onPressed: widget.onStop,
+                        icon: const Icon(Icons.stop_circle_outlined, size: 16),
+                        label: const Text('Stop Routine', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: PatrolColors.ember,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      )
+                    : ElevatedButton.icon(
+                        onPressed: canStart ? widget.onStart : null,
+                        icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                        label: const Text('Start Routine', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: PatrolColors.violet400,
+                          disabledBackgroundColor: palette.surfaceMuted,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
           ),
         ],
       ),
