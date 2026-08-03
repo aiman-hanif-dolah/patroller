@@ -73,6 +73,9 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
     final runnableTests =
         runnable.fold<int>(0, (sum, f) => sum + f.detectedTestCount);
 
+    final allSelected =
+        testFiles.isNotEmpty && selectedFileIds.length == testFiles.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -85,11 +88,17 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
               _filterChip != 'all' ||
               !isAllFlowsFilter(flowFilter),
           isScanning: app.isScanning,
+          allSelected: allSelected,
+          onToggleSelectAll: () =>
+              ref.read(appProvider.notifier).selectAllFiles(!allSelected),
           onRefresh: widget.onRefresh,
         ),
         if (selectedFileIds.isNotEmpty)
           _SelectionBanner(
             count: selectedFileIds.length,
+            total: testFiles.length,
+            onSelectAll: () =>
+                ref.read(appProvider.notifier).selectAllFiles(true),
             onClear: () => ref.read(appProvider.notifier).selectAllFiles(false),
           ),
         Padding(
@@ -482,6 +491,8 @@ class _ExplorerHeader extends StatelessWidget {
     required this.filteredCount,
     required this.isFiltered,
     required this.isScanning,
+    required this.allSelected,
+    required this.onToggleSelectAll,
     this.onRefresh,
   });
 
@@ -491,6 +502,8 @@ class _ExplorerHeader extends StatelessWidget {
   final int filteredCount;
   final bool isFiltered;
   final bool isScanning;
+  final bool allSelected;
+  final VoidCallback onToggleSelectAll;
   final VoidCallback? onRefresh;
 
   @override
@@ -529,6 +542,16 @@ class _ExplorerHeader extends StatelessWidget {
               ],
             ),
           ),
+          AccessibleIconButton(
+            icon: allSelected
+                ? Icons.deselect_rounded
+                : Icons.select_all_rounded,
+            label: allSelected ? 'Deselect all files' : 'Select all files',
+            onPressed: onToggleSelectAll,
+            size: 14,
+            color: allSelected ? PatrolColors.amber : p.textMuted,
+          ),
+          const SizedBox(width: 4),
           if (onRefresh != null)
             AccessibleIconButton(
               icon: Icons.refresh_rounded,
@@ -546,10 +569,14 @@ class _ExplorerHeader extends StatelessWidget {
 class _SelectionBanner extends StatelessWidget {
   const _SelectionBanner({
     required this.count,
+    required this.total,
+    required this.onSelectAll,
     required this.onClear,
   });
 
   final int count;
+  final int total;
+  final VoidCallback onSelectAll;
   final VoidCallback onClear;
 
   @override
@@ -570,6 +597,14 @@ class _SelectionBanner extends StatelessWidget {
             accent: true,
           ),
           const Spacer(),
+          if (count < total) ...[
+            TextButton(
+              onPressed: onSelectAll,
+              style: TextButton.styleFrom(foregroundColor: PatrolColors.amber),
+              child: const Text('Select all', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(width: 8),
+          ],
           TextButton(
             onPressed: onClear,
             style: TextButton.styleFrom(foregroundColor: PatrolColors.signalBlue),
