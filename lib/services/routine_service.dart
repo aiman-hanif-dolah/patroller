@@ -311,10 +311,16 @@ class RoutineService {
         marionetteEnvironment: marionetteEnv,
         model: plan.model,
       );
+      final customSection = (plan.customInstructions != null &&
+              plan.customInstructions!.trim().isNotEmpty)
+          ? '\nSpecific Focus & Scope Constraints from User:\n> ${plan.customInstructions!.trim()}\nAdhere strictly to these user focus constraints before doing general exploration.\n'
+          : '';
+
       final prompt = '''You are running a bounded Patroller routine.
 Project: ${plan.projectPath}
 Target device: $device
 Goal: ${plan.goal}
+$customSection
 Budget: ${plan.maxMinutes} minutes, ${plan.maxIterations} iterations, stop after ${plan.noProgressLimit} repeated no-progress iterations.
 Use Patrol MCP for tests and Marionette MCP for live Flutter exploration.
 Always target device "$device" (pass it to Patrol MCP run / patrol test -d). Do not use another device.

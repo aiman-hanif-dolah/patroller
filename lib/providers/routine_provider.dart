@@ -24,6 +24,7 @@ class RoutineState {
     this.selectedModel,
     this.goal =
         'Explore stable user journeys, repair failing Patrol tests, and add meaningful uncovered tests.',
+    this.customInstructions = '',
     this.events = const [],
     this.lastResult,
     this.pendingPermissionRequest,
@@ -37,6 +38,7 @@ class RoutineState {
   final List<ProjectDependency> dependencies;
   final String? selectedModel;
   final String goal;
+  final String customInstructions;
   final List<RoutineEvent> events;
   final RoutineResult? lastResult;
   final PermissionRequest? pendingPermissionRequest;
@@ -63,6 +65,7 @@ class RoutineState {
     List<ProjectDependency>? dependencies,
     String? selectedModel,
     String? goal,
+    String? customInstructions,
     List<RoutineEvent>? events,
     RoutineResult? lastResult,
     PermissionRequest? pendingPermissionRequest,
@@ -79,6 +82,7 @@ class RoutineState {
       dependencies: dependencies ?? this.dependencies,
       selectedModel: selectedModel ?? this.selectedModel,
       goal: goal ?? this.goal,
+      customInstructions: customInstructions ?? this.customInstructions,
       events: events ?? this.events,
       lastResult: clearResult ? null : (lastResult ?? this.lastResult),
       pendingPermissionRequest: clearPermissionRequest
@@ -202,6 +206,9 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
     await refresh();
   }
 
+  void setCustomInstructions(String instructions) =>
+      state = state.copyWith(customInstructions: instructions);
+
   void toggleAllowDirtyWorktree(bool allow) =>
       state = state.copyWith(allowDirtyWorktree: allow);
 
@@ -303,6 +310,9 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
         goal: state.goal,
         model: model,
         deviceId: liveDeviceArg,
+        customInstructions: state.customInstructions.trim().isNotEmpty
+            ? state.customInstructions.trim()
+            : null,
         allowDirtyWorktree: state.allowDirtyWorktree,
       );
       final reportPath = await _service.run(

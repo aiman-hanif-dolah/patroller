@@ -80,6 +80,8 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
             state: routine,
             onRefresh: () => ref.read(routineProvider.notifier).refresh(),
             onGoalChanged: (value) => ref.read(routineProvider.notifier).setGoal(value),
+            onCustomInstructionsChanged: (value) =>
+                ref.read(routineProvider.notifier).setCustomInstructions(value),
             onModelChanged: (value) => ref.read(routineProvider.notifier).selectModel(value),
             onPubGet: () => ref.read(routineProvider.notifier).pubGet(),
             onInstallOpenCode: () => ref.read(routineProvider.notifier).installOpenCode(),
@@ -577,6 +579,7 @@ class _RoutineCard extends StatefulWidget {
     required this.state,
     required this.onRefresh,
     required this.onGoalChanged,
+    required this.onCustomInstructionsChanged,
     required this.onModelChanged,
     required this.onPubGet,
     required this.onInstallOpenCode,
@@ -591,6 +594,7 @@ class _RoutineCard extends StatefulWidget {
   final RoutineState state;
   final VoidCallback onRefresh;
   final ValueChanged<String> onGoalChanged;
+  final ValueChanged<String> onCustomInstructionsChanged;
   final ValueChanged<String?> onModelChanged;
   final VoidCallback onPubGet;
   final VoidCallback onInstallOpenCode;
@@ -607,6 +611,13 @@ class _RoutineCard extends StatefulWidget {
 
 class _RoutineCardState extends State<_RoutineCard> {
   bool _showChecksDetail = false;
+  late bool _showCustomInstructions;
+
+  @override
+  void initState() {
+    super.initState();
+    _showCustomInstructions = widget.state.customInstructions.trim().isNotEmpty;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -867,6 +878,101 @@ class _RoutineCardState extends State<_RoutineCard> {
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Custom Instructions / Specific Focus (Expandable)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () => setState(
+                  () => _showCustomInstructions = !_showCustomInstructions,
+                ),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        'SPECIFIC FOCUS / CUSTOM PROMPT',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: palette.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: PatrolColors.violet400.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'OPTIONAL',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: PatrolColors.violet400,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        _showCustomInstructions
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: 14,
+                        color: palette.textMuted,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_showCustomInstructions) ...[
+                const SizedBox(height: 5),
+                TextFormField(
+                  initialValue: widget.state.customInstructions,
+                  minLines: 2,
+                  maxLines: 5,
+                  onChanged: widget.onCustomInstructionsChanged,
+                  style: TextStyle(fontSize: 12, color: palette.text),
+                  decoration: InputDecoration(
+                    hintText:
+                        'e.g. "Create 1 test file only", "Focus exclusively on the auth flow", "Only fix assertions in login_test.dart"',
+                    hintStyle:
+                        TextStyle(fontSize: 11, color: palette.textMuted),
+                    filled: true,
+                    fillColor: palette.surfaceMuted,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: palette.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: palette.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(
+                        color: PatrolColors.violet400,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
