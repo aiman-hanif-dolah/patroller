@@ -232,8 +232,9 @@ class OpenCodeService {
     void handleLine(String line) {
       onOutput?.call(line);
       try {
-        if (line.trim().startsWith('{') && line.trim().endsWith('}')) {
-          final data = jsonDecode(line);
+        final trimmed = line.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          final data = jsonDecode(trimmed);
           if (data is Map<String, dynamic> &&
               data['type'] == 'permission_request') {
             final request = PermissionRequest(

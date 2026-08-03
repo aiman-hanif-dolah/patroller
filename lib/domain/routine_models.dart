@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 enum RoutineReadiness { ready, repairable, blocked }
@@ -178,8 +179,151 @@ class RoutineEvent {
 }
 
 /// Live-log line for a routine event (matches Agent card `[kind]` tags).
-String formatRoutineEventLogLine(RoutineEvent event) =>
-    '[routine] [${event.kind}] ${event.message}';
+String formatRoutineEventLogLine(RoutineEvent event) {
+  switch (event.kind) {
+    case 'thinking':
+    case 'thought':
+      return '🧠 [AI Thinking] ${event.message}';
+    case 'tool_call':
+      return '🛠️ [Tool Call] ${event.message}';
+    case 'tool_result':
+      return '📥 [Tool Result] ${event.message}';
+    case 'assistant':
+      return '🤖 [AI Assistant] ${event.message}';
+    case 'output':
+      return '[routine] ${event.message}';
+    default:
+      return '[routine] [${event.kind}] ${event.message}';
+  }
+}
+
+RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
+  final trimmed = rawLine.trim();
+  final now = DateTime.now();
+  if (trimmed.isEmpty) {
+    return RoutineEvent(time: now, kind: 'output', message: '');
+  }
+
+  String jsonCandidate = trimmed;
+  if (jsonCandidate.startsWith('data: ')) {
+    jsonCandidate = jsonCandidate.substring(6).trim();
+  }
+
+  if (jsonCandidate.startsWith('{') && jsonCandidate.endsWith('}')) {
+    try {
+      final Object? decoded = jsonDecode(jsonCandidate);
+      if (decoded is Map<String, dynamic>) {
+        final type = (decoded['type'] as String?)?.toLowerCase();
+
+        // 1. Thinking / Reasoning / Thoughts
+        if (type == 'thought' || type == 'thinking' || type == 'reasoning') {
+          final text = decoded['text'] ??
+              decoded['thinking'] ??
+              decoded['reasoning'] ??
+              decoded['content'];
+          if (text != null && text.toString().isNotEmpty) {
+            return RoutineEvent(
+              time: now,
+              kind: 'thinking',
+              message: text.toString().trim(),
+            );
+          }
+        }
+
+        // 2. Part objects
+        if (type == 'part' && decoded['part'] is Map<String, dynamic>) {
+          final part = decoded['part'] as Map<String, dynamic>;
+          final partType = (part['type'] as String?)?.toLowerCase();
+          if (partType == 'reasoning' || partType == 'thought') {
+            final text = part['reasoning'] ?? part['text'] ?? part['thought'];
+            if (text != null && text.toString().isNotEmpty) {
+              return RoutineEvent(
+                time: now,
+                kind: 'thinking',
+                message: text.toString().trim(),
+              );
+            }
+          }
+          if (partType == 'text') {
+            final text = part['text'] ?? part['content'];
+            if (text != null && text.toString().isNotEmpty) {
+              return RoutineEvent(
+                time: now,
+                kind: 'assistant',
+                message: text.toString().trim(),
+              );
+            }
+          }
+          if (partType == 'tool_use' || partType == 'tool_call') {
+            final name = part['name'] ?? part['tool'] ?? 'tool';
+            final input = part['input'] ?? part['parameters'] ?? part['args'] ?? '';
+            return RoutineEvent(
+              time: now,
+              kind: 'tool_call',
+              message: '$name $input',
+            );
+          }
+        }
+
+        // 3. Tool Calls
+        if (type == 'tool_call' || type == 'tool_use' || type == 'call') {
+          final name =
+              decoded['name'] ?? decoded['tool'] ?? decoded['function'] ?? 'tool';
+          final params =
+              decoded['parameters'] ?? decoded['input'] ?? decoded['args'] ?? '';
+          return RoutineEvent(
+            time: now,
+            kind: 'tool_call',
+            message: '$name $params',
+          );
+        }
+
+        // 4. Tool Results
+        if (type == 'tool_result' || type == 'tool_response' || type == 'result') {
+          final output =
+              decoded['output'] ?? decoded['content'] ?? decoded['result'] ?? '';
+          final text = output.toString().trim();
+          final summary =
+              text.length > 250 ? '${text.substring(0, 250)}…' : text;
+          return RoutineEvent(
+            time: now,
+            kind: 'tool_result',
+            message: summary,
+          );
+        }
+
+        // 5. Assistant Messages
+        if (type == 'message' ||
+            type == 'assistant' ||
+            type == 'text' ||
+            type == 'delta') {
+          final text = decoded['text'] ??
+              decoded['content'] ??
+              decoded['message'] ??
+              (decoded['delta'] is Map ? decoded['delta']['text'] : null);
+          if (text != null && text.toString().isNotEmpty) {
+            return RoutineEvent(
+              time: now,
+              kind: 'assistant',
+              message: text.toString().trim(),
+            );
+          }
+        }
+
+        // 6. Generic JSON fallback
+        if (decoded.containsKey('message')) {
+          return RoutineEvent(
+            time: now,
+            kind: 'output',
+            message: decoded['message'].toString(),
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  return RoutineEvent(time: now, kind: 'output', message: trimmed);
+}
 
 class RoutineResult {
   const RoutineResult({

@@ -327,9 +327,7 @@ Explore, repair outdated tests, create meaningful non-duplicate tests, and valid
         model: plan.model,
         prompt: prompt,
         configPath: configPath,
-        onOutput: (line) => emit(
-          RoutineEvent(time: DateTime.now(), kind: 'output', message: line),
-        ),
+        onOutput: (line) => emit(parseOpenCodeOutputToRoutineEvent(line)),
         onPermissionRequest: onPermissionRequest,
       )
           .timeout(
