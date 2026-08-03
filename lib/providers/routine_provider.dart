@@ -6,8 +6,11 @@ import '../domain/routine_models.dart';
 import '../domain/runner_helpers.dart';
 import '../services/routine_service.dart';
 import 'app_provider.dart';
+import 'log_provider.dart';
 import 'runner_provider.dart';
 import 'settings_provider.dart';
+
+const _routineLogRunId = 'routine';
 
 class RoutineState {
   const RoutineState({
@@ -99,6 +102,14 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
   final Ref _ref;
   final _service = RoutineService();
 
+  void _emitEvent(RoutineEvent event) {
+    state = state.copyWith(events: [...state.events, event]);
+    _ref.read(logProvider.notifier).appendSystemLog(
+      _routineLogRunId,
+      formatRoutineEventLogLine(event),
+    );
+  }
+
   Future<void> refresh() async {
     final project = _ref.read(appProvider).currentProject;
     if (project == null) {
@@ -188,17 +199,14 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
 
   void respondPermission(String requestId, bool allow) {
     _service.openCode.respondPermission(id: requestId, allow: allow);
-    state = state.copyWith(
-      clearPermissionRequest: true,
-      events: [
-        ...state.events,
-        RoutineEvent(
-          time: DateTime.now(),
-          kind: 'permission',
-          message:
-              'User ${allow ? "granted" : "denied"} permission request ($requestId)',
-        ),
-      ],
+    state = state.copyWith(clearPermissionRequest: true);
+    _emitEvent(
+      RoutineEvent(
+        time: DateTime.now(),
+        kind: 'permission',
+        message:
+            'User ${allow ? "granted" : "denied"} permission request ($requestId)',
+      ),
     );
   }
 
@@ -228,6 +236,10 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
       events: [],
       clearError: true,
       clearResult: true,
+    );
+    _ref.read(logProvider.notifier).appendSystemLog(
+      _routineLogRunId,
+      '── Autonomous Patrol routine started ──',
     );
     final started = DateTime.now();
     try {
@@ -287,8 +299,7 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
       );
       final reportPath = await _service.run(
         plan: plan,
-        onEvent: (event) =>
-            state = state.copyWith(events: [...state.events, event]),
+        onEvent: _emitEvent,
         onPermissionRequest: (request) =>
             state = state.copyWith(pendingPermissionRequest: request),
       );

@@ -184,6 +184,17 @@ void main() {
     expect(plan.deviceId, 'SIM-UDID-1');
   });
 
+  test('formatRoutineEventLogLine prefixes kind for Live logs', () {
+    final line = formatRoutineEventLogLine(
+      RoutineEvent(
+        time: DateTime.utc(2026, 8, 3),
+        kind: 'started',
+        message: 'OpenCode routine started',
+      ),
+    );
+    expect(line, '[routine] [started] OpenCode routine started');
+  });
+
   test('RoutineResult tracks stopping reason and test pass/fail sweeps', () {
     final now = DateTime.now();
     final result = RoutineResult(

@@ -177,6 +177,10 @@ class RoutineEvent {
   final String message;
 }
 
+/// Live-log line for a routine event (matches Agent card `[kind]` tags).
+String formatRoutineEventLogLine(RoutineEvent event) =>
+    '[routine] [${event.kind}] ${event.message}';
+
 class RoutineResult {
   const RoutineResult({
     required this.status,

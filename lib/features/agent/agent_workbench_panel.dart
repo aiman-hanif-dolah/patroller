@@ -931,30 +931,25 @@ class _RoutineCard extends StatelessWidget {
             const SizedBox(height: 6),
             _Banner(text: state.error!, error: true),
           ],
-          if (state.events.isNotEmpty) ...[
+          if (state.busy || state.events.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 150),
-              padding: const EdgeInsets.all(8),
-              color: palette.surface,
-              child: ListView(
-                shrinkWrap: true,
-                children: state.events
-                    .skip(
-                      state.events.length > 20 ? state.events.length - 20 : 0,
-                    )
-                    .map(
-                      (event) => Text(
-                        '[${event.kind}] ${event.message}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: palette.textMuted,
-                        ),
-                      ),
-                    )
-                    .toList(),
+            Text(
+              state.events.isEmpty
+                  ? 'Detail output streams to LIVE logs.'
+                  : 'Latest: [${state.events.last.kind}] ${state.events.last.message}',
+              style: TextStyle(
+                fontSize: 10,
+                color: palette.textMuted,
+                height: 1.35,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
+            if (state.events.isNotEmpty)
+              Text(
+                'Full routine output is in LIVE logs.',
+                style: TextStyle(fontSize: 10, color: palette.textMuted),
+              ),
           ],
           const SizedBox(height: 8),
           Wrap(
