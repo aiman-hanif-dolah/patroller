@@ -157,12 +157,12 @@ APP_SRC=""
 if [ -d "$DIR/Patroller.app" ]; then
   APP_SRC="$DIR/Patroller.app"
 elif ls "$DIR"/Patroller-*-macos-*.zip >/dev/null 2>&1; then
-  ZIP="$(ls -1 "$DIR"/Patroller-*-macos-*.zip | head -1)"
+  ZIP="$(ls -1 "$DIR"/Patroller-*-macos-*.zip | sort -V | tail -1)"
   TMP="$(mktemp -d)"
   unzip -q "$ZIP" -d "$TMP"
   APP_SRC="$(find "$TMP" -maxdepth 2 -name 'Patroller.app' -type d | head -1)"
 elif ls "$DIR"/Patroller-*-macos-*.dmg >/dev/null 2>&1; then
-  DMG="$(ls -1 "$DIR"/Patroller-*-macos-*.dmg | head -1)"
+  DMG="$(ls -1 "$DIR"/Patroller-*-macos-*.dmg | sort -V | tail -1)"
   MNT="$(mktemp -d)"
   hdiutil attach "$DMG" -mountpoint "$MNT" -nobrowse -quiet
   APP_SRC="$MNT/Patroller.app"
