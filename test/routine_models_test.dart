@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patroller/domain/routine_models.dart';
 
@@ -78,6 +80,44 @@ void main() {
     );
 
     expect(report.canStartPrepare, isTrue);
+  });
+
+  test('withSelectedDevice refreshes deferred simulator check from live label', () {
+    const report = RoutineReadinessReport(
+      status: RoutineReadiness.repairable,
+      checks: [
+        RoutineCheck(
+          id: 'device',
+          label: 'Selected iOS Simulator',
+          ok: false,
+          detail: 'Boot simulator',
+        ),
+        RoutineCheck(
+          id: 'git',
+          label: 'Clean Git worktree',
+          ok: false,
+          detail: 'dirty',
+        ),
+      ],
+      projectPath: '/tmp/project',
+      preview: const [],
+    );
+
+    final updated = report.withSelectedDevice('iPhone 17 Pro');
+    final device = updated.checks.singleWhere((check) => check.id == 'device');
+    if (Platform.isMacOS) {
+      expect(device.ok, isTrue);
+      expect(device.detail, 'iPhone 17 Pro');
+      expect(updated.selectedDevice, 'iPhone 17 Pro');
+    } else {
+      expect(device.ok, isFalse);
+      expect(updated.selectedDevice, isNull);
+    }
+    expect(updated.status, RoutineReadiness.repairable);
+
+    final cleared = updated.withSelectedDevice(null);
+    expect(cleared.checks.singleWhere((check) => check.id == 'device').ok, isFalse);
+    expect(cleared.selectedDevice, isNull);
   });
 
   test('canStartPrepare rejects invalid Flutter project', () {

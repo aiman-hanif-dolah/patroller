@@ -57,6 +57,17 @@ bool isSelectableDevice(DeviceInfo device) {
   return device.type == DeviceType.iosSimulator;
 }
 
+/// Label for routine readiness / start gates: booted iOS Simulator only.
+///
+/// Uses the same selection rules as the top-bar device picker
+/// ([isSelectableDevice] + [DeviceState.booted]).
+String? routineTargetDeviceLabel(DeviceInfo? device) {
+  if (device == null || !isSelectableDevice(device)) return null;
+  if (device.state != DeviceState.booted) return null;
+  final name = device.name.trim();
+  return name.isEmpty ? null : name;
+}
+
 String? getDeviceUnavailableReason(DeviceInfo device) {
   if (device.type != DeviceType.iosSimulator) {
     return 'Patroller runs currently support iOS Simulator only';

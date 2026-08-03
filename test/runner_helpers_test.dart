@@ -210,4 +210,39 @@ void main() {
       expect(emptyLogsBusyMessage(null), 'Running...');
     });
   });
+
+  group('routineTargetDeviceLabel', () {
+    DeviceInfo sim({
+      String name = 'iPhone 17 Pro',
+      DeviceState state = DeviceState.booted,
+      DeviceType type = DeviceType.iosSimulator,
+    }) {
+      return DeviceInfo(
+        name: name,
+        id: 'UDID-1',
+        platform: 'iOS',
+        type: type,
+        availability: 'available',
+        rawLine: '',
+        state: state,
+      );
+    }
+
+    test('returns name for booted iOS Simulator', () {
+      expect(routineTargetDeviceLabel(sim()), 'iPhone 17 Pro');
+    });
+
+    test('returns null when device is missing, shutdown, or non-simulator', () {
+      expect(routineTargetDeviceLabel(null), isNull);
+      expect(
+        routineTargetDeviceLabel(sim(state: DeviceState.shutdown)),
+        isNull,
+      );
+      expect(
+        routineTargetDeviceLabel(sim(type: DeviceType.androidEmulator)),
+        isNull,
+      );
+      expect(routineTargetDeviceLabel(sim(name: '  ')), isNull);
+    });
+  });
 }

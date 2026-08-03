@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/routine_models.dart';
-import '../models/models.dart';
+import '../domain/runner_helpers.dart';
 import '../services/routine_service.dart';
 import 'app_provider.dart';
 import 'runner_provider.dart';
@@ -83,7 +85,16 @@ class RoutineState {
 }
 
 class RoutineNotifier extends StateNotifier<RoutineState> {
-  RoutineNotifier(this._ref) : super(const RoutineState());
+  RoutineNotifier(this._ref) : super(const RoutineState()) {
+    // Keep deferred device readiness in sync with the top-bar picker.
+    _ref.listen<RunnerState>(runnerProvider, (previous, next) {
+      final prev = previous?.selectedDevice;
+      final curr = next.selectedDevice;
+      if (prev?.id == curr?.id && prev?.state == curr?.state) return;
+      if (state.readiness == null || state.busy) return;
+      unawaited(refresh());
+    });
+  }
 
   final Ref _ref;
   final _service = RoutineService();
@@ -99,9 +110,7 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
       final device = _ref.read(runnerProvider).selectedDevice;
       final readiness = await _service.inspect(
         projectPath: project.projectPath,
-        selectedDevice: device?.state == DeviceState.booted
-            ? device?.name
-            : null,
+        selectedDevice: routineTargetDeviceLabel(device),
       );
       final models = await _service.openCode.listVerifiedFreeModels();
       final dependencies = await _service.projectTooling.listDependencies(
@@ -246,19 +255,23 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
         return;
       }
 
-      final deviceMissing = readiness.checks.any(
-        (check) => check.id == 'device' && !check.ok,
+      // Re-read the live top-bar selection after prepare so a booted simulator
+      // chosen while readiness was stale no longer blocks Start Routine.
+      final liveDeviceLabel = routineTargetDeviceLabel(
+        _ref.read(runnerProvider).selectedDevice,
       );
-      if (deviceMissing) {
+      final readinessAfterDevice = readiness.withSelectedDevice(liveDeviceLabel);
+      state = state.copyWith(readiness: readinessAfterDevice);
+      if (liveDeviceLabel == null) {
         state = state.copyWith(
           status: RoutineStatus.needsAttention,
           error:
-              'Boot and select an iOS Simulator, then refresh readiness before running the routine. Project packages were prepared successfully.',
+              'Boot and select an iOS Simulator before running the routine. Project packages were prepared successfully.',
         );
         return;
       }
 
-      if (readiness.status == RoutineReadiness.blocked) {
+      if (readinessAfterDevice.status == RoutineReadiness.blocked) {
         state = state.copyWith(
           status: RoutineStatus.needsAttention,
           error: 'Readiness is blocked; resolve the failed checks first',

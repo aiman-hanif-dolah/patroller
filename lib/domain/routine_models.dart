@@ -121,6 +121,48 @@ class RoutineReadinessReport {
     }
     return list;
   }
+
+  /// Re-evaluates the deferred `device` check from the live runner selection
+  /// without re-running the full project inspect.
+  RoutineReadinessReport withSelectedDevice(String? device) {
+    final deviceOk =
+        Platform.isMacOS && device != null && device.trim().isNotEmpty;
+    final checks = this.checks
+        .map(
+          (check) => check.id == 'device'
+              ? RoutineCheck(
+                  id: check.id,
+                  label: check.label,
+                  ok: deviceOk,
+                  detail: deviceOk
+                      ? device!.trim()
+                      : 'Boot and select an iOS Simulator (required to run; package setup can still proceed)',
+                  repairable: check.repairable,
+                  fixCommand: check.fixCommand,
+                )
+              : check,
+        )
+        .toList();
+    final failures = checks.where((check) => !check.ok).toList();
+    final hardFailures = failures.where(
+      (check) =>
+          !check.repairable && check.id != 'device' && check.id != 'git',
+    );
+    final blocked = hardFailures.isNotEmpty;
+    return RoutineReadinessReport(
+      status: failures.isEmpty
+          ? RoutineReadiness.ready
+          : blocked
+          ? RoutineReadiness.blocked
+          : RoutineReadiness.repairable,
+      checks: checks,
+      projectPath: projectPath,
+      preview: preview,
+      entrypoint: entrypoint,
+      selectedDevice: deviceOk ? device!.trim() : null,
+      allowedWriteLocations: allowedWriteLocations,
+    );
+  }
 }
 
 class RoutineEvent {
