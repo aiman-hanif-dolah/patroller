@@ -197,14 +197,13 @@ String formatRoutineEventLogLine(RoutineEvent event) {
   }
 }
 
-RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
+RoutineEvent? parseOpenCodeOutputToRoutineEvent(String rawLine) {
   final trimmed = rawLine.trim();
   final now = DateTime.now();
-  if (trimmed.isEmpty) {
-    return RoutineEvent(time: now, kind: 'output', message: '');
-  }
+  if (trimmed.isEmpty) return null;
 
   String jsonCandidate = trimmed;
+  final isDataPrefix = jsonCandidate.startsWith('data:');
   if (jsonCandidate.startsWith('data: ')) {
     jsonCandidate = jsonCandidate.substring(6).trim();
   } else if (jsonCandidate.startsWith('data:')) {
@@ -216,6 +215,17 @@ RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
       final Object? decoded = jsonDecode(jsonCandidate);
       if (decoded is Map<String, dynamic>) {
         final type = (decoded['type'] as String?)?.toLowerCase();
+
+        // Skip internal streaming/delta transport SSE events that produce log noise
+        if (type == 'message.part.delta' ||
+            type == 'message.part.created' ||
+            type == 'message.created' ||
+            type == 'message.updated' ||
+            type == 'session.ping' ||
+            type == 'server.ping' ||
+            type == 'ping') {
+          return null;
+        }
 
         // OpenCode SSE: message.part.updated / session.status / permission.*
         if (type == 'message.part.updated') {
@@ -255,6 +265,7 @@ RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
               );
             }
           }
+          return null;
         }
         if (type == 'session.status') {
           final props = decoded['properties'];
@@ -268,6 +279,7 @@ RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
               message: 'OpenCode session status: $statusType',
             );
           }
+          return null;
         }
         if (type == 'permission.asked' || type == 'permission.v2.asked') {
           final props = decoded['properties'];
@@ -294,6 +306,7 @@ RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
               message: text.toString().trim(),
             );
           }
+          return null;
         }
 
         // 2. Part objects
@@ -329,6 +342,7 @@ RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
               message: '$name $input',
             );
           }
+          return null;
         }
 
         // 3. Tool Calls
@@ -374,6 +388,7 @@ RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
               message: text.toString().trim(),
             );
           }
+          return null;
         }
 
         // 6. Generic JSON fallback
@@ -384,9 +399,13 @@ RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
             message: decoded['message'].toString(),
           );
         }
+
+        if (isDataPrefix) return null;
       }
     } catch (_) {}
   }
+
+  if (isDataPrefix) return null;
 
   return RoutineEvent(time: now, kind: 'output', message: trimmed);
 }

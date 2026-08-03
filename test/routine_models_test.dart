@@ -199,14 +199,19 @@ void main() {
     final event = parseOpenCodeOutputToRoutineEvent(
       'data: {"type":"message.part.updated","properties":{"part":{"type":"text","text":"Creating home_test.dart"}}}',
     );
-    expect(event.kind, 'assistant');
-    expect(event.message, 'Creating home_test.dart');
+    expect(event?.kind, 'assistant');
+    expect(event?.message, 'Creating home_test.dart');
 
     final status = parseOpenCodeOutputToRoutineEvent(
       'data: {"type":"session.status","properties":{"sessionID":"ses_1","status":{"type":"busy"}}}',
     );
-    expect(status.kind, 'output');
-    expect(status.message, contains('busy'));
+    expect(status?.kind, 'output');
+    expect(status?.message, contains('busy'));
+
+    final delta = parseOpenCodeOutputToRoutineEvent(
+      'data: {"id":"evt_123","type":"message.part.delta","properties":{"delta":"find"}}',
+    );
+    expect(delta, isNull);
   });
 
   test('RoutineResult tracks stopping reason and test pass/fail sweeps', () {

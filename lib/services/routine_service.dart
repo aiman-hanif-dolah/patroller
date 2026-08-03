@@ -343,7 +343,10 @@ Explore, repair outdated tests, create meaningful non-duplicate tests, and valid
         model: plan.model,
         prompt: prompt,
         configPath: configPath,
-        onOutput: (line) => emit(parseOpenCodeOutputToRoutineEvent(line)),
+        onOutput: (line) {
+          final event = parseOpenCodeOutputToRoutineEvent(line);
+          if (event != null) emit(event);
+        },
         onPermissionRequest: onPermissionRequest,
       )
           .timeout(
