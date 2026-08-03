@@ -4,7 +4,7 @@ import '../core/theme/patrol_colors.dart';
 import '../models/models.dart';
 import 'log_sanitizer.dart';
 
-enum LogCategory { error, warning, patrol, flutter, system, info }
+enum LogCategory { error, warning, patrol, flutter, system, routine, info }
 
 class LogCategoryStyle {
   const LogCategoryStyle({
@@ -51,6 +51,11 @@ const logCategoryStyles = <LogCategory, LogCategoryStyle>{
     text: Color(0xFFF472B6),
     tag: Color(0xFFEC4899),
     label: 'SDK',
+  ),
+  LogCategory.routine: LogCategoryStyle(
+    text: Color(0xFF2DD4BF),
+    tag: Color(0xFF14B8A6),
+    label: 'Routine',
   ),
 };
 
@@ -131,6 +136,21 @@ final _systemPatterns = [
   RegExp(r'fromstring\(\)', caseSensitive: false),
 ];
 
+final _routineLogPattern = RegExp(
+  r'^\[routine\]|Autonomous Patrol routine',
+  caseSensitive: false,
+);
+
+final _routineFailureKindPattern = RegExp(
+  r'^\[routine\]\s*\[(failed|error|needsAttention)\]',
+  caseSensitive: false,
+);
+
+bool isRoutineLogText(String text) => _routineLogPattern.hasMatch(text);
+
+bool isRoutineFailureLogText(String text) =>
+    _routineFailureKindPattern.hasMatch(text);
+
 bool _matchesAny(String text, List<RegExp> patterns) {
   return patterns.any((pattern) => pattern.hasMatch(text));
 }
@@ -148,6 +168,10 @@ LogCategory classifyLog(LogEvent log) {
   final text = sanitizeLogText(log.text);
   if (_matchesAny(text, _dependencyWarningPatterns)) return LogCategory.warning;
   if (_matchesAny(text, _warningPatterns)) return LogCategory.warning;
+  if (isRoutineLogText(text)) {
+    if (isRoutineFailureLogText(text)) return LogCategory.error;
+    return LogCategory.routine;
+  }
   if (_matchesAny(text, _patrolFailurePatterns)) return LogCategory.error;
   if (_matchesAny(text, _errorPatterns)) return LogCategory.error;
   if (log.streamType == LogStreamType.stderr &&
@@ -243,6 +267,7 @@ LogFilterKey getLogFilterKey(LogEvent log) {
   if (category == LogCategory.patrol) return LogFilterKey.patrol;
   if (category == LogCategory.flutter) return LogFilterKey.flutter;
   if (category == LogCategory.system) return LogFilterKey.system;
+  if (category == LogCategory.routine) return LogFilterKey.info;
   if (log.source == LogSource.unknown) return LogFilterKey.unknown;
   return LogFilterKey.info;
 }

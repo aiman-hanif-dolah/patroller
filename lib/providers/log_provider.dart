@@ -166,10 +166,14 @@ class LogNotifier extends StateNotifier<LogState> {
     );
   }
 
-  void appendSystemLog(String runId, String text) {
+  void appendSystemLog(
+    String runId,
+    String text, {
+    LogStreamType streamType = LogStreamType.stdout,
+  }) {
     final log = LogEvent(
       runId: runId,
-      streamType: LogStreamType.stderr,
+      streamType: streamType,
       timestamp: DateTime.now().toUtc().toIso8601String(),
       text: text,
       lineNumber: state.logs.length + 1,

@@ -4,14 +4,18 @@ import 'package:patroller/domain/log_sanitizer.dart';
 import 'package:patroller/models/enums.dart';
 import 'package:patroller/models/run_record.dart';
 
-LogEvent _log(String text, {LogStreamType stream = LogStreamType.stdout}) {
+LogEvent _log(
+  String text, {
+  LogStreamType stream = LogStreamType.stdout,
+  LogSource source = LogSource.flutter,
+}) {
   return LogEvent(
     runId: 'run-1',
     streamType: stream,
     timestamp: '2026-01-01T00:00:00Z',
     text: text,
     lineNumber: 1,
-    source: LogSource.flutter,
+    source: source,
   );
 }
 
@@ -44,6 +48,73 @@ void main() {
       );
       expect(
         classifyLog(_log('Test failed: expected: true actual: false')),
+        LogCategory.error,
+      );
+    });
+
+    test('routine informational lines are Routine, not Error', () {
+      expect(
+        classifyLog(
+          _log(
+            '── Autonomous Patrol routine started ──',
+            stream: LogStreamType.stdout,
+            source: LogSource.system,
+          ),
+        ),
+        LogCategory.routine,
+      );
+      expect(
+        classifyLog(
+          _log(
+            '[routine] [started] OpenCode routine started with model on device',
+            stream: LogStreamType.stdout,
+            source: LogSource.system,
+          ),
+        ),
+        LogCategory.routine,
+      );
+      expect(
+        classifyLog(
+          _log(
+            '[routine] [debug_session] Automated Flutter debug session launched',
+            stream: LogStreamType.stdout,
+            source: LogSource.system,
+          ),
+        ),
+        LogCategory.routine,
+      );
+      // Regression: even when emitted on stderr (legacy appendSystemLog),
+      // informational routine lines must not become Error.
+      expect(
+        classifyLog(
+          _log(
+            '── Autonomous Patrol routine started ──',
+            stream: LogStreamType.stderr,
+            source: LogSource.system,
+          ),
+        ),
+        LogCategory.routine,
+      );
+    });
+
+    test('routine failure kinds remain Error', () {
+      expect(
+        classifyLog(
+          _log(
+            '[routine] [failed] OpenCode routine finished with failures',
+            stream: LogStreamType.stderr,
+            source: LogSource.system,
+          ),
+        ),
+        LogCategory.error,
+      );
+      expect(
+        classifyLog(
+          _log(
+            '[routine] [needsAttention] Readiness is blocked',
+            source: LogSource.system,
+          ),
+        ),
         LogCategory.error,
       );
     });

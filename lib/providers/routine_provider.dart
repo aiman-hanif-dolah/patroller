@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/routine_models.dart';
 import '../domain/runner_helpers.dart';
+import '../models/models.dart';
 import '../services/routine_service.dart';
 import 'app_provider.dart';
 import 'log_provider.dart';
@@ -11,6 +12,8 @@ import 'runner_provider.dart';
 import 'settings_provider.dart';
 
 const _routineLogRunId = 'routine';
+
+const _routineFailureKinds = {'failed', 'error', 'needsAttention'};
 
 class RoutineState {
   const RoutineState({
@@ -104,9 +107,11 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
 
   void _emitEvent(RoutineEvent event) {
     state = state.copyWith(events: [...state.events, event]);
+    final isFailure = _routineFailureKinds.contains(event.kind);
     _ref.read(logProvider.notifier).appendSystemLog(
       _routineLogRunId,
       formatRoutineEventLogLine(event),
+      streamType: isFailure ? LogStreamType.stderr : LogStreamType.stdout,
     );
   }
 
