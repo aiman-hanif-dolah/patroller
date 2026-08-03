@@ -262,17 +262,20 @@ class _AppShellState extends ConsumerState<AppShell> {
                   onSelected: (tab) => setState(() => _workspaceTab = tab),
                 ),
                 Expanded(
-                  child: switch (_workspaceTab) {
-                    WorkspacePanelTab.tests => TestExplorer(
+                  child: IndexedStack(
+                    index: _workspaceTab.index,
+                    children: [
+                      TestExplorer(
                         onRefresh: () =>
                             ref.read(appProvider.notifier).scanTests(),
                       ),
-                    WorkspacePanelTab.recordings => const RecordingsPanel(),
-                    WorkspacePanelTab.agent => const AgentWorkbenchPanel(),
-                    WorkspacePanelTab.history => const RunHistory(),
-                    WorkspacePanelTab.health => const EnvironmentHealth(),
-                    WorkspacePanelTab.devtools => const DevToolsPanel(),
-                  },
+                      const RecordingsPanel(),
+                      const AgentWorkbenchPanel(),
+                      const RunHistory(),
+                      const EnvironmentHealth(),
+                      const DevToolsPanel(),
+                    ],
+                  ),
                 ),
               ],
             ),

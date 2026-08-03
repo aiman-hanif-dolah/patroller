@@ -105,6 +105,7 @@ class AppNotifier extends StateNotifier<AppState> {
 
   final Ref _ref;
   StreamSubscription<FileSystemEvent>? _testWatcher;
+  Timer? _watchDebounceTimer;
 
   PatrolStudioFacade get _facade => _ref.read(patrolStudioFacadeProvider);
 
@@ -254,13 +255,24 @@ class AppNotifier extends StateNotifier<AppState> {
 
   void _startWatchingTests(String projectPath) {
     _testWatcher?.cancel();
-    final testDir = Directory(p.join(projectPath, 'patrol_test'));
-    if (!testDir.existsSync()) return;
-    _testWatcher = testDir.watch(recursive: true).listen((event) {
-      if (event.path.endsWith('_test.dart')) {
-        unawaited(scanTests());
+    final projDir = Directory(projectPath);
+    if (!projDir.existsSync()) return;
+    _testWatcher = projDir.watch(recursive: true).listen((event) {
+      final path = event.path;
+      if (path.contains('patrol_test') || path.endsWith('_test.dart')) {
+        _watchDebounceTimer?.cancel();
+        _watchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+          scanTests();
+        });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _watchDebounceTimer?.cancel();
+    _testWatcher?.cancel();
+    super.dispose();
   }
 
   void setSelectedFile(TestFile? file) {

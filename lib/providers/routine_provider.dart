@@ -113,9 +113,12 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
       formatRoutineEventLogLine(event),
       streamType: isFailure ? LogStreamType.stderr : LogStreamType.stdout,
     );
+    // Auto-rescan test explorer when routine creates/modifies tests
+    _ref.read(appProvider.notifier).scanTests();
   }
 
   Future<void> refresh() async {
+    if (state.busy || state.status == RoutineStatus.running) return;
     final project = _ref.read(appProvider).currentProject;
     if (project == null) {
       state = state.copyWith(error: 'Open a Flutter project first');
