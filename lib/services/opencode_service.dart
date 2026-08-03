@@ -201,6 +201,22 @@ class OpenCodeService {
   Process? _serverProcess;
   int? _serverPort;
   String? _activeSessionId;
+  String? _activeDirectory;
+  Completer<int>? _routineCompleter;
+  HttpClient? _httpClient;
+  StreamSubscription<dynamic>? _eventSubscription;
+
+  /// Splits `provider/model` into OpenCode API fields.
+  static ({String providerID, String modelID}) splitModelRef(String model) {
+    final slash = model.indexOf('/');
+    if (slash <= 0 || slash >= model.length - 1) {
+      return (providerID: 'opencode', modelID: model);
+    }
+    return (
+      providerID: model.substring(0, slash),
+      modelID: model.substring(slash + 1),
+    );
+  }
 
   Future<int> startServer({
     required String configPath,
@@ -219,6 +235,217 @@ class OpenCodeService {
     return port;
   }
 
+  Uri _serverUri(String path, {Map<String, String>? query}) {
+    return Uri(
+      scheme: 'http',
+      host: '127.0.0.1',
+      port: _serverPort,
+      path: path,
+      queryParameters: {
+        if (_activeDirectory != null && _activeDirectory!.isNotEmpty)
+          'directory': _activeDirectory!,
+        ...?query,
+      },
+    );
+  }
+
+  Future<String> _readBody(HttpClientResponse response) async {
+    return (await response.transform(utf8.decoder).join()).trim();
+  }
+
+  void _handlePermissionEvent(
+    Map<String, dynamic> event,
+    void Function(PermissionRequest request)? onPermissionRequest,
+  ) {
+    if (onPermissionRequest == null) return;
+    final type = event['type'] as String?;
+    if (type != 'permission.asked' && type != 'permission.v2.asked') return;
+    final props = event['properties'];
+    if (props is! Map) return;
+    final map = props.cast<String, dynamic>();
+    final id = map['id'] as String?;
+    if (id == null || id.isEmpty) return;
+    final permission = (map['permission'] ?? map['action'] ?? 'permission')
+        .toString();
+    final patterns = map['patterns'] ?? map['resources'] ?? const [];
+    onPermissionRequest(
+      PermissionRequest(
+        id: id,
+        tool: permission,
+        description: '$permission $patterns',
+        params: map,
+      ),
+    );
+  }
+
+  /// True when an SSE payload indicates the prompted session became idle again.
+  static bool isSessionIdleAfterWork({
+    required Map<String, dynamic> event,
+    required String sessionId,
+    required bool sawBusy,
+  }) {
+    if (!sawBusy) return false;
+    if (event['type'] != 'session.status') return false;
+    final props = event['properties'];
+    if (props is! Map) return false;
+    if (props['sessionID'] != sessionId) return false;
+    final status = props['status'];
+    if (status is! Map) return false;
+    return status['type'] == 'idle';
+  }
+
+  static bool isSessionBusyEvent({
+    required Map<String, dynamic> event,
+    required String sessionId,
+  }) {
+    if (event['type'] != 'session.status') return false;
+    final props = event['properties'];
+    if (props is! Map) return false;
+    if (props['sessionID'] != sessionId) return false;
+    final status = props['status'];
+    if (status is! Map) return false;
+    return status['type'] == 'busy';
+  }
+
+  Future<int?> _runViaHttpServer({
+    required String projectPath,
+    required String model,
+    required String prompt,
+    required String configPath,
+    void Function(String line)? onOutput,
+    void Function(PermissionRequest request)? onPermissionRequest,
+  }) async {
+    final port = await startServer(configPath: configPath);
+    _activeDirectory = projectPath;
+    onOutput?.call(
+      '[OpenCode Server API] Dedicated server listening on http://127.0.0.1:$port',
+    );
+
+    final client = HttpClient();
+    _httpClient = client;
+    final modelRef = splitModelRef(model);
+
+    final createReq = await client.postUrl(_serverUri('/session'));
+    createReq.headers.contentType = ContentType.json;
+    createReq.write(
+      jsonEncode({
+        'title': 'Patroller routine',
+        'model': {
+          'providerID': modelRef.providerID,
+          'id': modelRef.modelID,
+        },
+      }),
+    );
+    final createResp = await createReq.close();
+    final createBody = await _readBody(createResp);
+    if (createResp.statusCode != 200 && createResp.statusCode != 201) {
+      onOutput?.call(
+        '[OpenCode Server API] Session create failed (${createResp.statusCode}): $createBody',
+      );
+      client.close(force: true);
+      _httpClient = null;
+      return null;
+    }
+
+    final created = jsonDecode(createBody);
+    if (created is! Map || created['id'] is! String) {
+      onOutput?.call(
+        '[OpenCode Server API] Session create returned unexpected body: $createBody',
+      );
+      client.close(force: true);
+      _httpClient = null;
+      return null;
+    }
+    final sessionId = created['id'] as String;
+    _activeSessionId = sessionId;
+    onOutput?.call(
+      '[OpenCode Server API] Session initialized over HTTP: $sessionId',
+    );
+
+    final completer = Completer<int>();
+    _routineCompleter = completer;
+    var sawBusy = false;
+
+    final eventsReq = await client.getUrl(_serverUri('/event'));
+    eventsReq.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
+    final eventsResp = await eventsReq.close();
+    _eventSubscription = eventsResp
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(
+      (line) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty) return;
+        onOutput?.call(trimmed);
+
+        var payload = trimmed;
+        if (payload.startsWith('data:')) {
+          payload = payload.substring(5).trim();
+        }
+        if (!payload.startsWith('{')) return;
+        try {
+          final decoded = jsonDecode(payload);
+          if (decoded is! Map<String, dynamic>) return;
+          _handlePermissionEvent(decoded, onPermissionRequest);
+          if (isSessionBusyEvent(event: decoded, sessionId: sessionId)) {
+            sawBusy = true;
+          }
+          if (isSessionIdleAfterWork(
+            event: decoded,
+            sessionId: sessionId,
+            sawBusy: sawBusy,
+          )) {
+            if (!completer.isCompleted) completer.complete(0);
+          }
+        } catch (_) {}
+      },
+      onDone: () {
+        if (!completer.isCompleted) completer.complete(sawBusy ? 0 : 1);
+      },
+      onError: (Object error) {
+        onOutput?.call('[OpenCode Server API] Event stream error: $error');
+        if (!completer.isCompleted) completer.complete(1);
+      },
+    );
+
+    final promptReq = await client.postUrl(
+      _serverUri('/session/$sessionId/prompt_async'),
+    );
+    promptReq.headers.contentType = ContentType.json;
+    promptReq.write(
+      jsonEncode({
+        'model': {
+          'providerID': modelRef.providerID,
+          'modelID': modelRef.modelID,
+        },
+        'parts': [
+          {'type': 'text', 'text': prompt},
+        ],
+      }),
+    );
+    final promptResp = await promptReq.close();
+    final promptBody = await _readBody(promptResp);
+    if (promptResp.statusCode != 204 &&
+        promptResp.statusCode != 200 &&
+        promptResp.statusCode != 201) {
+      onOutput?.call(
+        '[OpenCode Server API] Prompt failed (${promptResp.statusCode}): $promptBody',
+      );
+      if (!completer.isCompleted) completer.complete(1);
+    } else {
+      onOutput?.call('[OpenCode Server API] Prompt accepted for session $sessionId');
+    }
+
+    final code = await completer.future;
+    await _eventSubscription?.cancel();
+    _eventSubscription = null;
+    client.close(force: true);
+    _httpClient = null;
+    _routineCompleter = null;
+    _activeSessionId = null;
+    return code;
+  }
+
   Future<int> runRoutine({
     required String projectPath,
     required String model,
@@ -232,65 +459,65 @@ class OpenCodeService {
     void handleLine(String line) {
       onOutput?.call(line);
       try {
-        final trimmed = line.trim();
-        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-          final data = jsonDecode(trimmed);
-          if (data is Map<String, dynamic> &&
-              data['type'] == 'permission_request') {
-            final request = PermissionRequest(
-              id: data['id'] as String? ?? 'req_${DateTime.now().millisecondsSinceEpoch}',
-              tool: data['tool'] as String? ?? 'unknown_tool',
-              description: data['description'] as String? ?? 'Out-of-scope operation requested',
-              params: (data['params'] as Map?)?.cast<String, dynamic>() ?? {},
-            );
-            onPermissionRequest?.call(request);
-          }
+        var trimmed = line.trim();
+        if (trimmed.startsWith('data:')) {
+          trimmed = trimmed.substring(5).trim();
         }
+        if (!(trimmed.startsWith('{') && trimmed.endsWith('}'))) return;
+        final data = jsonDecode(trimmed);
+        if (data is! Map<String, dynamic>) return;
+        if (data['type'] == 'permission_request') {
+          onPermissionRequest?.call(
+            PermissionRequest(
+              id: data['id'] as String? ??
+                  'req_${DateTime.now().millisecondsSinceEpoch}',
+              tool: data['tool'] as String? ?? 'unknown_tool',
+              description: data['description'] as String? ??
+                  'Out-of-scope operation requested',
+              params: (data['params'] as Map?)?.cast<String, dynamic>() ?? {},
+            ),
+          );
+          return;
+        }
+        _handlePermissionEvent(data, onPermissionRequest);
       } catch (_) {}
     }
 
     // 1. Primary: Dedicated OpenCode HTTP Server & Event Stream API
     try {
-      final port = await startServer(configPath: configPath);
-      onOutput?.call('[OpenCode Server API] Dedicated server listening on http://127.0.0.1:$port');
-
-      final client = HttpClient();
-      final req = await client.postUrl(Uri.parse('http://127.0.0.1:$port/session'));
-      req.headers.contentType = ContentType.json;
-      req.write(jsonEncode({
-        'model': model,
-        'prompt': prompt,
-        'directory': projectPath,
-      }));
-      final resp = await req.close();
-      if (resp.statusCode == 200 || resp.statusCode == 201) {
-        onOutput?.call('[OpenCode Server API] Session initialized over HTTP: ${resp.statusCode}');
-        
-        final eventsReq = await client.getUrl(Uri.parse('http://127.0.0.1:$port/events'));
-        final eventsResp = await eventsReq.close();
-        final completer = Completer<int>();
-        
-        eventsResp
-            .transform(utf8.decoder)
-            .transform(const LineSplitter())
-            .listen((line) => handleLine(line), onDone: () {
-          if (!completer.isCompleted) completer.complete(0);
-        }, onError: (_) {
-          if (!completer.isCompleted) completer.complete(1);
-        });
-
-        final code = await completer.future;
+      final httpCode = await _runViaHttpServer(
+        projectPath: projectPath,
+        model: model,
+        prompt: prompt,
+        configPath: configPath,
+        onOutput: onOutput,
+        onPermissionRequest: onPermissionRequest,
+      );
+      if (httpCode != null) {
         await stopServer();
-        return code;
+        return httpCode;
       }
+      onOutput?.call(
+        '[OpenCode Server API] HTTP session mode unavailable; falling back to CLI',
+      );
+      await stopServer();
     } catch (e) {
       onOutput?.call('[OpenCode Server API] HTTP server session mode fallback: $e');
+      await stopServer();
     }
 
     // 2. Fallback: Isolated OpenCode CLI runner process
     _routineProcess = await Process.start(
       executable,
-      ['run', '--format', 'json', '--model', model, prompt],
+      [
+        'run',
+        '--format',
+        'json',
+        '--model',
+        model,
+        '--auto',
+        prompt,
+      ],
       workingDirectory: projectPath,
       environment: {...developerToolEnv(), 'OPENCODE_CONFIG': configPath},
       runInShell: false,
@@ -317,18 +544,17 @@ class OpenCodeService {
   }
 
   void respondPermission({required String id, required bool allow}) {
-    // 1. Try HTTP Server API permission endpoint
+    final reply = allow ? 'once' : 'reject';
+    // 1. OpenCode HTTP permission reply API
     if (_serverPort != null) {
       final client = HttpClient();
-      final uri = Uri.parse('http://127.0.0.1:$_serverPort/permission/respond');
+      final uri = _serverUri('/permission/$id/reply');
       client.postUrl(uri).then((req) {
         req.headers.contentType = ContentType.json;
-        req.write(jsonEncode({
-          'id': id,
-          'decision': allow ? 'allow' : 'deny',
-        }));
+        req.write(jsonEncode({'reply': reply}));
         return req.close();
-      }).then((resp) {
+      }).then((resp) async {
+        await _readBody(resp);
         client.close();
       }).catchError((_) {
         client.close();
@@ -347,12 +573,34 @@ class OpenCodeService {
   }
 
   Future<void> stopServer() async {
+    await _eventSubscription?.cancel();
+    _eventSubscription = null;
+    _httpClient?.close(force: true);
+    _httpClient = null;
+    final pending = _routineCompleter;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(1);
+    }
+    _routineCompleter = null;
     _serverProcess?.kill(ProcessSignal.sigterm);
     _serverProcess = null;
     _serverPort = null;
+    _activeSessionId = null;
+    _activeDirectory = null;
   }
 
   Future<void> stopRoutine() async {
+    if (_serverPort != null && _activeSessionId != null) {
+      try {
+        final client = HttpClient();
+        final req = await client.postUrl(
+          _serverUri('/session/$_activeSessionId/abort'),
+        );
+        final resp = await req.close();
+        await _readBody(resp);
+        client.close(force: true);
+      } catch (_) {}
+    }
     _routineProcess?.kill(ProcessSignal.sigterm);
     _routineProcess = null;
     await stopServer();

@@ -122,10 +122,10 @@ No Flutter SDK is required to **run** Patroller. Download the installer we publi
   <a href="https://github.com/aiman-hanif-dolah/patroller/releases/latest">
     <img src="https://img.shields.io/github/v/release/aiman-hanif-dolah/patroller?style=for-the-badge&label=Latest%20release" alt="Latest release" />
   </a>
-  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.dmg">
+  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.1/Patroller-1.1.1-macos-arm64.dmg">
     <img src="https://img.shields.io/badge/Download-macOS%20DMG-0A84FF?style=for-the-badge&logo=apple" alt="Download macOS DMG" />
   </a>
-  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.zip">
+  <a href="https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.1/Patroller-1.1.1-macos-arm64.zip">
     <img src="https://img.shields.io/badge/Download-macOS%20ZIP-555555?style=for-the-badge&logo=apple" alt="Download macOS ZIP" />
   </a>
   <a href="https://github.com/aiman-hanif-dolah/patroller/releases/latest">
@@ -135,15 +135,15 @@ No Flutter SDK is required to **run** Patroller. Download the installer we publi
 
 | Platform | Installer | Status |
 |----------|-----------|--------|
-| **macOS (Apple Silicon)** | [DMG](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.dmg) · [ZIP](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.zip) | Published on [v1.1.0](https://github.com/aiman-hanif-dolah/patroller/releases/tag/v1.1.0) |
+| **macOS (Apple Silicon)** | [DMG](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.1/Patroller-1.1.1-macos-arm64.dmg) · [ZIP](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.1/Patroller-1.1.1-macos-arm64.zip) | Published on [v1.1.1](https://github.com/aiman-hanif-dolah/patroller/releases/tag/v1.1.1) |
 | **Windows x64** | Portable `Patroller-*-windows-x64.zip` on [Releases](https://github.com/aiman-hanif-dolah/patroller/releases) | Build on a Windows PC and upload (see below) |
 
-### macOS installer (current: v1.1.0)
+### macOS installer (current: v1.1.1)
 
 | File | Link |
 |------|------|
-| **DMG (recommended)** | [Patroller-1.1.0-macos-arm64.dmg](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.dmg) |
-| ZIP | [Patroller-1.1.0-macos-arm64.zip](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.0/Patroller-1.1.0-macos-arm64.zip) |
+| **DMG (recommended)** | [Patroller-1.1.1-macos-arm64.dmg](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.1/Patroller-1.1.1-macos-arm64.dmg) |
+| ZIP | [Patroller-1.1.1-macos-arm64.zip](https://github.com/aiman-hanif-dolah/patroller/releases/download/v1.1.1/Patroller-1.1.1-macos-arm64.zip) |
 | All releases | [github.com/aiman-hanif-dolah/patroller/releases](https://github.com/aiman-hanif-dolah/patroller/releases) |
 
 **Install steps**
@@ -628,6 +628,7 @@ flutter test
 
 | Version | Released | Highlights & Key Features |
 |---------|----------|---------------------------|
+| **v1.1.1** | 2026-08-03 | **Routine OpenCode API fix**: Correct session create → event stream → `prompt_async` flow for OpenCode 1.18+, greenfield empty `patrol_test` baseline support, and macOS DMG/ZIP installers published on GitHub Releases. |
 | **v1.1.0** | 2026-08-03 | **Autonomous Patrol Routine for macOS/iOS**: Per-routine OpenCode HTTP server & event stream API (`opencode serve --port 4096`), live interactive permission requests (`Allow`/`Deny`), automatic Marionette debug app-session launcher & VM Service URI discovery (`MARIONETTE_VM_SERVICE_URI`), native test runner auto-wiring (`RunnerTests.swift` & `MainActivityTest.kt`), zero-cost model selector, and flexible Git worktree policy override UI. |
 | **v1.0.0** | 2026-07-28 | Initial open-source release of Patroller: visual runner, test explorer, live logs, failure diagnosis, HTML batch reports, recordings, visual flow editor, and machine-level MCP setup. |
 

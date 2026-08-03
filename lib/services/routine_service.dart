@@ -230,16 +230,23 @@ class RoutineService {
       );
 
       // Baseline before Marionette flutter run so both do not fight the same simulator.
+      // Empty suites are allowed so greenfield "create first test" routines can start.
       final baseline = await projectTooling.runPatrolSweep(
         plan.projectPath,
         device: device,
+        allowEmpty: true,
       );
+      final baselineEmpty = baseline.ok &&
+          (baseline.output.contains('empty suite') ||
+              baseline.output.contains('does not exist yet'));
       emit(
         RoutineEvent(
           time: DateTime.now(),
           kind: 'baseline',
           message: baseline.ok
-              ? 'Baseline Patrol sweep passed'
+              ? (baselineEmpty
+                  ? 'Baseline: ${baseline.output}'
+                  : 'Baseline Patrol sweep passed')
               : 'Baseline Patrol sweep found failures: ${baseline.output}',
         ),
       );
@@ -315,12 +322,15 @@ class RoutineService {
               plan.customInstructions!.trim().isNotEmpty)
           ? '\nSpecific Focus & Scope Constraints from User:\n> ${plan.customInstructions!.trim()}\nAdhere strictly to these user focus constraints before doing general exploration.\n'
           : '';
+      final greenfieldSection = baselineEmpty
+          ? '\nGreenfield note: patrol_test currently has no runnable *_test.dart files. Create the first meaningful Patrol test file under patrol_test/, validate it, then stop if the user asked for a single file.\n'
+          : '';
 
       final prompt = '''You are running a bounded Patroller routine.
 Project: ${plan.projectPath}
 Target device: $device
 Goal: ${plan.goal}
-$customSection
+$customSection$greenfieldSection
 Budget: ${plan.maxMinutes} minutes, ${plan.maxIterations} iterations, stop after ${plan.noProgressLimit} repeated no-progress iterations.
 Use Patrol MCP for tests and Marionette MCP for live Flutter exploration.
 Always target device "$device" (pass it to Patrol MCP run / patrol test -d). Do not use another device.

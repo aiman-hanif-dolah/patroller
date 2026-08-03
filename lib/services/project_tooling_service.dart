@@ -130,9 +130,18 @@ class ProjectToolingService {
     String projectPath, {
     String? device,
     List<String>? targetFiles,
+    bool allowEmpty = false,
   }) async {
     final testDir = p.join(projectPath, 'patrol_test');
     if (!Directory(testDir).existsSync()) {
+      if (allowEmpty) {
+        return const ProjectCommandResult(
+          ok: true,
+          command: 'patrol test',
+          output:
+              'patrol_test directory does not exist yet (greenfield); agent will create coverage',
+        );
+      }
       return const ProjectCommandResult(
         ok: false,
         command: 'patrol test',
@@ -142,6 +151,14 @@ class ProjectToolingService {
     final scannedFiles = await scanTestFiles(projectPath, 'patrol_test');
     final runnable = runnableTestFiles(scannedFiles);
     if (runnable.isEmpty) {
+      if (allowEmpty) {
+        return const ProjectCommandResult(
+          ok: true,
+          command: 'patrol test',
+          output:
+              'No runnable Patrol tests yet (empty suite); agent will create coverage',
+        );
+      }
       return const ProjectCommandResult(
         ok: false,
         command: 'patrol test',

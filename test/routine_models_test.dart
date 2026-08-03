@@ -195,6 +195,20 @@ void main() {
     expect(line, '[routine] [started] OpenCode routine started');
   });
 
+  test('parseOpenCodeOutputToRoutineEvent understands OpenCode SSE parts', () {
+    final event = parseOpenCodeOutputToRoutineEvent(
+      'data: {"type":"message.part.updated","properties":{"part":{"type":"text","text":"Creating home_test.dart"}}}',
+    );
+    expect(event.kind, 'assistant');
+    expect(event.message, 'Creating home_test.dart');
+
+    final status = parseOpenCodeOutputToRoutineEvent(
+      'data: {"type":"session.status","properties":{"sessionID":"ses_1","status":{"type":"busy"}}}',
+    );
+    expect(status.kind, 'output');
+    expect(status.message, contains('busy'));
+  });
+
   test('RoutineResult tracks stopping reason and test pass/fail sweeps', () {
     final now = DateTime.now();
     final result = RoutineResult(

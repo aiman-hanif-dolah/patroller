@@ -97,4 +97,62 @@ opencode/valid-free
 
     expect(models.map((m) => m.id).toList(), ['opencode/valid-free']);
   });
+
+  test('splitModelRef parses provider/model ids for OpenCode HTTP API', () {
+    expect(
+      OpenCodeService.splitModelRef('opencode/mimo-v2.5-free'),
+      (providerID: 'opencode', modelID: 'mimo-v2.5-free'),
+    );
+    expect(
+      OpenCodeService.splitModelRef('solo-model'),
+      (providerID: 'opencode', modelID: 'solo-model'),
+    );
+  });
+
+  test('isSessionIdleAfterWork requires busy then idle for same session', () {
+    const sessionId = 'ses_abc';
+    final busy = {
+      'type': 'session.status',
+      'properties': {
+        'sessionID': sessionId,
+        'status': {'type': 'busy'},
+      },
+    };
+    final idle = {
+      'type': 'session.status',
+      'properties': {
+        'sessionID': sessionId,
+        'status': {'type': 'idle'},
+      },
+    };
+
+    expect(
+      OpenCodeService.isSessionBusyEvent(event: busy, sessionId: sessionId),
+      isTrue,
+    );
+    expect(
+      OpenCodeService.isSessionIdleAfterWork(
+        event: idle,
+        sessionId: sessionId,
+        sawBusy: false,
+      ),
+      isFalse,
+    );
+    expect(
+      OpenCodeService.isSessionIdleAfterWork(
+        event: idle,
+        sessionId: sessionId,
+        sawBusy: true,
+      ),
+      isTrue,
+    );
+    expect(
+      OpenCodeService.isSessionIdleAfterWork(
+        event: idle,
+        sessionId: 'ses_other',
+        sawBusy: true,
+      ),
+      isFalse,
+    );
+  });
 }

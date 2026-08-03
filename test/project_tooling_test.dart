@@ -164,4 +164,31 @@ dev_dependencies:
       ],
     );
   });
+
+  test('runPatrolSweep allowEmpty treats missing/empty suite as ok', () async {
+    final tempDir = Directory.systemTemp.createTempSync('patroller_empty_sweep_');
+    try {
+      final tooling = ProjectToolingService();
+      final missing = await tooling.runPatrolSweep(
+        tempDir.path,
+        allowEmpty: true,
+      );
+      expect(missing.ok, isTrue);
+      expect(missing.output, contains('does not exist yet'));
+
+      Directory(p.join(tempDir.path, 'patrol_test')).createSync();
+      final empty = await tooling.runPatrolSweep(
+        tempDir.path,
+        allowEmpty: true,
+      );
+      expect(empty.ok, isTrue);
+      expect(empty.output, contains('empty suite'));
+
+      final strict = await tooling.runPatrolSweep(tempDir.path);
+      expect(strict.ok, isFalse);
+      expect(strict.output, contains('No runnable Patrol tests'));
+    } finally {
+      tempDir.deleteSync(recursive: true);
+    }
+  });
 }

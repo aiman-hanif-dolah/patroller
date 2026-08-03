@@ -207,6 +207,8 @@ RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
   String jsonCandidate = trimmed;
   if (jsonCandidate.startsWith('data: ')) {
     jsonCandidate = jsonCandidate.substring(6).trim();
+  } else if (jsonCandidate.startsWith('data:')) {
+    jsonCandidate = jsonCandidate.substring(5).trim();
   }
 
   if (jsonCandidate.startsWith('{') && jsonCandidate.endsWith('}')) {
@@ -214,6 +216,70 @@ RoutineEvent parseOpenCodeOutputToRoutineEvent(String rawLine) {
       final Object? decoded = jsonDecode(jsonCandidate);
       if (decoded is Map<String, dynamic>) {
         final type = (decoded['type'] as String?)?.toLowerCase();
+
+        // OpenCode SSE: message.part.updated / session.status / permission.*
+        if (type == 'message.part.updated') {
+          final props = decoded['properties'];
+          if (props is Map && props['part'] is Map) {
+            final part = (props['part'] as Map).cast<String, dynamic>();
+            final partType = (part['type'] as String?)?.toLowerCase();
+            if (partType == 'text') {
+              final text = part['text'] ?? part['content'];
+              if (text != null && text.toString().isNotEmpty) {
+                return RoutineEvent(
+                  time: now,
+                  kind: 'assistant',
+                  message: text.toString().trim(),
+                );
+              }
+            }
+            if (partType == 'reasoning' || partType == 'thinking') {
+              final text = part['text'] ?? part['reasoning'] ?? part['thought'];
+              if (text != null && text.toString().isNotEmpty) {
+                return RoutineEvent(
+                  time: now,
+                  kind: 'thinking',
+                  message: text.toString().trim(),
+                );
+              }
+            }
+            if (partType == 'tool' ||
+                partType == 'tool_use' ||
+                partType == 'tool_call') {
+              final name = part['tool'] ?? part['name'] ?? 'tool';
+              final state = part['state'] ?? part['input'] ?? '';
+              return RoutineEvent(
+                time: now,
+                kind: 'tool_call',
+                message: '$name $state',
+              );
+            }
+          }
+        }
+        if (type == 'session.status') {
+          final props = decoded['properties'];
+          final status = props is Map ? props['status'] : null;
+          final statusType =
+              status is Map ? status['type']?.toString() : status?.toString();
+          if (statusType != null && statusType.isNotEmpty) {
+            return RoutineEvent(
+              time: now,
+              kind: 'output',
+              message: 'OpenCode session status: $statusType',
+            );
+          }
+        }
+        if (type == 'permission.asked' || type == 'permission.v2.asked') {
+          final props = decoded['properties'];
+          final permission = props is Map
+              ? (props['permission'] ?? props['action'] ?? 'permission')
+              : 'permission';
+          return RoutineEvent(
+            time: now,
+            kind: 'permission',
+            message: 'OpenCode permission requested: $permission',
+          );
+        }
 
         // 1. Thinking / Reasoning / Thoughts
         if (type == 'thought' || type == 'thinking' || type == 'reasoning') {
