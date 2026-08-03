@@ -79,6 +79,28 @@ anthropic/claude-sonnet-4
     expect(models.every((m) => m.verifiedFree), isTrue);
   });
 
+  test('parseAllModels parses all valid model entries including non-free/subscription models', () {
+    const verbose = '''
+opencode/deepseek-v4-flash-free
+{"cost":{"input":0,"output":0}}
+opencode/claude-3-5-sonnet
+{"cost":{"input":0.003,"output":0.015}}
+anthropic/claude-3-5-haiku
+{"cost":{"input":0.001,"output":0.005}}
+''';
+
+    final models = OpenCodeService().parseAllModels(verbose);
+
+    expect(models.length, 3);
+    expect(models.map((m) => m.id).toList(), [
+      'opencode/deepseek-v4-flash-free',
+      'opencode/claude-3-5-sonnet',
+      'anthropic/claude-3-5-haiku',
+    ]);
+    expect(models[0].verifiedFree, isTrue);
+    expect(models[1].verifiedFree, isFalse);
+  });
+
   test('parseVerifiedFreeModels rejects missing or non-zero costs', () {
     const verbose = '''
 opencode/missing-cost-free

@@ -87,7 +87,7 @@ class OpenCodeService {
     );
   }
 
-  Future<List<OpenCodeModel>> listVerifiedFreeModels() async {
+  Future<List<OpenCodeModel>> listModels({bool freeOnly = true}) async {
     final resolved = resolveExecutable('opencode');
     try {
       final result = await Process.run(resolved, const [
@@ -96,15 +96,19 @@ class OpenCodeService {
         '--verbose',
       ], environment: developerToolEnv());
       if (result.exitCode != 0) return const [];
-      return parseVerifiedFreeModels('${result.stdout}');
+      final raw = '${result.stdout}';
+      return freeOnly ? parseVerifiedFreeModels(raw) : parseAllModels(raw);
     } catch (_) {
       return const [];
     }
   }
 
-  /// Parses `opencode models --refresh --verbose` output into verified free
-  /// OpenCode models only (`opencode/*-free` with explicit zero input/output cost).
-  List<OpenCodeModel> parseVerifiedFreeModels(String output) {
+  Future<List<OpenCodeModel>> listVerifiedFreeModels() =>
+      listModels(freeOnly: true);
+
+  /// Parses `opencode models --refresh --verbose` output into all available
+  /// models parsed from OpenCode output.
+  List<OpenCodeModel> parseAllModels(String output) {
     final result = <OpenCodeModel>[];
     String? current;
     var block = StringBuffer();
@@ -113,18 +117,16 @@ class OpenCodeService {
       if (id == null || block.length == 0) return;
       final input = _cost(block.toString(), 'input');
       final outputCost = _cost(block.toString(), 'output');
-      if (_isVerifiedOpenCodeFreeModel(id, input, outputCost)) {
-        final slash = id.indexOf('/');
-        result.add(
-          OpenCodeModel(
-            id: id,
-            provider: slash < 0 ? id : id.substring(0, slash),
-            name: slash < 0 ? id : id.substring(slash + 1),
-            inputCost: input,
-            outputCost: outputCost,
-          ),
-        );
-      }
+      final slash = id.indexOf('/');
+      result.add(
+        OpenCodeModel(
+          id: id,
+          provider: slash < 0 ? id : id.substring(0, slash),
+          name: slash < 0 ? id : id.substring(slash + 1),
+          inputCost: input,
+          outputCost: outputCost,
+        ),
+      );
       block = StringBuffer();
     }
 
@@ -139,6 +141,20 @@ class OpenCodeService {
     }
     flush();
     return result;
+  }
+
+  /// Parses `opencode models --refresh --verbose` output into verified free
+  /// OpenCode models only (`opencode/*-free` with explicit zero input/output cost).
+  List<OpenCodeModel> parseVerifiedFreeModels(String output) {
+    return parseAllModels(output)
+        .where(
+          (model) => _isVerifiedOpenCodeFreeModel(
+            model.id,
+            model.inputCost,
+            model.outputCost,
+          ),
+        )
+        .toList();
   }
 
   /// OpenCode free catalog entries use the `opencode/` provider and a `-free`

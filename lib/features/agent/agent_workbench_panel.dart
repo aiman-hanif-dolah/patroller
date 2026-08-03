@@ -83,6 +83,8 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
             onCustomInstructionsChanged: (value) =>
                 ref.read(routineProvider.notifier).setCustomInstructions(value),
             onModelChanged: (value) => ref.read(routineProvider.notifier).selectModel(value),
+            onToggleShowAllModels: (value) =>
+                ref.read(routineProvider.notifier).toggleShowAllModels(value),
             onPubGet: () => ref.read(routineProvider.notifier).pubGet(),
             onInstallOpenCode: () => ref.read(routineProvider.notifier).installOpenCode(),
             onRemoveDependency: (value) => _confirmRemoveDependency(context, value),
@@ -581,6 +583,7 @@ class _RoutineCard extends StatefulWidget {
     required this.onGoalChanged,
     required this.onCustomInstructionsChanged,
     required this.onModelChanged,
+    required this.onToggleShowAllModels,
     required this.onPubGet,
     required this.onInstallOpenCode,
     required this.onRemoveDependency,
@@ -596,6 +599,7 @@ class _RoutineCard extends StatefulWidget {
   final ValueChanged<String> onGoalChanged;
   final ValueChanged<String> onCustomInstructionsChanged;
   final ValueChanged<String?> onModelChanged;
+  final ValueChanged<bool> onToggleShowAllModels;
   final VoidCallback onPubGet;
   final VoidCallback onInstallOpenCode;
   final ValueChanged<String> onRemoveDependency;
@@ -977,18 +981,52 @@ class _RoutineCardState extends State<_RoutineCard> {
           ),
           const SizedBox(height: 12),
 
-          // Verified zero-cost model dropdown
+          // Model dropdown with filter toggle
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'MODEL SELECTION',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: palette.textMuted,
-                  letterSpacing: 0.5,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'MODEL SELECTION',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: palette.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        widget.state.showAllModels ? 'All / Subscription' : 'Free Only',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: widget.state.showAllModels
+                              ? PatrolColors.violet400
+                              : PatrolColors.emerald,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Transform.scale(
+                        scale: 0.7,
+                        child: SizedBox(
+                          height: 20,
+                          width: 36,
+                          child: Switch(
+                            value: widget.state.showAllModels,
+                            activeColor: PatrolColors.violet400,
+                            onChanged: widget.state.busy
+                                ? null
+                                : widget.onToggleShowAllModels,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(height: 5),
               DropdownButtonFormField<String>(
@@ -1000,9 +1038,33 @@ class _RoutineCardState extends State<_RoutineCard> {
                     .map(
                       (model) => DropdownMenuItem<String>(
                         value: model.id,
-                        child: Text(
-                          model.id,
-                          style: TextStyle(fontSize: 12, color: palette.text),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                model.id,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 12, color: palette.text),
+                              ),
+                            ),
+                            if (model.verifiedFree)
+                              Container(
+                                margin: const EdgeInsets.only(left: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: PatrolColors.emerald.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'FREE',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: PatrolColors.emerald,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     )
@@ -1034,7 +1096,9 @@ class _RoutineCardState extends State<_RoutineCard> {
           if (widget.state.models.isEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'No verified zero-cost models found. Run "opencode auth login" or configure a free provider model.',
+              widget.state.showAllModels
+                  ? 'No OpenCode models found. Run "opencode auth login" or configure a model provider.'
+                  : 'No verified zero-cost models found. Toggle "All / Subscription" or run "opencode auth login".',
               style: TextStyle(
                 fontSize: 10,
                 color: PatrolColors.amber,

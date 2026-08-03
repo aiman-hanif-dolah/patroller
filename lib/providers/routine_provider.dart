@@ -22,6 +22,7 @@ class RoutineState {
     this.models = const [],
     this.dependencies = const [],
     this.selectedModel,
+    this.showAllModels = false,
     this.goal =
         'Explore stable user journeys, repair failing Patrol tests, and add meaningful uncovered tests.',
     this.customInstructions = '',
@@ -37,6 +38,7 @@ class RoutineState {
   final List<OpenCodeModel> models;
   final List<ProjectDependency> dependencies;
   final String? selectedModel;
+  final bool showAllModels;
   final String goal;
   final String customInstructions;
   final List<RoutineEvent> events;
@@ -64,6 +66,7 @@ class RoutineState {
     List<OpenCodeModel>? models,
     List<ProjectDependency>? dependencies,
     String? selectedModel,
+    bool? showAllModels,
     String? goal,
     String? customInstructions,
     List<RoutineEvent>? events,
@@ -81,6 +84,7 @@ class RoutineState {
       models: models ?? this.models,
       dependencies: dependencies ?? this.dependencies,
       selectedModel: selectedModel ?? this.selectedModel,
+      showAllModels: showAllModels ?? this.showAllModels,
       goal: goal ?? this.goal,
       customInstructions: customInstructions ?? this.customInstructions,
       events: events ?? this.events,
@@ -135,7 +139,9 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
         projectPath: project.projectPath,
         selectedDevice: routineTargetDeviceLabel(device),
       );
-      final models = await _service.openCode.listVerifiedFreeModels();
+      final models = await _service.openCode.listModels(
+        freeOnly: !state.showAllModels,
+      );
       final dependencies = await _service.projectTooling.listDependencies(
         project.projectPath,
       );
@@ -154,6 +160,11 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
     } catch (error) {
       state = state.copyWith(status: RoutineStatus.idle, error: '$error');
     }
+  }
+
+  Future<void> toggleShowAllModels(bool showAll) async {
+    state = state.copyWith(showAllModels: showAll);
+    await refresh();
   }
 
   void setGoal(String goal) => state = state.copyWith(goal: goal);
