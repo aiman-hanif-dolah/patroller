@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
+import '../domain/runner_helpers.dart';
 import '../models/models.dart';
 import '../services/patrol_studio_facade.dart';
 import 'facade_provider.dart';
@@ -21,6 +22,7 @@ class AppState {
     this.selectedFile,
     this.selectedTestCase,
     this.selectedFileIds = const {},
+    this.flowFilter = kAllFlowsFilter,
     this.isLoadingProject = false,
     this.isScanning = false,
     this.error,
@@ -37,6 +39,8 @@ class AppState {
   final TestFile? selectedFile;
   final TestCase? selectedTestCase;
   final Set<String> selectedFileIds;
+  /// Test explorer flow dropdown: [kAllFlowsFilter] or a top-level folder name.
+  final String flowFilter;
   final bool isLoadingProject;
   final bool isScanning;
   final String? error;
@@ -53,6 +57,7 @@ class AppState {
     TestFile? selectedFile,
     TestCase? selectedTestCase,
     Set<String>? selectedFileIds,
+    String? flowFilter,
     bool? isLoadingProject,
     bool? isScanning,
     String? error,
@@ -81,6 +86,7 @@ class AppState {
           ? null
           : (selectedTestCase ?? this.selectedTestCase),
       selectedFileIds: selectedFileIds ?? this.selectedFileIds,
+      flowFilter: flowFilter ?? this.flowFilter,
       isLoadingProject: isLoadingProject ?? this.isLoadingProject,
       isScanning: isScanning ?? this.isScanning,
       error: clearError ? null : (error ?? this.error),
@@ -189,6 +195,7 @@ class AppNotifier extends StateNotifier<AppState> {
       activeView: AppView.project,
       testFiles: [],
       selectedFileIds: {},
+      flowFilter: kAllFlowsFilter,
       clearSelectedFile: true,
       clearSelectedTestCase: true,
       clearScanError: true,
@@ -295,11 +302,16 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   void selectFlow(String flow) {
-    final ids = state.testFiles
-        .where((f) => f.folderPath.startsWith(flow))
-        .map((f) => f.absolutePath)
-        .toSet();
-    state = state.copyWith(selectedFileIds: ids);
+    setFlowFilter(flow);
+  }
+
+  /// Sets the explorer flow filter used by Test All / Develop All scoping.
+  /// Also syncs checkboxes to the flow (or all files) for visual feedback.
+  void setFlowFilter(String flow) {
+    state = state.copyWith(
+      flowFilter: flow,
+      selectedFileIds: selectedFileIdsForFlowFilter(state.testFiles, flow),
+    );
   }
 
   void toggleFlowSelection(String flow) {
@@ -309,10 +321,12 @@ class AppNotifier extends StateNotifier<AppState> {
         .toSet();
     final current = state.selectedFileIds;
     final hasAnyFlow = current.any(flowIds.contains);
-    if (hasAnyFlow && current.difference(flowIds).isEmpty && flowIds.difference(current).isEmpty) {
-      state = state.copyWith(selectedFileIds: {});
+    if (hasAnyFlow &&
+        current.difference(flowIds).isEmpty &&
+        flowIds.difference(current).isEmpty) {
+      setFlowFilter(kAllFlowsFilter);
     } else {
-      state = state.copyWith(selectedFileIds: flowIds);
+      setFlowFilter(flow);
     }
   }
 

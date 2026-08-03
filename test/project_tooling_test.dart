@@ -145,11 +145,23 @@ dev_dependencies:
   });
 
   test('patrolSweepArgs includes -d when device is set', () {
-    expect(ProjectToolingService.patrolSweepArgs(), ['test']);
-    expect(ProjectToolingService.patrolSweepArgs(device: '  '), ['test']);
+    expect(
+      ProjectToolingService.patrolSweepArgs(),
+      ['test', '--dart-define', 'PATROL_HOT_RESTART=false'],
+    );
+    expect(
+      ProjectToolingService.patrolSweepArgs(device: '  '),
+      ['test', '--dart-define', 'PATROL_HOT_RESTART=false'],
+    );
     expect(
       ProjectToolingService.patrolSweepArgs(device: 'SIM-UDID'),
-      ['test', '-d', 'SIM-UDID'],
+      [
+        'test',
+        '--dart-define',
+        'PATROL_HOT_RESTART=false',
+        '-d',
+        'SIM-UDID',
+      ],
     );
   });
 }

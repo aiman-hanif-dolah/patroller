@@ -24,7 +24,6 @@ class TestExplorer extends ConsumerStatefulWidget {
 class _TestExplorerState extends ConsumerState<TestExplorer> {
   String _search = '';
   String _filterChip = 'all';
-  String _flowFilter = kAllFlowsFilter;
   final _expandedFiles = <String>{};
 
   @override
@@ -36,6 +35,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
     final suiteCtx = ref.watch(suiteContextProvider);
     final testFiles = app.testFiles;
     final selectedFileIds = app.selectedFileIds;
+    final flowFilter = app.flowFilter;
 
     if (app.scanError != null && testFiles.isEmpty) {
       return _messageState(
@@ -68,7 +68,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
-    final filtered = _filteredFiles(testFiles, selectedFileIds);
+    final filtered = _filteredFiles(testFiles, selectedFileIds, flowFilter);
     final runnable = runnableTestFiles(testFiles);
     final runnableTests =
         runnable.fold<int>(0, (sum, f) => sum + f.detectedTestCount);
@@ -83,7 +83,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
           filteredCount: filtered.length,
           isFiltered: _search.isNotEmpty ||
               _filterChip != 'all' ||
-              !isAllFlowsFilter(_flowFilter),
+              !isAllFlowsFilter(flowFilter),
           isScanning: app.isScanning,
           onRefresh: widget.onRefresh,
         ),
@@ -154,7 +154,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
               ? Center(
                   child: Text(
                     _filterChip == 'selected'
-                        ? 'No files selected for Test All'
+                        ? 'No files checked'
                         : 'No matching tests',
                     style: TextStyle(fontSize: 12, color: p.textMuted),
                   ),
@@ -230,6 +230,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
   List<TestFile> _filteredFiles(
     List<TestFile> files,
     Set<String> selectedFileIds,
+    String flowFilter,
   ) {
     var result = files;
     if (_search.isNotEmpty) {
@@ -245,8 +246,8 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
           )
           .toList();
     }
-    if (!isAllFlowsFilter(_flowFilter)) {
-      result = result.where((f) => f.folderPath.startsWith(_flowFilter)).toList();
+    if (!isAllFlowsFilter(flowFilter)) {
+      result = result.where((f) => f.folderPath.startsWith(flowFilter)).toList();
     }
     switch (_filterChip) {
       case 'runnable':
@@ -267,6 +268,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
 
   Widget _buildFlowDropdown(List<TestFile> files) {
     final p = PatrolPalette.of(context);
+    final flowFilter = ref.watch(appProvider.select((s) => s.flowFilter));
     final flows = <String>{};
     for (final f in files) {
       if (f.folderPath.isNotEmpty) {
@@ -277,6 +279,8 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
     if (flows.isEmpty) return const SizedBox.shrink();
 
     final sortedFlows = flows.toList()..sort();
+    final activeFlow =
+        flows.contains(flowFilter) ? flowFilter : kAllFlowsFilter;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Material(
@@ -286,17 +290,17 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
             color: p.surfaceMuted,
             borderRadius: BorderRadius.circular(PatrolRadius.chip),
             border: Border.all(
-              color: !isAllFlowsFilter(_flowFilter)
+              color: !isAllFlowsFilter(activeFlow)
                   ? PatrolColors.amber.withValues(alpha: 0.5)
                   : p.border,
             ),
-            boxShadow: !isAllFlowsFilter(_flowFilter)
+            boxShadow: !isAllFlowsFilter(activeFlow)
                 ? PatrolShadows.glow(PatrolColors.amber, blur: 6)
                 : null,
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: _flowFilter,
+              value: activeFlow,
               isDense: true,
               isExpanded: true,
               dropdownColor: p.fill,
@@ -305,14 +309,14 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
               icon: Icon(
                 Icons.keyboard_arrow_down_rounded,
                 size: 16,
-                color: !isAllFlowsFilter(_flowFilter)
+                color: !isAllFlowsFilter(activeFlow)
                     ? PatrolColors.amber
                     : p.textMuted,
               ),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: !isAllFlowsFilter(_flowFilter)
+                color: !isAllFlowsFilter(activeFlow)
                     ? PatrolColors.amber
                     : p.textMuted,
               ),
@@ -360,13 +364,7 @@ class _TestExplorerState extends ConsumerState<TestExplorer> {
               ],
               onChanged: (value) {
                 if (value == null) return;
-                setState(() => _flowFilter = value);
-                final notifier = ref.read(appProvider.notifier);
-                if (isAllFlowsFilter(value)) {
-                  notifier.selectAllFiles(true);
-                } else {
-                  notifier.selectFlow(value);
-                }
+                ref.read(appProvider.notifier).setFlowFilter(value);
               },
             ),
           ),

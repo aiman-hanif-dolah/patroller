@@ -13,8 +13,8 @@ import '../../services/mcp_service.dart';
 /// Agent workbench:
 /// - Install / update Patrol MCP + Marionette MCP **on this machine**
 ///   (global `dart pub global activate` — never into the Flutter project pubspec).
-/// - Bind those servers to the **currently open project** (for DIY agents).
-/// - Separate paths: Autonomous Routine, copy-prompt routines, or Record tab.
+/// - Three separate paths: Autonomous (Patroller drives), Bind MCP (setup only),
+///   or Copy prompt (DIY — paste into your own AI).
 class AgentWorkbenchPanel extends ConsumerStatefulWidget {
   const AgentWorkbenchPanel({super.key});
 
@@ -69,10 +69,8 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           const _Heading('Agent workbench'),
           const SizedBox(height: 6),
           Text(
-            'Install MCP on this machine (global tools — not your app pubspec), '
-            'then pick a path: Autonomous Routine (Patroller runs OpenCode), '
-            'copy an agent prompt for your own AI, or use the Record tab for '
-            'manual capture. These are separate paths, not one pipeline.',
+            'Three separate paths — pick one (not steps in a pipeline). '
+            'Install MCP tools on this machine first if you need them.',
             style: TextStyle(fontSize: 12, color: p.textMuted, height: 1.45),
           ),
           const SizedBox(height: 16),
@@ -96,7 +94,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           // ── Machine-level install ──────────────────────────────────────
           Row(
             children: [
-              const _Heading('1. Install on this machine'),
+              const _Heading('1. Install tools on this machine'),
               const Spacer(),
               TextButton.icon(
                 onPressed: mcp.checking
@@ -119,8 +117,8 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Uses dart pub global activate - same as installing from a terminal. '
-            'Packages live in your pub cache, shared by all projects.',
+            'Puts Patrol + Marionette MCP in your shared toolbox '
+            '(dart pub global activate). Not your app pubspec.',
             style: TextStyle(fontSize: 11, color: p.textMuted, height: 1.4),
           ),
           const SizedBox(height: 10),
@@ -229,12 +227,12 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           const SizedBox(height: 16),
 
           // ── Project binding ────────────────────────────────────────────
-          const _Heading('2. Bind to open project'),
+          const _Heading('2. Plug MCP into this project'),
           const SizedBox(height: 4),
           Text(
-            'Writes a Patrol wrapper + merges ~/.cursor/mcp.json so agents use '
-            'the machine-installed MCP servers against this project. Does not '
-            'add packages to the project pubspec.',
+            'Setup only — like plugging tools into a toy. Wires machine MCP '
+            'to the open project so your own AI can use them. Does not touch '
+            'pubspec and does not run an agent.',
             style: TextStyle(fontSize: 11, color: p.textMuted, height: 1.4),
           ),
           const SizedBox(height: 10),
@@ -242,8 +240,8 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           if (project == null)
             _Banner(
               text:
-                  'Open a Flutter project in Patroller to configure MCP for it. '
-                  'You can still install MCP packages above without a project.',
+                  'Open a Flutter project to plug MCP into it. '
+                  'You can still install tools above without a project.',
               error: false,
             )
           else ...[
@@ -299,7 +297,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
               runSpacing: 8,
               children: [
                 _ActionChip(
-                  label: mcp.starting ? 'Starting…' : 'Start MCP routine',
+                  label: mcp.starting ? 'Binding…' : 'Bind MCP to this project',
                   icon: Icons.play_arrow_rounded,
                   color: PatrolColors.violet400,
                   enabled: mcp.ready && !busy,
@@ -341,13 +339,12 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
             const SizedBox(height: 16),
 
             // ── Agent prompt routines ─────────────────────────────────
-            const _Heading('3. Agent prompt routines'),
+            const _Heading('3. Copy a prompt for your AI'),
             const SizedBox(height: 4),
             Text(
-              'Patroller fills an agent prompt from the open project + '
-              'selected simulator, binds MCP, writes the prompt under '
-              '~/.config/opencode/patroller-prompts/, and copies it for paste '
-              'into OpenCode or your AI IDE. Patroller does not run the agent itself.',
+              'Like a homework sheet: Patroller fills a prompt from this '
+              'project. You paste it into OpenCode or your AI IDE. '
+              'Patroller does not run that agent.',
               style: TextStyle(fontSize: 11, color: p.textMuted, height: 1.4),
             ),
             const SizedBox(height: 10),
@@ -374,7 +371,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
                         context,
                         text,
                         snack:
-                            'Agent prompt copied - paste into OpenCode or your AI IDE',
+                            'Prompt copied — paste into OpenCode or your AI IDE',
                       );
                     }
                   },
@@ -387,7 +384,7 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
                       await _copy(
                         context,
                         text,
-                        snack: 'Agent prompt copied to clipboard',
+                        snack: 'Prompt copied to clipboard',
                       );
                     }
                   },
@@ -401,12 +398,12 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
               ),
               const SizedBox(height: 6),
               _CopyTile(
-                label: 'Copy last agent prompt again',
+                label: 'Copy last prompt again',
                 detail: mcp.lastAgentPromptId?.name ?? 'prompt',
                 onCopy: () {
                   final text = mcp.agentPromptText;
                   if (text != null) {
-                    _copy(context, text, snack: 'Agent prompt copied');
+                    _copy(context, text, snack: 'Prompt copied');
                   }
                 },
               ),
@@ -417,37 +414,30 @@ class _AgentWorkbenchPanelState extends ConsumerState<AgentWorkbenchPanel> {
           const _Heading('Ways to work'),
           const SizedBox(height: 4),
           Text(
-            'Pick one path. They are not steps in a single pipeline.',
+            'Pick one. Each path does a different job.',
             style: TextStyle(fontSize: 11, color: p.textMuted, height: 1.4),
           ),
           const SizedBox(height: 10),
           const _WorkflowPath(
-            title: 'Prerequisite — Install MCP on this machine',
+            title: 'Autonomous — Patroller drives',
             body:
-                'Section 1 activates patrol_mcp + marionette_mcp globally '
-                '(dart pub global activate). Does not add packages to your '
-                'Flutter project pubspec. Bind (section 2) wires those tools '
-                'to the open project for DIY agents.',
+                'Patroller runs OpenCode for you. May change the open project.',
           ),
           const _WorkflowPath(
-            title: 'Autonomous Patrol routine',
+            title: 'Bind MCP — plug tools in',
             body:
-                'Top of this tab. Patroller prepares project packages as needed '
-                'and runs OpenCode itself. May change the open project.',
+                'Section 2. Setup only for DIY agents. No agent run, no pubspec.',
           ),
           const _WorkflowPath(
-            title: 'Agent prompt routines',
+            title: 'Copy prompt — DIY homework sheet',
             body:
-                'Section 3 ("Copy prompt only" / coverage exploration). '
-                'Patroller fills and copies a prompt for your own AI '
-                '(OpenCode or IDE). Patroller does not run that agent.',
+                'Section 3. Get a filled prompt for your own AI. '
+                'Patroller does not run it.',
           ),
           const _WorkflowPath(
-            title: 'Record tab (optional, separate)',
+            title: 'Record tab (optional)',
             body:
-                'Manual capture path — not the same as Autonomous Routine or '
-                'copy-prompt. Boot a simulator, interact, save and export a '
-                'generated patrolTest.',
+                'You drive: interact on a simulator, then export a patrolTest.',
           ),
         ],
       ),
@@ -560,14 +550,14 @@ class _AgentPromptCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               _ActionChip(
-                label: busy ? 'Starting…' : 'Start routine + copy prompt',
+                label: busy ? 'Preparing…' : 'Bind MCP + copy prompt',
                 icon: Icons.play_arrow_rounded,
                 color: PatrolColors.violet400,
                 enabled: ready && !busy,
                 onPressed: onStart,
               ),
               _ActionChip(
-                label: 'Copy prompt only',
+                label: 'Copy prompt',
                 icon: Icons.copy_outlined,
                 color: PatrolColors.sky400,
                 enabled: !busy,
@@ -637,7 +627,9 @@ class _RoutineCard extends StatelessWidget {
                 color: PatrolColors.violet400,
               ),
               const SizedBox(width: 8),
-              const Expanded(child: _Heading('Autonomous Patrol routine')),
+              const Expanded(
+                child: _Heading('Autonomous — Patroller drives'),
+              ),
               IconButton(
                 onPressed: state.busy ? null : onRefresh,
                 icon: const Icon(Icons.refresh, size: 16),
@@ -648,10 +640,8 @@ class _RoutineCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Patroller prepares project packages as needed (patrol, '
-            'integration_test, marionette_flutter, binding, etc.) and runs '
-            'OpenCode itself to explore, create, repair, and validate Patrol '
-            'tests with a selected verified zero-cost model.',
+            'Patroller drives the robot for you — runs OpenCode itself. '
+            'May change the open project (packages, tests, binding).',
             style: TextStyle(
               fontSize: 11,
               color: palette.textMuted,

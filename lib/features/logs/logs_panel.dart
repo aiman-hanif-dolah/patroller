@@ -1009,18 +1009,20 @@ class _SessionDashboard extends ConsumerWidget {
     final p = PatrolPalette.of(context);
     final selectedFile =
         ref.watch(appProvider.select((s) => s.selectedFile));
-    final testFilesLen =
-        ref.watch(appProvider.select((s) => s.testFiles.length));
-    final selectedFileIdsLen =
-        ref.watch(appProvider.select((s) => s.selectedFileIds.length));
+    final testFiles =
+        ref.watch(appProvider.select((s) => s.testFiles));
+    final flowFilter =
+        ref.watch(appProvider.select((s) => s.flowFilter));
     final health = ref.watch(appProvider.select((s) => s.healthWarningCount));
 
     final selectedDevice =
         ref.watch(runnerProvider.select((s) => s.selectedDevice));
     final currentRun = ref.watch(runnerProvider.select((s) => s.currentRun));
 
-    final queueCount =
-        selectedFileIdsLen > 0 ? selectedFileIdsLen : testFilesLen;
+    final queueCount = filesForRunAll(testFiles, flowFilter).length;
+    final queueLabel = isAllFlowsFilter(flowFilter)
+        ? '$queueCount runnable'
+        : '$flowFilter · $queueCount';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1038,8 +1040,8 @@ class _SessionDashboard extends ConsumerWidget {
           p,
         ),
         _dashboardRow(
-          'Selected',
-          '$queueCount file${queueCount == 1 ? '' : 's'}',
+          'Test All',
+          queueLabel,
           p,
         ),
         _dashboardRow(

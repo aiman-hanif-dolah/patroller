@@ -25,8 +25,8 @@ const agentPromptCatalog = <AgentPromptMeta>[
     id: AgentPromptId.patrolCoverageExploration,
     title: 'Patrol coverage exploration',
     summary:
-        'Systematically explore the live app with MCP tools, discover test '
-        'scenarios, and generate maintainable Patrol tests without duplicates.',
+        'A filled homework sheet for your AI: explore the live app with MCP, '
+        'find scenarios, and write Patrol tests (no duplicates).',
   ),
 ];
 

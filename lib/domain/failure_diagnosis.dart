@@ -1,3 +1,5 @@
+import 'patrol_run_outcome.dart';
+
 /// Maps common Patrol / tool stderr patterns to short, actionable guidance.
 class FailureDiagnosis {
   const FailureDiagnosis({
@@ -149,6 +151,18 @@ FailureDiagnosis? diagnosePatrolFailure(String raw) {
     if (text.contains('expected:') || text.contains('testfailure')) {
       return diagnosePatrolFailure(
         stripped.replaceAll('xcodebuild exited with code 65', ''),
+      );
+    }
+    // Develop leftovers: PATROL_HOT_RESTART makes `patrol test` hang then SIGKILL.
+    if (isStaleHotRestartTestFailure(stripped)) {
+      return const FailureDiagnosis(
+        title: 'Stale Patrol develop hot-restart',
+        summary:
+            'Tests reported Failed: 0, but xcodebuild exited 65 after the develop wait prompt ("All tests were executed"). PATROL_HOT_RESTART was still active during patrol test.',
+        likelyFix:
+            'Stop any Develop / Patrol MCP session, then re-run Test (Patroller now forces PATROL_HOT_RESTART=false). If it persists: dart pub global activate patrol_cli && flutter clean in the app project.',
+        copyCommand: 'dart pub global activate patrol_cli',
+        category: FailureCategory.build,
       );
     }
     return const FailureDiagnosis(

@@ -500,7 +500,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
 
   List<TestFile> _filesForRunAll() {
     final app = _ref.read(appProvider);
-    return filesForRunAll(app.testFiles, app.selectedFileIds);
+    return filesForRunAll(app.testFiles, app.flowFilter);
   }
 
   Future<DeviceInfo?> _ensureDevice() async {

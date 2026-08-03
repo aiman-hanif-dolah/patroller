@@ -180,17 +180,20 @@ String? getQueueRunDisabledReason({
   return null;
 }
 
-/// Files for Test All / Develop All: multi-select when set, else all runnable.
+/// Files for Test All / Develop All: all runnable in [flowFilter], else all.
+///
+/// Individual file checkboxes do not affect this set. A concrete flow (e.g.
+/// `auth`) yields every runnable file under that folder prefix; [kAllFlowsFilter]
+/// (or no flows) yields every runnable file in the project.
 List<TestFile> filesForRunAll(
   List<TestFile> allFiles,
-  Set<String> selectedFileIds,
+  String flowFilter,
 ) {
   final runnable = runnableTestFiles(allFiles);
-  if (selectedFileIds.isEmpty) return runnable;
-  final selected = runnable
-      .where((f) => selectedFileIds.contains(f.absolutePath))
+  if (isAllFlowsFilter(flowFilter)) return runnable;
+  return runnable
+      .where((f) => f.folderPath.startsWith(flowFilter))
       .toList();
-  return selected.isNotEmpty ? selected : runnable;
 }
 
 bool isRunnableTestFile(TestFile file) => file.detectedTestCount > 0;
@@ -200,19 +203,47 @@ bool isHelperTestFile(TestFile file) => file.detectedTestCount == 0;
 List<TestFile> runnableTestFiles(List<TestFile> files) =>
     files.where(isRunnableTestFile).toList();
 
-({String label, String value}) describeTestAllQueueBadge(int selectedCount) {
-  if (selectedCount == 0) {
+({String label, String value}) describeTestAllQueueBadge({
+  required String flowFilter,
+  required int queueFileCount,
+}) {
+  if (isAllFlowsFilter(flowFilter)) {
     return (label: 'Test All', value: 'All runnable');
   }
   return (
     label: 'Test All',
-    value: '$selectedCount file${selectedCount == 1 ? '' : 's'} selected',
+    value:
+        '$flowFilter · $queueFileCount file${queueFileCount == 1 ? '' : 's'}',
   );
 }
 
+/// Tooltip for the Test button: always the focused file, independent of flow.
+String testButtonTooltip({required bool willBootSimulator}) {
+  if (willBootSimulator) {
+    return 'Run the selected test file only (will boot simulator if needed).';
+  }
+  return 'Run the selected test file only.';
+}
+
+/// Tooltip for Test All: flow scope, not checkbox multi-select.
+String testAllButtonTooltip(String flowFilter) {
+  if (isAllFlowsFilter(flowFilter)) {
+    return 'Run all runnable test files in the project.';
+  }
+  return 'Run all files in the $flowFilter flow.';
+}
+
+/// Tooltip for Develop All: same target resolution as Test All.
+String developAllButtonTooltip(String flowFilter) {
+  if (isAllFlowsFilter(flowFilter)) {
+    return 'Develop each runnable test file in the project.';
+  }
+  return 'Develop each file in the $flowFilter flow.';
+}
+
 String formatTestAllSelectionBanner(int selectedCount) {
-  if (selectedCount == 0) return 'All runnable files';
-  return '$selectedCount file${selectedCount == 1 ? '' : 's'} selected for Test All';
+  if (selectedCount == 0) return 'No files checked';
+  return '$selectedCount file${selectedCount == 1 ? '' : 's'} checked';
 }
 
 String formatTestExplorerHeader(

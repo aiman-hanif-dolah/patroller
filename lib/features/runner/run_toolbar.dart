@@ -36,10 +36,9 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
     final p = PatrolPalette.of(context);
     final project = ref.watch(appProvider.select((s) => s.currentProject));
     final selectedFile = ref.watch(appProvider.select((s) => s.selectedFile));
-    final selectedFileCount =
-        ref.watch(appProvider.select((s) => s.selectedFileIds.length));
-    final hasTestFiles =
-        ref.watch(appProvider.select((s) => s.testFiles.isNotEmpty));
+    final flowFilter = ref.watch(appProvider.select((s) => s.flowFilter));
+    final testFiles = ref.watch(appProvider.select((s) => s.testFiles));
+    final hasTestFiles = testFiles.isNotEmpty;
 
     final isRunning = ref.watch(runnerProvider.select((s) => s.isRunning));
     final currentRun = ref.watch(runnerProvider.select((s) => s.currentRun));
@@ -101,13 +100,16 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
             (health.warningCount ?? 0) > 0) ||
         health.state == HealthCheckState.stale;
 
-    // Multi-select is summarized by Test All badge only - a single
-    // "Selected file" chip is misleading when more than one file is checked.
+    // Test All badge reflects flow scope (not checkbox multi-select).
     final runningFileLabel = isRunning && activeRunFile != null
         ? middleTruncate(activeRunFile.fileName, 28)
         : null;
-    final testAllBadge = !isRunning && selectedFileCount > 0
-        ? describeTestAllQueueBadge(selectedFileCount)
+    final testAllQueue = filesForRunAll(testFiles, flowFilter);
+    final testAllBadge = !isRunning && hasTestFiles
+        ? describeTestAllQueueBadge(
+            flowFilter: flowFilter,
+            queueFileCount: testAllQueue.length,
+          )
         : null;
 
     return Container(
@@ -199,9 +201,10 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
                     active: isTestRun,
                     enabled: runDisabled == null,
                     tooltip: runDisabled ??
-                        (selectedDevice?.state != DeviceState.booted
-                            ? 'Run selected file (will boot simulator if needed).'
-                            : 'Run the selected test file once.'),
+                        testButtonTooltip(
+                          willBootSimulator:
+                              selectedDevice?.state != DeviceState.booted,
+                        ),
                     activeColor: PatrolColors.psPassed,
                     onPressed: () =>
                         ref.read(runnerProvider.notifier).runSelected(),
@@ -212,8 +215,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
                     icon: Icons.format_list_numbered_rounded,
                     active: isQueueRun,
                     enabled: queueDisabled == null,
-                    tooltip: queueDisabled ??
-                        'Run selected files, or all files when none are selected.',
+                    tooltip: queueDisabled ?? testAllButtonTooltip(flowFilter),
                     activeColor: PatrolColors.sky400,
                     onPressed: () => ref.read(runnerProvider.notifier).runAll(),
                   ),
@@ -235,8 +237,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
                     icon: Icons.layers_outlined,
                     active: isHotSuite,
                     enabled: queueDisabled == null,
-                    tooltip: queueDisabled ??
-                        'Start develop for the selected file, or the first runnable file when none is selected.',
+                    tooltip: queueDisabled ?? developAllButtonTooltip(flowFilter),
                     activeColor: PatrolColors.fuchsia500,
                     onPressed: () =>
                         ref.read(runnerProvider.notifier).developSuite(),

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../domain/patrol_run_outcome.dart';
 import '../domain/routine_models.dart';
 import 'cli_env.dart';
 
@@ -107,7 +108,7 @@ class ProjectToolingService {
 
   /// Args for a full-suite `patrol test` sweep, including optional `-d`.
   static List<String> patrolSweepArgs({String? device}) {
-    final args = <String>['test'];
+    final args = <String>['test', ...patrolTestModeDartDefineArgs()];
     final trimmed = device?.trim();
     if (trimmed != null && trimmed.isNotEmpty) {
       args.addAll(['-d', trimmed]);

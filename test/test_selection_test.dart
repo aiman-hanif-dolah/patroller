@@ -19,6 +19,21 @@ TestFile _file(String path, int testCount) {
   );
 }
 
+TestFile _flowFile(String folder, String name, {int testCount = 1}) {
+  return TestFile(
+    absolutePath: '/project/patrol_test/$folder/$name',
+    relativePath: 'patrol_test/$folder/$name',
+    fileName: name,
+    folderPath: folder,
+    fileSize: 100,
+    lastModified: '2026-01-01',
+    detectedTestCount: testCount,
+    detectedGroups: const [],
+    detectedTests: const [],
+    lastRunStatus: TestStatus.idle,
+  );
+}
+
 void main() {
   group('Test All selection', () {
     test('runnableTestFiles excludes 0-test helper files', () {
@@ -36,36 +51,94 @@ void main() {
       expect(isRunnableTestFile(_file('a_test.dart', 1)), true);
     });
 
-    test('selection banner uses selected wording', () {
-      expect(formatTestAllSelectionBanner(0), 'All runnable files');
-      expect(formatTestAllSelectionBanner(2), '2 files selected for Test All');
+    test('selection banner uses checked wording (not Test All)', () {
+      expect(formatTestAllSelectionBanner(0), 'No files checked');
+      expect(formatTestAllSelectionBanner(2), '2 files checked');
     });
 
-    test('Test All badge uses file(s) selected wording', () {
-      expect(describeTestAllQueueBadge(0).value, 'All runnable');
-      expect(describeTestAllQueueBadge(1).value, '1 file selected');
-      expect(describeTestAllQueueBadge(2).value, '2 files selected');
+    test('Test All badge reflects flow scope', () {
+      expect(
+        describeTestAllQueueBadge(
+          flowFilter: kAllFlowsFilter,
+          queueFileCount: 5,
+        ).value,
+        'All runnable',
+      );
+      expect(
+        describeTestAllQueueBadge(
+          flowFilter: 'auth',
+          queueFileCount: 1,
+        ).value,
+        'auth · 1 file',
+      );
+      expect(
+        describeTestAllQueueBadge(
+          flowFilter: 'auth',
+          queueFileCount: 3,
+        ).value,
+        'auth · 3 files',
+      );
     });
 
-    test('filesForRunAll uses multi-select when set', () {
+    test('filesForRunAll with all-flows yields every runnable file', () {
       final files = [
-        _file('patrol_test/a_test.dart', 1),
-        _file('patrol_test/b_test.dart', 1),
-        _file('patrol_test/helpers.dart', 0),
+        _flowFile('auth', 'login_test.dart'),
+        _flowFile('auth', 'logout_test.dart'),
+        _flowFile('settings', 'theme_test.dart'),
+        _flowFile('auth', 'helpers.dart', testCount: 0),
       ];
-      final selected = {'/project/patrol_test/b_test.dart'};
-      final result = filesForRunAll(files, selected);
-      expect(result.length, 1);
-      expect(result.first.fileName, 'b_test.dart');
+      final result = filesForRunAll(files, kAllFlowsFilter);
+      expect(result.map((f) => f.fileName).toList(), [
+        'login_test.dart',
+        'logout_test.dart',
+        'theme_test.dart',
+      ]);
     });
 
-    test('filesForRunAll falls back to all runnable when selection empty', () {
+    test('filesForRunAll with concrete flow yields all runnable in flow', () {
       final files = [
-        _file('patrol_test/a_test.dart', 1),
-        _file('patrol_test/b_test.dart', 2),
+        _flowFile('auth', 'login_test.dart'),
+        _flowFile('auth', 'logout_test.dart'),
+        _flowFile('settings', 'theme_test.dart'),
+        _flowFile('auth', 'helpers.dart', testCount: 0),
       ];
-      final result = filesForRunAll(files, {});
+      final result = filesForRunAll(files, 'auth');
+      expect(result.map((f) => f.fileName).toList(), [
+        'login_test.dart',
+        'logout_test.dart',
+      ]);
+    });
+
+    test('filesForRunAll ignores individual checkbox selection', () {
+      // Even if only one auth file would be checked in the UI, Test All for
+      // the auth flow still queues every runnable auth file.
+      final files = [
+        _flowFile('auth', 'login_test.dart'),
+        _flowFile('auth', 'logout_test.dart'),
+        _flowFile('settings', 'theme_test.dart'),
+      ];
+      final result = filesForRunAll(files, 'auth');
       expect(result.length, 2);
+      expect(result.every((f) => f.folderPath.startsWith('auth')), isTrue);
+    });
+
+    test('Test / Test All tooltips describe flow rules', () {
+      expect(
+        testButtonTooltip(willBootSimulator: false),
+        'Run the selected test file only.',
+      );
+      expect(
+        testButtonTooltip(willBootSimulator: true),
+        'Run the selected test file only (will boot simulator if needed).',
+      );
+      expect(
+        testAllButtonTooltip(kAllFlowsFilter),
+        'Run all runnable test files in the project.',
+      );
+      expect(
+        testAllButtonTooltip('auth'),
+        'Run all files in the auth flow.',
+      );
     });
   });
 
@@ -110,29 +183,14 @@ void main() {
   });
 
   group('All flows selection', () {
-    TestFile flowFile(String folder, String name) {
-      return TestFile(
-        absolutePath: '/project/patrol_test/$folder/$name',
-        relativePath: 'patrol_test/$folder/$name',
-        fileName: name,
-        folderPath: folder,
-        fileSize: 100,
-        lastModified: '2026-01-01',
-        detectedTestCount: 1,
-        detectedGroups: const [],
-        detectedTests: const [],
-        lastRunStatus: TestStatus.idle,
-      );
-    }
-
     test('sentinel selects all files after a concrete flow filter', () {
       final files = [
-        flowFile('account', 'login_test.dart'),
-        flowFile('account', 'signup_test.dart'),
-        flowFile('account', 'profile_test.dart'),
-        flowFile('account', 'logout_test.dart'),
-        flowFile('settings', 'theme_test.dart'),
-        flowFile('settings', 'locale_test.dart'),
+        _flowFile('account', 'login_test.dart'),
+        _flowFile('account', 'signup_test.dart'),
+        _flowFile('account', 'profile_test.dart'),
+        _flowFile('account', 'logout_test.dart'),
+        _flowFile('settings', 'theme_test.dart'),
+        _flowFile('settings', 'locale_test.dart'),
       ];
 
       final accountOnly = selectedFileIdsForFlowFilter(files, 'account');
@@ -145,8 +203,8 @@ void main() {
 
     test('concrete flow selects only matching folderPath prefix', () {
       final files = [
-        flowFile('account', 'login_test.dart'),
-        flowFile('settings', 'theme_test.dart'),
+        _flowFile('account', 'login_test.dart'),
+        _flowFile('settings', 'theme_test.dart'),
       ];
       final ids = selectedFileIdsForFlowFilter(files, 'settings');
       expect(ids, {'/project/patrol_test/settings/theme_test.dart'});

@@ -43,6 +43,21 @@ xcodebuild exited with code 70
       expect(d!.category, FailureCategory.device);
     });
 
+    test('detects stale develop hot-restart during patrol test', () {
+      const log = '''
+📝   All tests were executed. Press "r" to start again or "q" to quit
+Test summary:
+✅ Successful: 4
+❌ Failed: 0
+xcodebuild exited with code 65
+''';
+      final d = diagnosePatrolFailure(log);
+      expect(d, isNotNull);
+      expect(d!.title.toLowerCase(), contains('hot-restart'));
+      expect(d.category, FailureCategory.build);
+      expect(d.likelyFix.toLowerCase(), contains('patrol_hot_restart'));
+    });
+
     test('returns null for empty noise', () {
       expect(diagnosePatrolFailure(''), isNull);
       expect(diagnosePatrolFailure('Building app...'), isNull);

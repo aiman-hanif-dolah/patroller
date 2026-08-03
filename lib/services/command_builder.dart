@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../domain/patrol_run_outcome.dart';
 import '../models/models.dart';
 
 class PatrolCommand {
@@ -63,6 +64,7 @@ PatrolCommand buildPatrolCommand(PatrolCommandInput input) {
   switch (config.runMode) {
     case RunMode.fullSuite:
       args.add('test');
+      args.addAll(patrolTestModeDartDefineArgs());
       break;
     case RunMode.develop:
       args.add('develop');
@@ -80,6 +82,7 @@ PatrolCommand buildPatrolCommand(PatrolCommandInput input) {
           config.projectPath,
           config.targetFile ?? '',
         ),
+        ...patrolTestModeDartDefineArgs(),
       ]);
       break;
   }

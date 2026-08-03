@@ -1,11 +1,28 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patroller/models/models.dart';
 import 'package:patroller/services/command_builder.dart';
 
 void main() {
   group('buildPatrolCommand develop modes', () {
-    const projectPath = '/tmp/myastro';
-    const targetFile = '/tmp/myastro/patrol_test/login_test.dart';
+    late Directory projectDir;
+    late String projectPath;
+    late String targetFile;
+
+    setUp(() {
+      projectDir = Directory.systemTemp.createTempSync('patroller_cmd_');
+      projectPath = projectDir.path;
+      final testDir = Directory('$projectPath/patrol_test')..createSync();
+      targetFile = '${testDir.path}/login_test.dart';
+      File(targetFile).writeAsStringSync('void main() {}');
+    });
+
+    tearDown(() {
+      if (projectDir.existsSync()) {
+        projectDir.deleteSync(recursive: true);
+      }
+    });
 
     test('develop includes --target', () {
       final command = buildPatrolCommand(
@@ -47,7 +64,7 @@ void main() {
         () => buildPatrolCommand(
           PatrolCommandInput(
             patrolExecutable: 'patrol',
-            config: const RunConfig(
+            config: RunConfig(
               projectPath: projectPath,
               runMode: RunMode.developSuite,
             ),
@@ -55,6 +72,55 @@ void main() {
         ),
         throwsArgumentError,
       );
+    });
+
+    test('test mode forces PATROL_HOT_RESTART=false', () {
+      final command = buildPatrolCommand(
+        PatrolCommandInput(
+          patrolExecutable: 'patrol',
+          config: RunConfig(
+            projectPath: projectPath,
+            runMode: RunMode.test,
+            targetFile: targetFile,
+            deviceId: 'sim-1',
+          ),
+        ),
+      );
+
+      expect(command.args, contains('test'));
+      expect(command.args, contains('--dart-define'));
+      expect(command.args, contains('PATROL_HOT_RESTART=false'));
+      expect(command.args, isNot(contains('develop')));
+    });
+
+    test('full suite forces PATROL_HOT_RESTART=false', () {
+      final command = buildPatrolCommand(
+        PatrolCommandInput(
+          patrolExecutable: 'patrol',
+          config: RunConfig(
+            projectPath: projectPath,
+            runMode: RunMode.fullSuite,
+          ),
+        ),
+      );
+
+      expect(command.args.first, 'test');
+      expect(command.args, contains('PATROL_HOT_RESTART=false'));
+    });
+
+    test('develop does not force PATROL_HOT_RESTART=false', () {
+      final command = buildPatrolCommand(
+        PatrolCommandInput(
+          patrolExecutable: 'patrol',
+          config: RunConfig(
+            projectPath: projectPath,
+            runMode: RunMode.develop,
+            targetFile: targetFile,
+          ),
+        ),
+      );
+
+      expect(command.args, isNot(contains('PATROL_HOT_RESTART=false')));
     });
   });
 }

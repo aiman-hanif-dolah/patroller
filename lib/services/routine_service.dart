@@ -221,6 +221,29 @@ class RoutineService {
     }
 
     try {
+      emit(
+        RoutineEvent(
+          time: DateTime.now(),
+          kind: 'started',
+          message: 'OpenCode routine started with ${plan.model} on $device',
+        ),
+      );
+
+      // Baseline before Marionette flutter run so both do not fight the same simulator.
+      final baseline = await projectTooling.runPatrolSweep(
+        plan.projectPath,
+        device: device,
+      );
+      emit(
+        RoutineEvent(
+          time: DateTime.now(),
+          kind: 'baseline',
+          message: baseline.ok
+              ? 'Baseline Patrol sweep passed'
+              : 'Baseline Patrol sweep found failures: ${baseline.output}',
+        ),
+      );
+
       try {
         final flutterExec = resolveExecutable('flutter');
         final entrypoint = projectTooling.findEntrypoint(plan.projectPath) ?? 'lib/main.dart';
@@ -298,26 +321,6 @@ Always target device "$device" (pass it to Patrol MCP run / patrol test -d). Do 
 Read the project rules first. Only edit patrol_test/** and approved dependency/debug bridge files. Never commit, push, delete unrelated files, or change native host files.
 Explore, repair outdated tests, create meaningful non-duplicate tests, and validate every change. Finish with a concise report of changed files, passing tests, failures, and blockers.''';
 
-      emit(
-        RoutineEvent(
-          time: DateTime.now(),
-          kind: 'started',
-          message: 'OpenCode routine started with ${plan.model} on $device',
-        ),
-      );
-      final baseline = await projectTooling.runPatrolSweep(
-        plan.projectPath,
-        device: device,
-      );
-      emit(
-        RoutineEvent(
-          time: DateTime.now(),
-          kind: 'baseline',
-          message: baseline.ok
-              ? 'Baseline Patrol sweep passed'
-              : 'Baseline Patrol sweep found failures: ${baseline.output}',
-        ),
-      );
       final exitCode = await openCode
           .runRoutine(
         projectPath: plan.projectPath,
@@ -336,6 +339,11 @@ Explore, repair outdated tests, create meaningful non-duplicate tests, and valid
           return -1;
         },
       );
+
+      // Release the simulator before the final Patrol sweep.
+      debugAppProcess?.kill(ProcessSignal.sigterm);
+      debugAppProcess = null;
+
       final finalSweep = await projectTooling.runPatrolSweep(
         plan.projectPath,
         device: device,
