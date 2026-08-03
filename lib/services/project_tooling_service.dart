@@ -27,8 +27,9 @@ class ProjectToolingService {
   List<ProjectDependency> parseDependencies(String content) {
     final result = <ProjectDependency>[];
     String? section;
-    for (final raw in content.split('\n')) {
-      final line = raw.replaceAll('\t', '    ');
+    final lines = content.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i].replaceAll('\t', '    ');
       if (line.trim().isEmpty || line.trimLeft().startsWith('#')) continue;
       if (!line.startsWith(' ') && !line.startsWith('-')) {
         final match = RegExp(
@@ -42,14 +43,59 @@ class ProjectToolingService {
         r'^\s{2}([A-Za-z0-9_][A-Za-z0-9_-]*):\s*(.*)$',
       ).firstMatch(line);
       if (match == null) continue;
+      final name = match.group(1)!;
       final value = match.group(2)!.trim();
-      if (value.startsWith('{') || value.isEmpty) continue;
+      var constraint = value;
+      String? source;
+
+      if (value.isEmpty) {
+        for (var j = i + 1; j < lines.length; j++) {
+          final nested = lines[j].replaceAll('\t', '    ');
+          if (nested.trim().isEmpty || nested.trimLeft().startsWith('#')) {
+            continue;
+          }
+          final nestedMatch = RegExp(
+            r'^\s{4}([A-Za-z0-9_]+):\s*(.*)$',
+          ).firstMatch(nested);
+          if (nestedMatch == null) break;
+          final key = nestedMatch.group(1)!;
+          final nestedValue = nestedMatch.group(2)!.trim();
+          if (key == 'sdk') {
+            source = 'sdk';
+            constraint = 'sdk: $nestedValue';
+            break;
+          }
+          if (key == 'path') {
+            source = 'path';
+            constraint = 'path: $nestedValue';
+            break;
+          }
+          if (key == 'git') {
+            source = 'git';
+            constraint = nestedValue.isEmpty ? 'git' : 'git: $nestedValue';
+            break;
+          }
+        }
+      } else if (value.startsWith('{')) {
+        final sdkMatch = RegExp(r'sdk:\s*([^,}\s]+)').firstMatch(value);
+        final pathMatch = RegExp(r'path:\s*([^,}]+)').firstMatch(value);
+        if (sdkMatch != null) {
+          source = 'sdk';
+          constraint = 'sdk: ${sdkMatch.group(1)}';
+        } else if (pathMatch != null) {
+          source = 'path';
+          constraint = 'path: ${pathMatch.group(1)!.trim()}';
+        }
+      } else if (value.contains(':')) {
+        source = value.split(':').first.trim();
+      }
+
       result.add(
         ProjectDependency(
-          name: match.group(1)!,
+          name: name,
           section: section,
-          constraint: value,
-          source: value.contains(':') ? value.split(':').first : null,
+          constraint: constraint,
+          source: source,
         ),
       );
     }
@@ -108,10 +154,46 @@ class ProjectToolingService {
     String projectPath,
     String package, {
     bool dev = false,
+    bool sdkFlutter = false,
   }) {
+    if (sdkFlutter) {
+      return ensureFlutterSdkDependency(
+        projectPath,
+        package,
+        dev: dev,
+      );
+    }
     final args = <String>['pub', 'add'];
     if (dev) args.add('--dev');
     args.add(package);
+    return _run(projectPath, args, 'flutter ${args.join(' ')}');
+  }
+
+  /// Ensures [package] is declared as a Flutter SDK dependency (e.g. integration_test).
+  /// Repairs malformed pub.dev / any constraints by removing and re-adding with --sdk=flutter.
+  Future<ProjectCommandResult> ensureFlutterSdkDependency(
+    String projectPath,
+    String package, {
+    bool dev = true,
+  }) async {
+    final dependencies = await listDependencies(projectPath);
+    final existing = dependencies
+        .where((dependency) => dependency.name == package)
+        .toList();
+    if (existing.any((dependency) => dependency.isFlutterSdk)) {
+      return ProjectCommandResult(
+        ok: true,
+        command: 'flutter pub add ${dev ? '--dev ' : ''}$package --sdk=flutter',
+        output: '$package already configured as a Flutter SDK dependency',
+      );
+    }
+    if (existing.isNotEmpty) {
+      final removed = await removeDependency(projectPath, package);
+      if (!removed.ok) return removed;
+    }
+    final args = <String>['pub', 'add'];
+    if (dev) args.add('--dev');
+    args.addAll([package, '--sdk=flutter']);
     return _run(projectPath, args, 'flutter ${args.join(' ')}');
   }
 
@@ -232,8 +314,19 @@ class MainActivityTest {
     final dependencies = await listDependencies(projectPath);
     bool has(String name) =>
         dependencies.any((dependency) => dependency.name == name);
+    ProjectDependency? dependencyNamed(String name) {
+      for (final dependency in dependencies) {
+        if (dependency.name == name) return dependency;
+      }
+      return null;
+    }
+
     final hasPatrol = has('patrol');
-    final hasIntegration = has('integration_test');
+    final integrationDep = dependencyNamed('integration_test');
+    final hasIntegrationSdk =
+        integrationDep != null && integrationDep.isFlutterSdk;
+    final hasMalformedIntegration =
+        integrationDep != null && !integrationDep.isFlutterSdk;
     final hasPatrolMcp = has('patrol_mcp');
     final hasMarionette = has('marionette_flutter');
     checks.add(
@@ -252,14 +345,16 @@ class MainActivityTest {
       RoutineCheck(
         id: 'integration_test',
         label: 'integration_test dependency',
-        ok: hasIntegration,
+        ok: hasIntegrationSdk,
         repairable: true,
-        detail: hasIntegration
-            ? 'Found in pubspec.yaml'
+        detail: hasIntegrationSdk
+            ? 'Flutter SDK dependency found'
+            : hasMalformedIntegration
+            ? 'Present but not sdk: flutter (will be repaired)'
             : 'Missing from pubspec.yaml',
-        fixCommand: hasIntegration
+        fixCommand: hasIntegrationSdk
             ? null
-            : 'flutter pub add --dev integration_test',
+            : 'flutter pub add --dev integration_test --sdk=flutter',
       ),
     );
     checks.add(
@@ -326,7 +421,7 @@ class MainActivityTest {
             selectedDevice.trim().isNotEmpty,
         detail: Platform.isMacOS && selectedDevice != null
             ? selectedDevice
-            : 'Select a booted iOS Simulator',
+            : 'Boot and select an iOS Simulator (required to run; package setup can still proceed)',
       ),
     );
 
@@ -338,8 +433,9 @@ class MainActivityTest {
         ok: cleanGit,
         detail: cleanGit
             ? 'Clean Git worktree'
-            : 'Uncommitted changes present (dirty worktree override available)',
-        repairable: true,
+            : 'Uncommitted changes present (enable Allow dirty Git worktree to proceed)',
+        // Not auto-repaired by prepare; overridden via allowDirtyWorktree.
+        repairable: false,
       ),
     );
 
@@ -360,7 +456,12 @@ class MainActivityTest {
     );
 
     final failures = checks.where((check) => !check.ok).toList();
-    final blocked = failures.any((check) => !check.repairable);
+    // Device/git are deferred: packages stay repairable; run-time gates those.
+    final hardFailures = failures.where(
+      (check) =>
+          !check.repairable && check.id != 'device' && check.id != 'git',
+    );
+    final blocked = hardFailures.isNotEmpty;
     return RoutineReadinessReport(
       status: failures.isEmpty
           ? RoutineReadiness.ready

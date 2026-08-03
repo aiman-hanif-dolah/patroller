@@ -43,17 +43,80 @@ void main() {
     );
 
     expect(report.ok, isTrue);
+    expect(report.canStartPrepare, isTrue);
     expect(report.failures.single.id, 'patrol');
     expect(report.effectiveWriteLocations, contains('lib/main.dart'));
     expect(report.effectiveWriteLocations, contains('patrol_test/**'));
   });
 
-  test('ProjectDependency exposes removal preview command and affected files', () {
+  test('canStartPrepare allows deferred device and dirty git failures', () {
+    const report = RoutineReadinessReport(
+      status: RoutineReadiness.repairable,
+      checks: [
+        RoutineCheck(
+          id: 'integration_test',
+          label: 'integration_test',
+          ok: false,
+          detail: 'missing',
+          repairable: true,
+        ),
+        RoutineCheck(
+          id: 'device',
+          label: 'Selected iOS Simulator',
+          ok: false,
+          detail: 'Boot simulator',
+        ),
+        RoutineCheck(
+          id: 'git',
+          label: 'Clean Git worktree',
+          ok: false,
+          detail: 'dirty',
+        ),
+      ],
+      projectPath: '/tmp/project',
+      preview: const [],
+    );
+
+    expect(report.canStartPrepare, isTrue);
+  });
+
+  test('canStartPrepare rejects invalid Flutter project', () {
+    const report = RoutineReadinessReport(
+      status: RoutineReadiness.blocked,
+      checks: [
+        RoutineCheck(
+          id: 'project',
+          label: 'Flutter project',
+          ok: false,
+          detail: 'missing pubspec',
+        ),
+      ],
+      projectPath: '/tmp/project',
+      preview: const [],
+    );
+
+    expect(report.canStartPrepare, isFalse);
+  });
+
+  test('ProjectDependency exposes Flutter SDK detection and removal preview', () {
+    const sdkDep = ProjectDependency(
+      name: 'integration_test',
+      section: 'dev_dependencies',
+      constraint: 'sdk: flutter',
+      source: 'sdk',
+    );
+    const hostedDep = ProjectDependency(
+      name: 'integration_test',
+      section: 'dev_dependencies',
+      constraint: 'any',
+    );
     const dep = ProjectDependency(
       name: 'some_package',
       section: 'dependencies',
       constraint: '^1.0.0',
     );
+    expect(sdkDep.isFlutterSdk, isTrue);
+    expect(hostedDep.isFlutterSdk, isFalse);
     expect(dep.removeCommand, 'flutter pub remove some_package');
     expect(dep.affectedFiles, ['pubspec.yaml', 'pubspec.lock']);
   });

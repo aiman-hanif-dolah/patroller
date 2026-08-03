@@ -96,13 +96,15 @@ class OpenCodeService {
         '--verbose',
       ], environment: developerToolEnv());
       if (result.exitCode != 0) return const [];
-      return _parseFreeModels('${result.stdout}');
+      return parseVerifiedFreeModels('${result.stdout}');
     } catch (_) {
       return const [];
     }
   }
 
-  List<OpenCodeModel> _parseFreeModels(String output) {
+  /// Parses `opencode models --refresh --verbose` output into verified free
+  /// OpenCode models only (`opencode/*-free` with explicit zero input/output cost).
+  List<OpenCodeModel> parseVerifiedFreeModels(String output) {
     final result = <OpenCodeModel>[];
     String? current;
     var block = StringBuffer();
@@ -111,7 +113,7 @@ class OpenCodeService {
       if (id == null || block.length == 0) return;
       final input = _cost(block.toString(), 'input');
       final outputCost = _cost(block.toString(), 'output');
-      if (input == 0 && outputCost == 0) {
+      if (_isVerifiedOpenCodeFreeModel(id, input, outputCost)) {
         final slash = id.indexOf('/');
         result.add(
           OpenCodeModel(
@@ -137,6 +139,19 @@ class OpenCodeService {
     }
     flush();
     return result;
+  }
+
+  /// OpenCode free catalog entries use the `opencode/` provider and a `-free`
+  /// id suffix; zero cost alone is not enough (other providers can report 0/0).
+  bool _isVerifiedOpenCodeFreeModel(
+    String id,
+    double? inputCost,
+    double? outputCost,
+  ) {
+    return id.startsWith('opencode/') &&
+        id.endsWith('-free') &&
+        inputCost == 0 &&
+        outputCost == 0;
   }
 
   double? _cost(String text, String key) {

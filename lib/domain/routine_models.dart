@@ -27,6 +27,12 @@ class ProjectDependency {
 
   bool get isDev => section == 'dev_dependencies';
 
+  bool get isFlutterSdk =>
+      source == 'sdk' &&
+      (constraint == 'flutter' ||
+          constraint.contains('sdk: flutter') ||
+          constraint.trim() == 'sdk:flutter');
+
   String get removeCommand => 'flutter pub remove $name';
   List<String> get affectedFiles => const ['pubspec.yaml', 'pubspec.lock'];
 }
@@ -95,6 +101,18 @@ class RoutineReadinessReport {
 
   List<RoutineCheck> get failures =>
       checks.where((check) => !check.ok).toList();
+
+  /// Start may proceed when failures are auto-repairable by prepare, or are
+  /// deferred checks (dirty git override / selected simulator) handled later.
+  bool get canStartPrepare {
+    if (checks.any((check) => check.id == 'project' && !check.ok)) {
+      return false;
+    }
+    return failures.every(
+      (check) =>
+          check.repairable || check.id == 'git' || check.id == 'device',
+    );
+  }
 
   List<String> get effectiveWriteLocations {
     final list = [...allowedWriteLocations];

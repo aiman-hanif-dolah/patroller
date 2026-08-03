@@ -2,16 +2,18 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:patroller/domain/routine_models.dart';
 import 'package:patroller/services/project_tooling_service.dart';
 
 void main() {
-  test('parses direct and dev dependencies without nested entries', () {
+  test('parses direct, SDK map, and inline SDK dependencies', () {
     const yaml = '''
 name: demo
 dependencies:
   flutter:
     sdk: flutter
   marionette_flutter: ^0.6.0
+  cupertino_icons: { sdk: flutter }
 dev_dependencies:
   patrol: ^4.7.0
   integration_test:
@@ -23,6 +25,7 @@ dev_dependencies:
     expect(dependencies.map((dependency) => dependency.name), [
       'flutter',
       'marionette_flutter',
+      'cupertino_icons',
       'patrol',
       'integration_test',
     ]);
@@ -32,6 +35,42 @@ dev_dependencies:
           .isDev,
       isTrue,
     );
+    final integration = dependencies.firstWhere(
+      (dependency) => dependency.name == 'integration_test',
+    );
+    expect(integration.isDev, isTrue);
+    expect(integration.isFlutterSdk, isTrue);
+    expect(integration.source, 'sdk');
+    expect(
+      dependencies
+          .firstWhere((dependency) => dependency.name == 'flutter')
+          .isFlutterSdk,
+      isTrue,
+    );
+    expect(
+      dependencies
+          .firstWhere((dependency) => dependency.name == 'cupertino_icons')
+          .isFlutterSdk,
+      isTrue,
+    );
+  });
+
+  test('detects malformed integration_test version constraints as non-SDK', () {
+    const yaml = '''
+name: demo
+dependencies:
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  integration_test: any
+''';
+
+    final dependencies = ProjectToolingService().parseDependencies(yaml);
+    final integration = dependencies.singleWhere(
+      (dependency) => dependency.name == 'integration_test',
+    );
+    expect(integration.constraint, 'any');
+    expect(integration.isFlutterSdk, isFalse);
   });
 
   test('findEntrypoint returns unambiguous main.dart candidate', () {
@@ -71,6 +110,35 @@ dev_dependencies:
       final report = await ProjectToolingService().inspect(projectPath: tempDir.path);
       expect(report.ok, isFalse);
       expect(report.status.name, 'blocked');
+      expect(report.canStartPrepare, isFalse);
+    } finally {
+      tempDir.deleteSync(recursive: true);
+    }
+  });
+
+  test('inspect marks missing or malformed integration_test as repairable', () async {
+    final tempDir = Directory.systemTemp.createTempSync('patroller_inspect_integration_');
+    try {
+      File(p.join(tempDir.path, 'pubspec.yaml')).writeAsStringSync('''
+name: demo
+dependencies:
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  integration_test: any
+''');
+      Directory(p.join(tempDir.path, 'lib')).createSync();
+      File(p.join(tempDir.path, 'lib', 'main.dart')).writeAsStringSync('void main() {}');
+
+      final report = await ProjectToolingService().inspect(projectPath: tempDir.path);
+      final integration = report.checks.singleWhere(
+        (check) => check.id == 'integration_test',
+      );
+      expect(integration.ok, isFalse);
+      expect(integration.repairable, isTrue);
+      expect(integration.fixCommand, contains('--sdk=flutter'));
+      expect(report.canStartPrepare, isTrue);
+      expect(report.status, isNot(RoutineReadiness.blocked));
     } finally {
       tempDir.deleteSync(recursive: true);
     }

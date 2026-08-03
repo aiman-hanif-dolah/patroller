@@ -41,6 +41,13 @@ class RoutineState {
       status == RoutineStatus.running ||
       status == RoutineStatus.stopping;
 
+  bool get canStartRoutine =>
+      !busy &&
+      selectedModel != null &&
+      selectedModel!.isNotEmpty &&
+      readiness != null &&
+      readiness!.canStartPrepare;
+
   RoutineState copyWith({
     RoutineStatus? status,
     RoutineReadinessReport? readiness,
@@ -215,14 +222,6 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
     );
     final started = DateTime.now();
     try {
-      if (readiness.status == RoutineReadiness.blocked &&
-          !state.allowDirtyWorktree) {
-        state = state.copyWith(
-          status: RoutineStatus.needsAttention,
-          error: 'Readiness is blocked; resolve the failed checks first',
-        );
-        return;
-      }
       final setup = await _service.prepare(readiness);
       final setupErrors = setup.where((result) => !result.ok).toList();
       if (setupErrors.isNotEmpty) {
@@ -231,6 +230,38 @@ class RoutineNotifier extends StateNotifier<RoutineState> {
           error: setupErrors
               .map((result) => '${result.command}: ${result.output}')
               .join('\n'),
+        );
+        return;
+      }
+
+      final gitDirty = readiness.checks.any(
+        (check) => check.id == 'git' && !check.ok,
+      );
+      if (gitDirty && !state.allowDirtyWorktree) {
+        state = state.copyWith(
+          status: RoutineStatus.needsAttention,
+          error:
+              'Git worktree has uncommitted changes. Enable “Allow dirty Git worktree” or clean the project first.',
+        );
+        return;
+      }
+
+      final deviceMissing = readiness.checks.any(
+        (check) => check.id == 'device' && !check.ok,
+      );
+      if (deviceMissing) {
+        state = state.copyWith(
+          status: RoutineStatus.needsAttention,
+          error:
+              'Boot and select an iOS Simulator, then refresh readiness before running the routine. Project packages were prepared successfully.',
+        );
+        return;
+      }
+
+      if (readiness.status == RoutineReadiness.blocked) {
+        state = state.copyWith(
+          status: RoutineStatus.needsAttention,
+          error: 'Readiness is blocked; resolve the failed checks first',
         );
         return;
       }

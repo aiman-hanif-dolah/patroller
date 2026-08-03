@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -71,7 +72,11 @@ class RoutineService {
       ),
     );
     final failed = checks.where((check) => !check.ok).toList();
-    final blocked = failed.any((check) => !check.repairable);
+    final hardFailures = failed.where(
+      (check) =>
+          !check.repairable && check.id != 'device' && check.id != 'git',
+    );
+    final blocked = hardFailures.isNotEmpty;
     return RoutineReadinessReport(
       status: failed.isEmpty
           ? RoutineReadiness.ready
@@ -104,8 +109,14 @@ class RoutineService {
     final dependencies = await projectTooling.listDependencies(
       report.projectPath,
     );
-    bool has(String name) =>
-        dependencies.any((dependency) => dependency.name == name);
+    ProjectDependency? dependencyNamed(String name) {
+      for (final dependency in dependencies) {
+        if (dependency.name == name) return dependency;
+      }
+      return null;
+    }
+
+    bool has(String name) => dependencyNamed(name) != null;
     if (!has('patrol')) {
       results.add(
         await projectTooling.addDependency(
@@ -115,9 +126,10 @@ class RoutineService {
         ),
       );
     }
-    if (!has('integration_test')) {
+    final integration = dependencyNamed('integration_test');
+    if (integration == null || !integration.isFlutterSdk) {
       results.add(
-        await projectTooling.addDependency(
+        await projectTooling.ensureFlutterSdkDependency(
           report.projectPath,
           'integration_test',
           dev: true,

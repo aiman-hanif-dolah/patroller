@@ -574,7 +574,22 @@ class _AgentPromptCard extends StatelessWidget {
                 onPressed: onStart,
               ),
               _ActionChip(
-                label: 'Co  const _RoutineCard({
+                label: 'Copy prompt only',
+                icon: Icons.copy_outlined,
+                color: PatrolColors.sky400,
+                enabled: !busy,
+                onPressed: onCopyOnly,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoutineCard extends StatelessWidget {
+  const _RoutineCard({
     required this.state,
     required this.onRefresh,
     required this.onGoalChanged,
@@ -606,8 +621,7 @@ class _AgentPromptCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = PatrolPalette.of(context);
     final readiness = state.readiness;
-    final canStart =
-        readiness?.ok == true && state.selectedModel != null && !state.busy;
+    final canStart = state.canStartRoutine;
     final perm = state.pendingPermissionRequest;
 
     return Container(
@@ -972,17 +986,6 @@ class _AgentPromptCard extends StatelessWidget {
               if (state.busy)
                 _ActionChip(
                   label: 'Stop',
-                  icon: Icons.stop_circle_outlined,
-                  color: PatrolColors.ember,
-                  enabled: true,
-                  onPressed: onStop,
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }abel: 'Stop',
                   icon: Icons.stop_circle_outlined,
                   color: PatrolColors.ember,
                   enabled: true,
