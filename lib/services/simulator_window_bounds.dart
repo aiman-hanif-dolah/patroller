@@ -33,8 +33,9 @@ const _simulatorProcess = 'Simulator';
 ScreenBounds? findSimulatorWindowBounds({String? deviceName}) {
   if (!Platform.isMacOS) return null;
 
+  // SECURITY: Escape backslashes before quotes to prevent command injection
   final nameFilter = deviceName != null
-      ? 'whose name contains "${deviceName.replaceAll('"', r'\"')}"'
+      ? 'whose name contains "${deviceName.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"'
       : '';
 
   final script = '''
@@ -59,12 +60,14 @@ end tell''';
     if (output.exitCode != 0) return null;
     final text = '${output.stdout}'.trim();
     if (text == 'missing') return null;
-    final parts = text.split(',').map((p) => double.tryParse(p.trim())).toList();
+    final parts =
+        text.split(',').map((p) => double.tryParse(p.trim())).toList();
     if (parts.length != 4 || parts.any((p) => p == null)) return null;
     final width = parts[2]!;
     final height = parts[3]!;
     if (width <= 0 || height <= 0) return null;
-    return ScreenBounds(x: parts[0]!, y: parts[1]!, width: width, height: height);
+    return ScreenBounds(
+        x: parts[0]!, y: parts[1]!, width: width, height: height);
   } catch (_) {
     return null;
   }

@@ -1,0 +1,4 @@
+## 2024-07-16 - Command Injection via AppleScript string interpolation
+**Vulnerability:** Command injection vulnerability in `lib/services/simulator_window_bounds.dart` where `deviceName` was interpolated into an AppleScript payload executed via `osascript`. The escaping logic `.replaceAll('"', r'\"')` failed to account for existing backslashes in the input, allowing an attacker to bypass the quotes by supplying `\"` and injecting malicious commands.
+**Learning:** When constructing string literals in AppleScript executed by `osascript`, simply escaping double quotes is insufficient if backslashes are not also escaped first. A user input of `\"` becomes `\\"` (an escaped backslash followed by an unescaped double quote), breaking out of the string context.
+**Prevention:** Always escape backslashes *before* escaping double quotes when generating string literals for script execution: `.replaceAll(r'\', r'\\').replaceAll('"', r'\"')`.
