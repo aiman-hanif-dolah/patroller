@@ -15,6 +15,8 @@ import '../../widgets/accessible_icon_button.dart';
 import '../../widgets/patrol_components.dart';
 import '../../widgets/status_badge.dart';
 import '../devices/device_selector_button.dart';
+import '../settings/user_credentials_dialog.dart';
+import '../../services/user_credentials_store.dart';
 
 class RunToolbar extends ConsumerStatefulWidget {
   const RunToolbar({
@@ -57,6 +59,9 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
 
     final isTestRun = isRunning &&
         currentRun?.runMode.name == 'test' &&
+        runAllContext == null;
+    final isCoverageRun = isRunning &&
+        currentRun?.runMode == RunMode.coverage &&
         runAllContext == null;
     final isQueueRun = isRunning && runAllContext != null;
     final isHotRun = isRunning && currentRun?.runMode == RunMode.develop;
@@ -195,6 +200,8 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
                     ),
                   ),
                   _divider(),
+                  const _CredentialSelector(),
+                  _divider(),
                   _ActionButton(
                     label: 'Test',
                     icon: Icons.play_arrow_rounded,
@@ -208,6 +215,18 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
                     activeColor: PatrolColors.psPassed,
                     onPressed: () =>
                         ref.read(runnerProvider.notifier).runSelected(),
+                  ),
+                  const SizedBox(width: 6),
+                  _ActionButton(
+                    label: 'Coverage',
+                    icon: Icons.pie_chart_outline_rounded,
+                    active: isCoverageRun,
+                    enabled: runDisabled == null,
+                    tooltip: runDisabled ??
+                        'Run patrol test with code coverage enabled (--coverage).',
+                    activeColor: PatrolColors.emerald,
+                    onPressed: () =>
+                        ref.read(runnerProvider.notifier).runCoverage(),
                   ),
                   const SizedBox(width: 6),
                   _ActionButton(
@@ -250,7 +269,7 @@ class _RunToolbarState extends ConsumerState<RunToolbar> {
                       active: hotRestartBlock == null,
                       enabled: hotRestartBlock == null,
                       tooltip: hotRestartBlock ??
-                          'Send hot restart (r) to the running develop session.',
+                          'Hot restart active develop session (or switch to newly selected file).',
                       activeColor: PatrolColors.amberBright,
                       onPressed: () =>
                           ref.read(runnerProvider.notifier).hotRestart(),
@@ -399,6 +418,61 @@ class _ActionButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CredentialSelector extends ConsumerWidget {
+  const _CredentialSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = PatrolPalette.of(context);
+    final credentials = ref.watch(userCredentialsProvider);
+    final selected = ref.watch(userCredentialsProvider.notifier).selectedCredential;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.person_pin_rounded, size: 16, color: Colors.blueAccent),
+        const SizedBox(width: 6),
+        DropdownButton<String>(
+          value: selected?.id,
+          hint: Text('Select User Profile', style: TextStyle(fontSize: 12, color: p.textMuted)),
+          underline: const SizedBox.shrink(),
+          dropdownColor: p.surface,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: p.text,
+          ),
+          items: credentials.map((cred) {
+            return DropdownMenuItem<String>(
+              value: cred.id,
+              child: Text(
+                '${cred.name} (${cred.env.label} · ${cred.userMode.label})',
+              ),
+            );
+          }).toList(),
+          onChanged: (id) {
+            if (id != null) {
+              final found = credentials.firstWhere((c) => c.id == id);
+              ref.read(userCredentialsProvider.notifier).selectCredential(found);
+            }
+          },
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          icon: const Icon(Icons.tune_rounded, size: 16),
+          tooltip: 'Manage Credentials (TOON)',
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (_) => const UserCredentialsDialog(),
+            );
+          },
+        ),
+      ],
     );
   }
 }

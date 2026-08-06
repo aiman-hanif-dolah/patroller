@@ -107,6 +107,10 @@ class RunQueueService {
       deviceId: request.deviceId,
       files: List<String>.from(request.files),
       startedAt: DateTime.now().toUtc().toIso8601String(),
+      env: request.env,
+      userMode: request.userMode,
+      username: request.username,
+      password: request.password,
     );
 
     unawaited(_runQueueLoop(queueId));
@@ -244,6 +248,10 @@ class RunQueueService {
         queueLabel: queue.queueLabel,
         queueIndex: index + 1,
         queueTotal: queue.files.length,
+        env: queue.env,
+        userMode: queue.userMode,
+        username: queue.username,
+        password: queue.password,
       ),
       onComplete: (completed) {
         var finalRecord = completed;
@@ -305,6 +313,10 @@ class _ActiveQueue {
     this.deviceId,
     required this.files,
     required this.startedAt,
+    this.env = TargetEnvironment.stg,
+    this.userMode = UserMode.live,
+    this.username,
+    this.password,
   });
 
   final String queueId;
@@ -313,6 +325,10 @@ class _ActiveQueue {
   final String? deviceId;
   final List<String> files;
   final String startedAt;
+  final TargetEnvironment env;
+  final UserMode userMode;
+  final String? username;
+  final String? password;
   final List<QueueRunOutcome> results = [];
   final List<RunRecord> childRecords = [];
   int currentIndex = 0;

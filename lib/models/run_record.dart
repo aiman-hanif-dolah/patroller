@@ -1,4 +1,5 @@
 import 'enums.dart';
+import 'test_user_credential.dart';
 
 class RunConfig {
   const RunConfig({
@@ -15,6 +16,10 @@ class RunConfig {
     this.queueIndex,
     this.queueTotal,
     this.testNamePattern,
+    this.env = TargetEnvironment.stg,
+    this.userMode = UserMode.live,
+    this.username,
+    this.password,
   });
 
   final String projectPath;
@@ -30,6 +35,10 @@ class RunConfig {
   final int? queueIndex;
   final int? queueTotal;
   final String? testNamePattern;
+  final TargetEnvironment env;
+  final UserMode userMode;
+  final String? username;
+  final String? password;
 
   Map<String, dynamic> toJson() => {
         'projectPath': projectPath,
@@ -45,6 +54,10 @@ class RunConfig {
         if (queueIndex != null) 'queueIndex': queueIndex,
         if (queueTotal != null) 'queueTotal': queueTotal,
         if (testNamePattern != null) 'testNamePattern': testNamePattern,
+        'env': env.toJson(),
+        'userMode': userMode.toJson(),
+        if (username != null) 'username': username,
+        if (password != null) 'password': password,
       };
 
   factory RunConfig.fromJson(Map<String, dynamic> json) => RunConfig(
@@ -61,6 +74,10 @@ class RunConfig {
         queueIndex: json['queueIndex'] as int?,
         queueTotal: json['queueTotal'] as int?,
         testNamePattern: json['testNamePattern'] as String?,
+        env: TargetEnvironment.fromJson(json['env'] as String? ?? 'stg'),
+        userMode: UserMode.fromJson(json['userMode'] as String? ?? 'live'),
+        username: json['username'] as String?,
+        password: json['password'] as String?,
       );
 }
 
@@ -467,12 +484,20 @@ class StartQueueRequest {
     required this.projectPath,
     this.deviceId,
     this.queueLabel,
+    this.env = TargetEnvironment.stg,
+    this.userMode = UserMode.live,
+    this.username,
+    this.password,
   });
 
   final List<String> files;
   final String projectPath;
   final String? deviceId;
   final String? queueLabel;
+  final TargetEnvironment env;
+  final UserMode userMode;
+  final String? username;
+  final String? password;
 }
 
 class StartQueueResponse {

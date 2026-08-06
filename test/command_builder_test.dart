@@ -56,7 +56,11 @@ void main() {
         ),
       );
 
-      expect(command.args, ['develop', '--target', 'patrol_test/login_test.dart']);
+      expect(
+        command.args,
+        containsAllInOrder(
+            ['develop', '--target', 'patrol_test/login_test.dart']),
+      );
     });
 
     test('develop throws when target is missing', () {
@@ -121,6 +125,40 @@ void main() {
       );
 
       expect(command.args, isNot(contains('PATROL_HOT_RESTART=false')));
+    });
+
+    test('develop forwards live profile and staging runtime controls', () {
+      final command = buildPatrolCommand(
+        PatrolCommandInput(
+          patrolExecutable: 'patrol',
+          config: RunConfig(
+            projectPath: projectPath,
+            runMode: RunMode.develop,
+            targetFile: targetFile,
+            deviceId: 'sim-1',
+            env: TargetEnvironment.stg,
+            userMode: UserMode.live,
+            username: 'live@example.com',
+            password: 'secret',
+          ),
+        ),
+      );
+
+      expect(command.args, containsAllInOrder(['--flavor', 'myastro_stg']));
+      expect(command.args, contains('--no-uninstall'));
+      expect(command.args, contains('--dart-define=PATROL_DATA_MODE=live'));
+      expect(
+        command.args,
+        contains('--dart-define=PATROL_LIVE_EMAIL=live@example.com'),
+      );
+      expect(
+        command.args,
+        contains('--dart-define=PATROL_LIVE_PASSWORD=secret'),
+      );
+      expect(
+        command.args,
+        contains('--dart-define=PATROL_SKIP_NATIVE_PERMISSION_IPC=1'),
+      );
     });
   });
 }

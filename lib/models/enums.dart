@@ -45,7 +45,8 @@ enum RunMode {
   test,
   develop,
   developSuite,
-  fullSuite;
+  fullSuite,
+  coverage;
 
   String toJson() {
     switch (this) {
@@ -57,6 +58,8 @@ enum RunMode {
         return 'develop-suite';
       case RunMode.fullSuite:
         return 'full-suite';
+      case RunMode.coverage:
+        return 'coverage';
     }
   }
 
@@ -68,6 +71,8 @@ enum RunMode {
         return RunMode.developSuite;
       case 'full-suite':
         return RunMode.fullSuite;
+      case 'coverage':
+        return RunMode.coverage;
       default:
         return RunMode.test;
     }

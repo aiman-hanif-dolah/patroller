@@ -323,8 +323,11 @@ String? sessionCompletionSnackbarMessage({
 
   switch (runMode) {
     case RunMode.test:
+    case RunMode.coverage:
       return switch (status) {
-        RunRecordStatus.passed => 'Test finished - all tests passed',
+        RunRecordStatus.passed => runMode == RunMode.coverage
+            ? 'Coverage run finished - code coverage generated'
+            : 'Test finished - all tests passed',
         RunRecordStatus.failed || RunRecordStatus.error =>
           'Test finished - failed',
         _ => null,

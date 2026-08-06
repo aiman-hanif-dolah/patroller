@@ -7,3 +7,4 @@ export 'project_metadata.dart';
 export 'recording.dart';
 export 'run_record.dart';
 export 'test_file.dart';
+export 'test_user_credential.dart';

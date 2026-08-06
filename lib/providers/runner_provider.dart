@@ -14,7 +14,7 @@ import 'failed_logs_provider.dart';
 import 'health_stale.dart';
 import 'log_provider.dart';
 import 'settings_provider.dart';
-
+import '../services/user_credentials_store.dart';
 
 class SnackbarMessage {
   const SnackbarMessage({required this.message, required this.id});
@@ -109,17 +109,13 @@ class RunnerState {
       snackbar: clearSnackbar ? null : (snackbar ?? this.snackbar),
       reportPrompt:
           clearReportPrompt ? null : (reportPrompt ?? this.reportPrompt),
-      stopFailure:
-          clearStopFailure ? null : (stopFailure ?? this.stopFailure),
+      stopFailure: clearStopFailure ? null : (stopFailure ?? this.stopFailure),
       devices: devices ?? this.devices,
-      selectedDevice: clearSelectedDevice
-          ? null
-          : (selectedDevice ?? this.selectedDevice),
-      runAllContext: clearRunAllContext
-          ? null
-          : (runAllContext ?? this.runAllContext),
-      queueStatus:
-          clearQueueStatus ? null : (queueStatus ?? this.queueStatus),
+      selectedDevice:
+          clearSelectedDevice ? null : (selectedDevice ?? this.selectedDevice),
+      runAllContext:
+          clearRunAllContext ? null : (runAllContext ?? this.runAllContext),
+      queueStatus: clearQueueStatus ? null : (queueStatus ?? this.queueStatus),
       failureDiagnosis: clearFailureDiagnosis
           ? null
           : (failureDiagnosis ?? this.failureDiagnosis),
@@ -192,9 +188,9 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
       final index = record.queueIndex ?? 0;
       final total = record.queueTotal ?? 0;
       _ref.read(logProvider.notifier).appendSystemLog(
-        record.runId,
-        '── Test All $index/$total: $file ──',
-      );
+            record.runId,
+            '── Test All $index/$total: $file ──',
+          );
       state = state.copyWith(currentRun: record);
     });
   }
@@ -444,7 +440,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
   }
 
   void _onRunTerminalCompletion(RunRecord run) {
-    if (run.runMode == RunMode.test) {
+    if (run.runMode == RunMode.test || run.runMode == RunMode.coverage) {
       _maybeShowSessionCompletionSnackbar(run);
       return;
     }
@@ -456,8 +452,8 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
   void _handleQueueStatus(QueueStatusUpdate status) {
     if (_userStopped) return;
     final running = status.status == QueueStatus.running;
-    final activeRunIsRunning =
-        state.currentRun != null && isActiveLifecycle(state.currentRun!.lifecycle);
+    final activeRunIsRunning = state.currentRun != null &&
+        isActiveLifecycle(state.currentRun!.lifecycle);
     state = state.copyWith(
       queueStatus: status,
       runAllContext: running
@@ -541,13 +537,40 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     final file = app.selectedFile;
     if (file == null || !_canStart()) return;
 
+    final selectedCred =
+        _ref.read(userCredentialsProvider.notifier).selectedCredential;
     await _startRun(
       RunConfig(
         projectPath: app.currentProject!.projectPath,
         runMode: RunMode.test,
         targetFile: file.absolutePath,
+        env: selectedCred?.env ?? TargetEnvironment.stg,
+        userMode: selectedCred?.userMode ?? UserMode.live,
+        username: selectedCred?.username,
+        password: selectedCred?.password,
       ),
       'Test started',
+    );
+  }
+
+  Future<void> runCoverage() async {
+    final app = _ref.read(appProvider);
+    final file = app.selectedFile;
+    if (file == null || !_canStart()) return;
+
+    final selectedCred =
+        _ref.read(userCredentialsProvider.notifier).selectedCredential;
+    await _startRun(
+      RunConfig(
+        projectPath: app.currentProject!.projectPath,
+        runMode: RunMode.coverage,
+        targetFile: file.absolutePath,
+        env: selectedCred?.env ?? TargetEnvironment.stg,
+        userMode: selectedCred?.userMode ?? UserMode.live,
+        username: selectedCred?.username,
+        password: selectedCred?.password,
+      ),
+      'Coverage run started',
     );
   }
 
@@ -561,6 +584,8 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     final device = await _ensureDevice();
     if (device == null) return;
 
+    final selectedCred =
+        _ref.read(userCredentialsProvider.notifier).selectedCredential;
     final log = _ref.read(logProvider.notifier);
     showSnackbar(
       'Test All started (${files.length} file${files.length == 1 ? '' : 's'})',
@@ -583,6 +608,10 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
           files: files.map((f) => f.absolutePath).toList(),
           queueLabel:
               'Test All: ${files.length} file${files.length == 1 ? '' : 's'}',
+          env: selectedCred?.env ?? TargetEnvironment.stg,
+          userMode: selectedCred?.userMode ?? UserMode.live,
+          username: selectedCred?.username,
+          password: selectedCred?.password,
         ),
       );
     } catch (e) {
@@ -596,11 +625,17 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
     final file = app.selectedFile;
     if (file == null || !_canStart()) return;
 
+    final selectedCred =
+        _ref.read(userCredentialsProvider.notifier).selectedCredential;
     await _startRun(
       RunConfig(
         projectPath: app.currentProject!.projectPath,
         runMode: RunMode.develop,
         targetFile: file.absolutePath,
+        env: selectedCred?.env ?? TargetEnvironment.stg,
+        userMode: selectedCred?.userMode ?? UserMode.live,
+        username: selectedCred?.username,
+        password: selectedCred?.password,
       ),
       'Develop started',
     );
@@ -610,9 +645,7 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
 
   Future<void> developSuite() async {
     final app = _ref.read(appProvider);
-    if (app.currentProject == null ||
-        !_canStart() ||
-        app.testFiles.isEmpty) {
+    if (app.currentProject == null || !_canStart() || app.testFiles.isEmpty) {
       return;
     }
 
@@ -645,7 +678,10 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
 
     final nextPath = _developSuiteQueue.removeAt(0);
     final app = _ref.read(appProvider);
-    final nextFile = app.testFiles.firstWhere((f) => f.absolutePath == nextPath);
+    final nextFile =
+        app.testFiles.firstWhere((f) => f.absolutePath == nextPath);
+    final selectedCred =
+        _ref.read(userCredentialsProvider.notifier).selectedCredential;
 
     await _startRun(
       RunConfig(
@@ -653,6 +689,10 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
         runMode: RunMode.developSuite,
         targetFile: nextFile.absolutePath,
         targetFiles: [nextFile.absolutePath, ..._developSuiteQueue],
+        env: selectedCred?.env ?? TargetEnvironment.stg,
+        userMode: selectedCred?.userMode ?? UserMode.live,
+        username: selectedCred?.username,
+        password: selectedCred?.password,
       ),
       '',
     );
@@ -689,6 +729,13 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
           excludedFiles: config.excludedFiles,
           deviceId: device.id,
           queueLabel: config.queueLabel,
+          // Preserve the selected credential profile + data mode so
+          // single-file Test/Coverage runs use the same env/credentials as
+          // the run_patrol.sh command.
+          env: config.env,
+          userMode: config.userMode,
+          username: config.username,
+          password: config.password,
         ),
         onComplete: (completed) {
           if (shouldAdvanceDevelopSuite(
@@ -782,14 +829,27 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
       return;
     }
 
+    final selectedFile = _ref.read(appProvider).selectedFile;
+    if (selectedFile != null &&
+        run?.targetFile != null &&
+        selectedFile.absolutePath != run!.targetFile) {
+      // Selected file changed while develop was active -> stop current session and start develop on new file.
+      showSnackbar('Switching Develop to ${selectedFile.fileName}…');
+      try {
+        await _facade.runner.stop(run.runId);
+      } catch (_) {}
+      await develop();
+      return;
+    }
+
     try {
       await _facade.runner.hotRestart(run!.runId);
       _completionSnackbarShownRunIds.remove(run.runId);
       _allTestsExecutedRunIds.remove(run.runId);
       _ref.read(logProvider.notifier).appendSystemLog(
-        run.runId,
-        'Hot restart requested',
-      );
+            run.runId,
+            'Hot restart requested',
+          );
     } catch (e) {
       showSnackbar(e.toString());
     }
@@ -837,14 +897,12 @@ class RunnerNotifier extends StateNotifier<RunnerState> {
   }
 
   Future<void> bootDevice(String deviceId) async {
-    final device =
-        state.devices.where((d) => d.id == deviceId).firstOrNull;
+    final device = state.devices.where((d) => d.id == deviceId).firstOrNull;
     if (device == null || device.state != DeviceState.shutdown) return;
     try {
       await _facade.devices.boot(device.id);
       await refreshDevices();
-      final updated =
-          state.devices.where((d) => d.id == deviceId).firstOrNull;
+      final updated = state.devices.where((d) => d.id == deviceId).firstOrNull;
       if (updated != null) {
         setSelectedDevice(updated);
       }

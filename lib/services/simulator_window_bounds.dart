@@ -33,21 +33,36 @@ const _simulatorProcess = 'Simulator';
 ScreenBounds? findSimulatorWindowBounds({String? deviceName}) {
   if (!Platform.isMacOS) return null;
 
-  final nameFilter = deviceName != null
-      ? 'whose name contains "${deviceName.replaceAll('"', r'\"')}"'
-      : '';
+  final nameFilter = deviceName != null ? deviceName.replaceAll('"', r'\"') : '';
 
   final script = '''
 tell application "System Events"
   if not (exists process "$_simulatorProcess") then return "missing"
   tell process "$_simulatorProcess"
-    set targetWindows to every window $nameFilter
-    if (count of targetWindows) is 0 then
-      if (count of windows) is 0 then return "missing"
-      set targetWindow to window 1
-    else
-      set targetWindow to item 1 of targetWindows
+    set winList to every window
+    if (count of winList) is 0 then return "missing"
+    set targetWindow to item 1 of winList
+    if "$nameFilter" is not "" then
+      repeat with w in winList
+        try
+          if (name of w) contains "$nameFilter" then
+            set targetWindow to w
+            exit repeat
+          end if
+        end try
+      end repeat
     end if
+    
+    try
+      set grpList to every group of targetWindow
+      if (count of grpList) > 0 then
+        set targetElem to item 1 of grpList
+        set winPos to position of targetElem
+        set winSize to size of targetElem
+        return (item 1 of winPos as text) & "," & (item 2 of winPos as text) & "," & (item 1 of winSize as text) & "," & (item 2 of winSize as text)
+      end if
+    end try
+
     set winPos to position of targetWindow
     set winSize to size of targetWindow
     return (item 1 of winPos as text) & "," & (item 2 of winPos as text) & "," & (item 1 of winSize as text) & "," & (item 2 of winSize as text)

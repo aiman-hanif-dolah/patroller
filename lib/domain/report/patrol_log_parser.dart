@@ -126,15 +126,29 @@ class PatrolLogParser {
   /// Uses the **last** Test summary in the log (final rollup for this run only).
   ({int passed, int failed})? parseSuiteCounts(String log) {
     log = stripAnsi(log);
+    final isRunnerFailure = log.contains('xcodebuild exited with code 65') ||
+        log.contains('Failed to execute tests');
+
+    ({int passed, int failed})? counts;
     final blocks = _testSummaryBlock.allMatches(log).toList();
     if (blocks.isNotEmpty) {
       final m = blocks.last;
-      return (passed: int.parse(m.group(1)!), failed: int.parse(m.group(2)!));
+      counts = (passed: int.parse(m.group(1)!), failed: int.parse(m.group(2)!));
+    } else {
+      final loose = _successfulFailedLoose.allMatches(log).toList();
+      if (loose.isNotEmpty) {
+        final m = loose.last;
+        counts = (passed: int.parse(m.group(1)!), failed: int.parse(m.group(2)!));
+      }
     }
-    final loose = _successfulFailedLoose.allMatches(log).toList();
-    if (loose.isEmpty) return null;
-    final m = loose.last;
-    return (passed: int.parse(m.group(1)!), failed: int.parse(m.group(2)!));
+
+    if (isRunnerFailure) {
+      final p = counts?.passed ?? 0;
+      final f = counts?.failed ?? 0;
+      return (passed: p, failed: f > 0 ? f : 1);
+    }
+
+    return counts;
   }
 
   bool? parseExecuteSucceeded(String log) {

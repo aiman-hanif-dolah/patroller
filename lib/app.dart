@@ -11,17 +11,32 @@ import 'providers/runner_provider.dart';
 import 'providers/settings_provider.dart';
 import 'core/theme/patrol_theme.dart';
 
-class PatrollerApp extends ConsumerWidget {
+import 'widgets/crash_report_dialog.dart';
+
+class PatrollerApp extends ConsumerStatefulWidget {
   const PatrollerApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PatrollerApp> createState() => _PatrollerAppState();
+}
+
+class _PatrollerAppState extends ConsumerState<PatrollerApp> {
+  bool _checkedCrashReport = false;
+
+  @override
+  Widget build(BuildContext context) {
     final settingsLoaded = ref.watch(settingsProvider).loaded;
     final theme = ref.watch(settingsProvider.select((s) => s.settings.theme));
     final activeView = ref.watch(appProvider).activeView;
 
-    // Extension server lifecycle is owned by settingsProvider
-    // (_applyExtensionServer). Do not start it here - that orphans servers.
+    if (settingsLoaded && !_checkedCrashReport) {
+      _checkedCrashReport = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          CrashReportDialog.showIfNeeded(context);
+        }
+      });
+    }
 
     return MaterialApp(
       title: 'Patroller',
