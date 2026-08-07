@@ -99,7 +99,7 @@ class _FailedLogsPanelState extends ConsumerState<FailedLogsPanel> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              entry.startTime,
+                              formatDisplayTimestamp(entry.startTime),
                               style: TextStyle(
                                 fontSize: 10,
                                 color: p.textMuted,

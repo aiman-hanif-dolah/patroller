@@ -286,4 +286,16 @@ void main() {
       expect(routineTargetDeviceArg(sim(id: '', name: '  ')), isNull);
     });
   });
+
+  group('formatDisplayTimestamp', () {
+    test('formats valid ISO string to human readable format', () {
+      final formatted = formatDisplayTimestamp('2026-08-06T07:45:27.390137Z');
+      expect(formatted, isNot(contains('T')));
+      expect(formatted, isNot(contains('390137Z')));
+    });
+
+    test('falls back to raw string on invalid input', () {
+      expect(formatDisplayTimestamp('invalid-date'), 'invalid-date');
+    });
+  });
 }

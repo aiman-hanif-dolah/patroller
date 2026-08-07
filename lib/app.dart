@@ -48,6 +48,9 @@ class _PatrollerAppState extends ConsumerState<PatrollerApp> {
         AppTheme.dark => ThemeMode.dark,
         AppTheme.system => ThemeMode.system,
       },
+      builder: (context, child) => SelectionArea(
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: settingsLoaded
           ? Shortcuts(
               shortcuts: _shortcuts,

@@ -28,7 +28,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
   bool _showDeviceList = false;
   Recording? _selectedRecording;
   final _recordingNameController = TextEditingController();
-  RecordingEnvironmentProfile _environmentProfile =
+  final RecordingEnvironmentProfile _environmentProfile =
       RecordingEnvironmentProfile.live;
   final _importController = TextEditingController();
   String? _importError;
@@ -46,7 +46,6 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final p = PatrolPalette.of(context);
     final project = ref.watch(appProvider).currentProject;
     final device = ref.watch(runnerProvider).selectedDevice;
     final recordingState = ref.watch(recordingProvider);
@@ -87,14 +86,22 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
       });
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildPrepareSection(project, device, recordingState, readiness),
-        Divider(height: 1, color: p.border),
-        Expanded(child: _buildSavedList(recordingState)),
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: _buildPrepareSection(project, device, recordingState, readiness),
+        ),
+        SliverToBoxAdapter(
+          child: Divider(height: 1, color: PatrolPalette.of(context).border),
+        ),
+        SliverToBoxAdapter(
+          child: _buildSavedListHeader(),
+        ),
+        _buildSavedListSliver(recordingState),
         if (_selectedRecording != null)
-          _buildSelectedSection(project, device, recordingState, _selectedRecording!),
+          SliverToBoxAdapter(
+            child: _buildSelectedSection(project, device, recordingState, _selectedRecording!),
+          ),
       ],
     );
   }
@@ -198,46 +205,6 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
                 borderSide: BorderSide(color: PatrolColors.amber.withValues(alpha: 0.6)),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: RecordingEnvironmentProfile.values.map((profile) {
-              final p = PatrolPalette.of(context);
-              final selected = _environmentProfile == profile;
-              final label = profile.toJson();
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: GestureDetector(
-                    onTap: (_isSaving || _isImporting)
-                        ? null
-                        : () => setState(() => _environmentProfile = profile),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 120),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: selected ? p.text : p.surfaceMuted,
-                        borderRadius: BorderRadius.circular(999),
-                        border: selected
-                            ? null
-                            : Border.all(color: p.border),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: selected
-                              ? p.surface
-                              : p.textMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
           ),
           const SizedBox(height: 8),
           Text(
@@ -440,74 +407,66 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     );
   }
 
-  Widget _buildSavedList(RecordingState recordingState) {
+  Widget _buildSavedListHeader() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: _SectionHeading('Saved Recordings'),
+    );
+  }
+
+  Widget _buildSavedListSliver(RecordingState recordingState) {
     final p = PatrolPalette.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: _SectionHeading('Saved Recordings'),
+    if (recordingState.recordings.isEmpty) {
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          height: 80,
+          child: Center(
+            child: Text(
+              'No recordings saved',
+              style: TextStyle(fontSize: 12, color: p.textMuted),
+            ),
+          ),
         ),
-        Expanded(
-          child: recordingState.recordings.isEmpty
-              ? Center(
-                  child: Text(
-                    'No recordings saved',
-                    style: TextStyle(fontSize: 12, color: p.textMuted),
+      );
+    }
+    return SliverList.builder(
+      itemCount: recordingState.recordings.length,
+      itemBuilder: (context, index) {
+        final recording = recordingState.recordings[index];
+        final selected = _selectedRecording?.id == recording.id;
+        return Material(
+          color: selected ? p.surfaceMuted : Colors.transparent,
+          child: InkWell(
+            onTap: () => setState(() {
+              _selectedRecording = selected ? null : recording;
+              _savedTestPath = null;
+              _renameValue = null;
+            }),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    recording.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: p.text,
+                    ),
                   ),
-                )
-              : ListView.builder(
-                  itemCount: recordingState.recordings.length,
-                  itemBuilder: (context, index) {
-                    final p = PatrolPalette.of(context);
-                    final recording = recordingState.recordings[index];
-                    final selected = _selectedRecording?.id == recording.id;
-                    return Material(
-                      color: selected
-                          ? p.surfaceMuted
-                          : Colors.transparent,
-                      child: InkWell(
-                        onTap: () => setState(() {
-                          _selectedRecording =
-                              selected ? null : recording;
-                          _savedTestPath = null;
-                          _renameValue = null;
-                        }),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                recording.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: p.text,
-                                ),
-                              ),
-                              Text(
-                                '${recording.actionCount} actions · ${recording.environmentProfile.toJson()} · ${_formatDuration(recording.durationMs)}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: p.textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
+                  Text(
+                    '${recording.actionCount} actions · ${_formatDuration(recording.durationMs)}',
+                    style: TextStyle(fontSize: 10, color: p.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -523,14 +482,12 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
     final warnings = _collectWarnings(recording.actions);
 
     return Container(
-      constraints: const BoxConstraints(maxHeight: 560),
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: p.border)),
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _SectionHeading('Selected Recording'),
             const SizedBox(height: 8),
@@ -575,7 +532,7 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
               ),
             Text(
               'Device: ${recording.deviceName ?? 'Any selected simulator'} · '
-              '${recording.actionCount} steps · ${recording.environmentProfile.toJson()}',
+              '${recording.actionCount} steps',
               style: TextStyle(fontSize: 10, color: p.textMuted),
             ),
             if (warnings.isNotEmpty) ...[
@@ -699,7 +656,6 @@ class _RecordingsPanelState extends ConsumerState<RecordingsPanel> {
             ],
           ],
         ),
-      ),
     );
   }
 

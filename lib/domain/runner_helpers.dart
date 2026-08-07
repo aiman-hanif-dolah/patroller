@@ -271,6 +271,43 @@ String middleTruncate(String text, int maxLength) {
   return '${text.substring(0, keep)}…${text.substring(text.length - keep)}';
 }
 
+/// Formats an ISO timestamp string into a human-readable local date & time.
+String formatDisplayTimestamp(String timestamp) {
+  final parsed = DateTime.tryParse(timestamp);
+  if (parsed == null) return timestamp;
+  final local = parsed.toLocal();
+  final now = DateTime.now();
+  final h = local.hour.toString().padLeft(2, '0');
+  final m = local.minute.toString().padLeft(2, '0');
+  final s = local.second.toString().padLeft(2, '0');
+
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final month = months[local.month - 1];
+
+  if (now.year == local.year &&
+      now.month == local.month &&
+      now.day == local.day) {
+    return 'Today at $h:$m:$s';
+  }
+  if (now.year == local.year) {
+    return '$month ${local.day}, $h:$m:$s';
+  }
+  return '$month ${local.day}, ${local.year} $h:$m:$s';
+}
+
 TestStatus runRecordStatusToTestStatus(RunRecordStatus status) {
   return switch (status) {
     RunRecordStatus.passed => TestStatus.passed,

@@ -46,6 +46,7 @@ class _ActiveSession {
   final SimulatorDriverService driver;
   final SettingsStore settingsStore;
   DeviceScreenMapping? mapping;
+  ScreenBounds? windowBounds;
   _PointerGesture? pointer;
 }
 
@@ -129,6 +130,9 @@ class ExternalRecordingService {
         deviceName: session.deviceName,
         deviceWidthPx: info.widthPixels,
         deviceHeightPx: info.heightPixels,
+        deviceWidthPoints: info.widthPoints,
+        deviceHeightPoints: info.heightPoints,
+        windowBounds: session.windowBounds,
       );
       if (mapping != null) {
         session.mapping = mapping;
@@ -214,9 +218,22 @@ class ExternalRecordingService {
       return;
     }
 
+    if (kind == 'windowBounds') {
+      final session = _session;
+      if (session == null) return;
+      final x = (event['x'] as num?)?.toDouble();
+      final y = (event['y'] as num?)?.toDouble();
+      final width = (event['width'] as num?)?.toDouble();
+      final height = (event['height'] as num?)?.toDouble();
+      if (x == null || y == null || width == null || height == null) return;
+      if (width <= 0 || height <= 0) return;
+      session.windowBounds = ScreenBounds(x: x, y: y, width: width, height: height);
+      return;
+    }
+
     final x = (event['x'] as num?)?.toDouble();
     final y = (event['y'] as num?)?.toDouble();
-    final timestampMs = event['timestampMs'] as int?;
+    final timestampMs = (event['timestampMs'] as num?)?.toInt();
     if (x == null || y == null || timestampMs == null) return;
 
     switch (kind) {
@@ -241,9 +258,9 @@ class ExternalRecordingService {
       case 'scrollWheel':
         final mapping = session.mapping;
         if (mapping == null) return;
-        final center = mapScreenPointToDevicePixels(mapping, x, y);
+        final center = mapScreenPointToDevicePoints(mapping, x, y);
         if (center == null) return;
-        const deltaY = 120.0;
+        const deltaY = 40.0;
         _actionController.add(
           ExternalRecordingActionPayload(
             type: RecordingActionType.swipe,
@@ -265,7 +282,7 @@ class ExternalRecordingService {
     int endTime,
   ) {
     final startPoint =
-        mapScreenPointToDevicePixels(mapping, start.startX, start.startY);
+        mapScreenPointToDevicePoints(mapping, start.startX, start.startY);
     if (startPoint == null) return null;
 
     final screenDist = math.sqrt(
@@ -275,7 +292,7 @@ class ExternalRecordingService {
     final elapsed = endTime - start.startTime;
 
     if (screenDist > _swipeThresholdPx) {
-      final endPoint = mapScreenPointToDevicePixels(mapping, endX, endY);
+      final endPoint = mapScreenPointToDevicePoints(mapping, endX, endY);
       if (endPoint == null) return null;
       final durationSec = (elapsed / 1000.0).clamp(0.1, 1.5);
       return ExternalRecordingActionPayload(

@@ -20,12 +20,16 @@ class DeviceScreenMapping {
     required this.screenBounds,
     required this.deviceWidthPx,
     required this.deviceHeightPx,
+    required this.deviceWidthPoints,
+    required this.deviceHeightPoints,
   });
 
   final ScreenBounds windowBounds;
   final ScreenBounds screenBounds;
   final int deviceWidthPx;
   final int deviceHeightPx;
+  final int deviceWidthPoints;
+  final int deviceHeightPoints;
 }
 
 const _simulatorProcess = 'Simulator';
@@ -115,23 +119,28 @@ DeviceScreenMapping? buildDeviceScreenMapping({
   required String deviceName,
   required int deviceWidthPx,
   required int deviceHeightPx,
+  required int deviceWidthPoints,
+  required int deviceHeightPoints,
+  ScreenBounds? windowBounds,
 }) {
-  final windowBounds = findSimulatorWindowBounds(deviceName: deviceName);
-  if (windowBounds == null) return null;
+  final bounds = windowBounds ?? findSimulatorWindowBounds(deviceName: deviceName);
+  if (bounds == null) return null;
   final screenBounds = computeDeviceScreenBounds(
-    windowBounds,
-    deviceWidthPx,
-    deviceHeightPx,
+    bounds,
+    deviceWidthPoints,
+    deviceHeightPoints,
   );
   return DeviceScreenMapping(
-    windowBounds: windowBounds,
+    windowBounds: bounds,
     screenBounds: screenBounds,
     deviceWidthPx: deviceWidthPx,
     deviceHeightPx: deviceHeightPx,
+    deviceWidthPoints: deviceWidthPoints,
+    deviceHeightPoints: deviceHeightPoints,
   );
 }
 
-(double, double)? mapScreenPointToDevicePixels(
+(double, double)? mapScreenPointToDevicePoints(
   DeviceScreenMapping mapping,
   double screenX,
   double screenY,
@@ -143,13 +152,13 @@ DeviceScreenMapping? buildDeviceScreenMapping({
       screenY > sb.y + sb.height) {
     return null;
   }
-  final xPx =
-      ((screenX - sb.x) / sb.width * mapping.deviceWidthPx).roundToDouble();
-  final yPx =
-      ((screenY - sb.y) / sb.height * mapping.deviceHeightPx).roundToDouble();
+  final xPt =
+      ((screenX - sb.x) / sb.width * mapping.deviceWidthPoints).roundToDouble();
+  final yPt =
+      ((screenY - sb.y) / sb.height * mapping.deviceHeightPoints).roundToDouble();
   return (
-    xPx.clamp(0, mapping.deviceWidthPx - 1.0),
-    yPx.clamp(0, mapping.deviceHeightPx - 1.0),
+    xPt.clamp(0, mapping.deviceWidthPoints - 1.0),
+    yPt.clamp(0, mapping.deviceHeightPoints - 1.0),
   );
 }
 
