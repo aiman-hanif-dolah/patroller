@@ -1,0 +1,3 @@
+## 2024-05-24 - TextEditingController instantiation in build() method causes cursor jumps
+**Learning:** Instantiating `TextEditingController(text: ...)` directly inside the `build()` method causes the controller to be recreated on every widget rebuild. This disrupts user input by resetting the cursor position, which is a major UX frustration, especially on text fields where the state triggers rebuilds frequently.
+**Action:** When a pre-filled text field is needed, use `TextFormField(initialValue: ...)` instead, or explicitly manage the `TextEditingController` state within `initState` and `dispose`.
